@@ -90,6 +90,9 @@
     "egulias/email-validator": {
         "version": "2.1.14"
     },
+    "james-heinrich/getid3": {
+        "version": "v1.9.19"
+    },
     "jdorn/sql-formatter": {
         "version": "v1.2.17"
     },
@@ -143,6 +146,9 @@
         "files": [
             "./config/packages/sensio_framework_extra.yaml"
         ]
+    },
+    "stormiix/php-eyed3": {
+        "version": "dev-master"
     },
     "symfony/asset": {
         "version": "v4.4.2"
