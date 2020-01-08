@@ -26,3 +26,8 @@ services:
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones
     App\Service\UUIDGeneratorInterface: '@App\Service\UUIDGenerator'
+
+    App\Service\DownloaderInterface: '@App\Service\Downloader'
+
+    App\Service\Downloader:
+        $downloadDir: '%kernel.project_dir%/var/tmp/downloads/'
