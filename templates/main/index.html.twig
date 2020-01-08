@@ -3,4 +3,8 @@
 {% block title %}Albumie{% endblock %}
 
 {% block body %}
+	{{ form_start(form) }}
+  {{ form_row(form.location) }}
+  <button>Convert and download</button>
+	{{ form_end(form) }}
 {% endblock %}
