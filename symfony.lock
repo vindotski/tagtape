@@ -99,6 +99,9 @@
     "nikic/php-parser": {
         "version": "v4.3.0"
     },
+    "norkunas/youtube-dl-php": {
+        "version": "v1.4.0"
+    },
     "ocramius/package-versions": {
         "version": "1.5.1"
     },
