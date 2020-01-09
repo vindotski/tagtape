@@ -31,3 +31,8 @@ services:
 
     App\Service\Downloader:
         $downloadDir: '%kernel.project_dir%/var/tmp/downloads/'
+
+    App\Service\TagWriterInterface: '@App\Service\TagWriter'
+
+    App\Service\TagWriter:
+        $albumArtDir: '%kernel.project_dir%/var/tmp/uploads/'
