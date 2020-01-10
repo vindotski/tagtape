@@ -26,6 +26,12 @@ class Track
      */
     private $title;
 
+    /**
+     * @ORM\ManyToOne(targetEntity="App\Entity\Album", inversedBy="tracks")
+     * @ORM\JoinColumn(nullable=false)
+     */
+    private $album;
+
     public function getId(): ?int
     {
         return $this->id;
@@ -51,6 +57,18 @@ class Track
     public function setTitle(string $title): self
     {
         $this->title = $title;
+
+        return $this;
+    }
+
+    public function getAlbum(): ?Album
+    {
+        return $this->album;
+    }
+
+    public function setAlbum(?Album $album): self
+    {
+        $this->album = $album;
 
         return $this;
     }
