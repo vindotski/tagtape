@@ -27,7 +27,6 @@ class MainController extends AbstractController
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
-            ini_set('max_execution_time', '10000000');
             $archive = new ZipFile();
             try {
                 $tempFiles = [];
