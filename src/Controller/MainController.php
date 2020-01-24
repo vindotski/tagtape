@@ -2,6 +2,7 @@
 
 namespace App\Controller;
 
+use App\Entity\TrackMetadata;
 use App\Form\AlbumType;
 use App\Service\DownloaderInterface;
 use App\Service\TagWriterInterface;
@@ -32,22 +33,30 @@ class MainController extends AbstractController
                 $tempFiles = [];
                 $tracks = $form->get('tracks');
                 foreach ($tracks as $track) {
-                    $location = $track->get('url')->getData();
-                    $file = $downloader->download($location);
+                    $trackMetadata = new TrackMetadata();
+                    $trackMetadata->setSourceUrl($track->get('url')->getData());
+                    $trackMetadata->setTrackNumber($track->get('number')->getData());
+                    $trackMetadata->setTitle($track->get('title')->getData());
+                    $trackMetadata->setAlbum($form->get('title')->getData());
+                    $trackMetadata->setArtist($form->get('artist')->getData()->getName());
+                    $trackMetadata->setYear($form->get('year')->getData());
+
+                    $file = $downloader->download($trackMetadata->getSourceUrl());
                     array_push($tempFiles, $file);
                     $tagWriter->write($file, [
                         'cover' => 'nopicture.jpg',
-                        'title' => $track->get('title')->getData(),
-                        'album' => $form->get('title')->getData(),
-                        'artist' => $form->get('artist')->getData()->getName(),
-                        'year' => $form->get('year')->getData()
+                        'tracknumber' => $trackMetadata->getTrackNumber(),
+                        'title' => $trackMetadata->getTitle(),
+                        'album' => $trackMetadata->getAlbum(),
+                        'artist' => $trackMetadata->getArtist(),
+                        'year' => $trackMetadata->getYear()
                     ]);
-                    $filename = $track->get('number')->getData() . ' - ' . preg_replace('/[^a-z0-9]+/', '-', strtolower($track->get('title')->getData())) . '.mp3';
+                    $filename = $trackMetadata->getTrackNumber() . ' - ' . preg_replace('/[^A-Za-z0-9]+/', '-', $trackMetadata->getTitle()) . '.mp3';
                     $archive->addFile($file, $filename);
                 }
 
                 $downloadDirectory = $downloader->getDownloadDirectory();
-                $archiveFilename = $downloadDirectory . '/' . preg_replace('/[^a-z0-9]+/', '-', strtolower($form->get('title')->getData())) . $uuidGen->generate() . '.zip';
+                $archiveFilename = $downloadDirectory . '/' . preg_replace('/[^A-Za-z0-9]+/', '-', strtolower($trackMetadata->getAlbum())) . '_' . $uuidGen->generate() . '.zip';
                 $archive->saveAsFile($archiveFilename);
 
                 foreach ($tempFiles as $tempFile) {
