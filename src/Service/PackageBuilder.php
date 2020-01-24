@@ -2,6 +2,7 @@
 
 namespace App\Service;
 
+use App\Entity\Track;
 use App\Entity\TrackMetadata;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
@@ -28,7 +29,7 @@ class PackageBuilder
     $this->residualFiles = new ArrayCollection();
   }
 
-  public function add(TrackMetadata $trackMetadata): void
+  public function add(Track $trackMetadata): void
   {
     if ($this->finalized) throw new Exception('Cannot add track metadata to finalized package builder.');
 
@@ -46,22 +47,22 @@ class PackageBuilder
     $archive = new ZipFile();
     try {
       foreach ($this->tracks as $track) {
-        $file = $this->downloader->download($track->getSourceUrl());
+        $file = $this->downloader->download($track->getSource());
         $this->residualFiles->add($file);
 
         $this->tagWriter->write($file, [
           'cover' => 'nopicture.jpg',
-          'tracknumber' => $track->getTrackNumber(),
+          'tracknumber' => $track->getNumber(),
           'title' => $track->getTitle(),
-          'album' => $track->getAlbum(),
-          'artist' => $track->getArtist(),
-          'year' => $track->getYear()
+          'album' => $track->getAlbum()->getTitle(),
+          'artist' => $track->getAlbum()->getArtist()->getName(),
+          'year' => $track->getAlbum()->getYear()
         ]);
-        $filename = $track->getTrackNumber() . ' - ' . preg_replace('/[^A-Za-z0-9]+/', '-', $track->getTitle()) . '.mp3';
+        $filename = $track->getNumber() . ' - ' . preg_replace('/[^A-Za-z0-9]+/', '-', $track->getTitle()) . '.mp3';
         $archive->addFile($file, $filename);
       }
 
-      $archiveFilename = $this->getArchivesDirectory() . '/' . preg_replace('/[^A-Za-z0-9]+/', '-', strtolower($track->getAlbum())) . '_' . $this->uuidGenerator->generate() . '.zip';
+      $archiveFilename = $this->getArchivesDirectory() . '/' . preg_replace('/[^A-Za-z0-9]+/', '-', strtolower($track->getAlbum()->getTitle())) . '_' . $this->uuidGenerator->generate() . '.zip';
       $archive->saveAsFile($archiveFilename);
     } finally {
       $archive->close();
