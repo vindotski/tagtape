@@ -23,18 +23,10 @@ class MainController extends AbstractController
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
-            $tracks = $form->get('tracks');
+            $tracks = $form->get('tracks')->getData();
             foreach ($tracks as $track) {
-                $trackMetadata = new TrackMetadata();
-                $trackMetadata->setSourceUrl($track->get('url')->getData());
-                $trackMetadata->setTrackNumber($track->get('number')->getData());
-                $trackMetadata->setTitle($track->get('title')->getData());
-                $trackMetadata->setAlbum($form->get('title')->getData());
-                $trackMetadata->setArtist($form->get('artist')->getData()->getName());
-                $trackMetadata->setYear($form->get('year')->getData());
-                $packageBuilder->add($trackMetadata);
+                $packageBuilder->add($track);
             }
-
             $archiveFilename = $packageBuilder->build();
 
             foreach ($packageBuilder->getResidualFiles() as $residualFilename) {
