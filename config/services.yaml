@@ -27,16 +27,16 @@ services:
 
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones
-    App\Service\UUIDGeneratorInterface: '@App\Service\UUIDGenerator'
+    App\Service\UUIDGenerator: '@App\Service\DefaultUUIDGenerator'
 
-    App\Service\DownloaderInterface: '@App\Service\Downloader'
+    App\Service\Downloader: '@App\Service\DefaultDownloader'
 
-    App\Service\Downloader:
+    App\Service\DefaultDownloader:
         $downloadDir: '%kernel.project_dir%/var/tmp/downloads/'
 
-    App\Service\TagWriterInterface: '@App\Service\TagWriter'
+    App\Service\TagWriter: '@App\Service\DefaultTagWriter'
 
-    App\Service\TagWriter:
+    App\Service\DefaultTagWriter:
         $albumArtDir: '%kernel.project_dir%/var/tmp/uploads/'
 
     App\Service\PackageBuilder:

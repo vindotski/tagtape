@@ -9,7 +9,7 @@ final class DefaultDownloader implements Downloader
   private $downloadDir;
   private $uuidGenerator;
 
-  public function __construct(string $downloadDir, UUIDGeneratorInterface $uuidGenerator)
+  public function __construct(string $downloadDir, UUIDGenerator $uuidGenerator)
   {
     if (!is_dir($downloadDir)) {
       mkdir($downloadDir, 0777, true);
