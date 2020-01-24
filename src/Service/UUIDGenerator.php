@@ -2,12 +2,7 @@
 
 namespace App\Service;
 
-use Ramsey\Uuid\Uuid;
-
-final class UUIDGenerator implements UUIDGeneratorInterface
+interface UUIDGenerator
 {
-  public function generate(): string
-  {
-    return str_replace('-', '', Uuid::uuid4()->toString());
-  }
+  public function generate(): string;
 }

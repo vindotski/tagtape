@@ -19,7 +19,7 @@ class PackageBuilder
   private $tracks;
   private $finalized;
 
-  public function __construct(string $archivesDirectory, DownloaderInterface $downloader, TagWriterInterface $tagWriter, UUIDGeneratorInterface $uuidGenerator)
+  public function __construct(string $archivesDirectory, Downloader $downloader, TagWriter $tagWriter, UUIDGenerator $uuidGenerator)
   {
     $this->archivesDirectory = $archivesDirectory;
     $this->downloader = $downloader;
