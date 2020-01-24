@@ -15,9 +15,7 @@ class TrackType extends AbstractType
         $builder
             ->add('number')
             ->add('title')
-            ->add('url', UrlType::class, [
-                'mapped' => false
-            ]);
+            ->add('source', UrlType::class);
     }
 
     public function configureOptions(OptionsResolver $resolver)
