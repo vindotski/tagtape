@@ -9,6 +9,7 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\ResponseHeaderBag;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Component\Routing\Annotation\Route;
 
 class MainController extends AbstractController
@@ -33,8 +34,19 @@ class MainController extends AbstractController
                 unlink($residualFilename);
             }
 
-            $response = new BinaryFileResponse($archiveFilename);
-            $response->setContentDisposition(ResponseHeaderBag::DISPOSITION_ATTACHMENT);
+            $response = new StreamedResponse(function () use ($archiveFilename) {
+                $outputStream = fopen('php://output', 'wb');
+                $fileStream = fopen($archiveFilename, 'r');
+                try {
+                    stream_copy_to_stream($fileStream, $outputStream);
+                } finally {
+                    fclose($fileStream);
+                    fclose($outputStream);
+                }
+                unlink($archiveFilename);
+            });
+            $response->headers->set('Content-Type', 'application/zip');
+            $response->headers->set('Content-Disposition:', ResponseHeaderBag::DISPOSITION_ATTACHMENT);
             return $response;
         }
 
