@@ -54,4 +54,12 @@ class MainController extends AbstractController
             'form' => $form->createView()
         ]);
     }
+
+    /**
+     * @Route("/javascript-disabled", name="nojs")
+     */
+    public function nojs(Request $request, PackageBuilder $packageBuilder)
+    {
+        return $this->render('main/no-js.html.twig');
+    }
 }
