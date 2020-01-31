@@ -17,35 +17,52 @@ $color-quinary: #e1e1e1 !default;
   width: 100%;
 }
 
-[id^="album_tracks_"] {
-  padding: 1em;
-  padding-left: 5rem;
-  position: relative;
-  border: 1px solid $color-quaternary;
-  margin-bottom: 0.3em;
+.tracks {
+  [id^="album_tracks_"] {
+    padding: 1em;
+    padding-left: 6rem;
+    position: relative;
+    border: 1px solid $color-quaternary;
+    margin-bottom: 0.3em;
 
-  label {
-    display: none;
-  }
+    label {
+      display: none;
+    }
 
-  .field:last-child input {
-    margin-bottom: 0;
-  }
+    .field:last-child input {
+      margin-bottom: 0;
+    }
 
-  &::before {
-    background-color: $color-tertiary;
-    border-right: 1px solid $color-quaternary;
-    position: absolute;
-    top: 0;
-    left: 0;
-    height: 100%;
-    width: 3rem;
-    content: "\2195";
-    font-size: 2em;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-sizing: border-box;
+    &::before {
+      background-color: $color-tertiary;
+      border-right: 1px solid $color-quaternary;
+      border-top: 1px solid $color-quaternary;
+      position: absolute;
+      top: 4rem;
+      left: 0;
+      height: calc(100% - 4rem);
+      width: 4rem;
+      content: "\2195";
+      font-size: 2em;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-sizing: border-box;
+    }
+
+    .remove-track {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 4rem;
+      height: 4rem;
+      font-size: 1.3em;
+      padding: 0;
+      margin: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
   }
 }
 
