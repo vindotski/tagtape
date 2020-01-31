@@ -17,6 +17,7 @@ class PackageBuilder
   private $tagWriter;
   private $uuidGenerator;
   private $tracks;
+  private $coverImage;
   private $finalized;
 
   public function __construct(string $archivesDirectory, Downloader $downloader, TagWriter $tagWriter, UUIDGenerator $uuidGenerator)
@@ -46,12 +47,14 @@ class PackageBuilder
 
     $archive = new ZipFile();
     try {
+      $this->residualFiles->add($this->getCoverImage());
+
       foreach ($this->tracks as $track) {
         $file = $this->downloader->download($track->getSource());
         $this->residualFiles->add($file);
 
         $this->tagWriter->write($file, [
-          'cover' => 'nopicture.jpg',
+          'cover' => $this->getCoverImage(),
           'tracknumber' => $track->getNumber(),
           'title' => $track->getTitle(),
           'album' => $track->getAlbum()->getTitle(),
@@ -80,5 +83,15 @@ class PackageBuilder
   public function getResidualFiles(): Collection
   {
     return $this->residualFiles;
+  }
+
+  public function getCoverImage(): ?string
+  {
+    return $this->coverImage;
+  }
+
+  public function setCoverImage(string $coverImage): void
+  {
+    $this->coverImage = $coverImage;
   }
 }

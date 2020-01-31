@@ -66,13 +66,12 @@ final class DefaultTagWriter implements TagWriter
 
   private function getAlbumArtData(string $imageFileName): array
   {
-    $albumArtFile = $this->getAlbumArtDirectory() . '/' . $imageFileName;
-    if (!is_file($albumArtFile)) {
+    if (!file_exists($imageFileName)) {
       throw new FileNotFoundException('Could not find album art: ' . $imageFileName);
     }
 
-    if ($fileHandle = @fopen($albumArtFile, 'rb')) {
-      $imageData = fread($fileHandle, filesize($albumArtFile));
+    if ($fileHandle = @fopen($imageFileName, 'rb')) {
+      $imageData = fread($fileHandle, filesize($imageFileName));
       fclose($fileHandle);
 
       $albumArtData = [];
@@ -83,6 +82,6 @@ final class DefaultTagWriter implements TagWriter
       return $albumArtData;
     }
 
-    throw new Exception('Cannot process album art file: ' . $albumArtFile);
+    throw new Exception('Cannot process album art file: ' . $imageFileName);
   }
 }
