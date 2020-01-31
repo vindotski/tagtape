@@ -1,2 +1,20 @@
 @charset "utf-8";
 @import "node_modules/bulma/bulma.sass";
+
+[id^="album_tracks_"] {
+  display: flex;
+  flex-wrap: wrap;
+  margin-bottom: 0.5em;
+
+  .field {
+    flex: 1 1 100%;
+
+    &:nth-child(1) {
+      flex: 1 1 25%;
+    }
+
+    &:nth-child(2) {
+      flex: 1 1 75%;
+    }
+  }
+}
