@@ -33,4 +33,5 @@ function addTrackToTrackList(trackList) {
   let trackFormEntry = document.createElement("li");
   trackFormEntry.innerHTML = trackPrototype;
   trackList.appendChild(trackFormEntry);
+  trackFormEntry.querySelector("[id$=_number]").value = trackCount;
 }
