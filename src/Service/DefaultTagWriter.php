@@ -22,6 +22,8 @@ final class DefaultTagWriter implements TagWriter
   {
     $tagData = [];
     foreach ($tags as $key => $value) {
+      if ($value == null) continue;
+
       if ($key === 'cover') {
         $tagData['attached_picture'] = $this->getAlbumArtData($value);
       } elseif ($key === 'track') {

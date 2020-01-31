@@ -5,6 +5,7 @@ namespace App\Form;
 use App\Entity\Album;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\CollectionType;
+use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Form\Extension\Core\Type\UrlType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
@@ -16,11 +17,17 @@ class AlbumType extends AbstractType
     {
         $builder
             ->add('image', UrlType::class, [
-                'mapped' => false
+                'label' => 'Image URL (optional)',
+                'mapped' => false,
+                'required' => false
             ])
             ->add('title')
-            ->add('year')
+            ->add('year', TextType::class, [
+                'label' => 'Year (optional)',
+                'required' => false
+            ])
             ->add('artist', ArtistType::class, [
+                'required' => false,
                 'label' => false
             ])
             ->add('tracks', CollectionType::class, [

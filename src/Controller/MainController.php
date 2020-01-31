@@ -25,8 +25,10 @@ class MainController extends AbstractController
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
-            $imageFileName = $imgDownloader->download($form->get('image')->getData());
-            $packageBuilder->setCoverImage($imageFileName);
+            if (null !== $form->get('image')->getData()) {
+                $imageFileName = $imgDownloader->download($form->get('image')->getData());
+                $packageBuilder->setCoverImage($imageFileName);
+            }
 
             $tracks = $form->get('tracks')->getData();
             foreach ($tracks as $track) {

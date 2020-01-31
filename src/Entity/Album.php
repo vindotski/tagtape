@@ -25,12 +25,12 @@ class Album
 
     /**
      * @ORM\ManyToOne(targetEntity="App\Entity\Artist", inversedBy="albums")
-     * @ORM\JoinColumn(nullable=false)
+     * @ORM\JoinColumn(nullable=true)
      */
     private $artist;
 
     /**
-     * @ORM\Column(type="string", length=4)
+     * @ORM\Column(type="string", length=4, nullable=true)
      */
     private $year;
 
@@ -78,7 +78,7 @@ class Album
         return $this->year;
     }
 
-    public function setYear(string $year): self
+    public function setYear(?string $year): self
     {
         $this->year = $year;
 

@@ -47,7 +47,9 @@ class PackageBuilder
 
     $archive = new ZipFile();
     try {
-      $this->residualFiles->add($this->getCoverImage());
+      if (null !== $this->getCoverImage()) {
+        $this->residualFiles->add($this->getCoverImage());
+      }
 
       foreach ($this->tracks as $track) {
         $file = $this->downloader->download($track->getSource());
@@ -58,7 +60,7 @@ class PackageBuilder
           'tracknumber' => $track->getNumber(),
           'title' => $track->getTitle(),
           'album' => $track->getAlbum()->getTitle(),
-          'artist' => $track->getAlbum()->getArtist()->getName(),
+          'artist' => $track->getAlbum()->getArtist() != null ? $track->getAlbum()->getArtist()->getName() : null,
           'year' => $track->getAlbum()->getYear()
         ]);
         $filename = $track->getNumber() . ' - ' . preg_replace('/[^A-Za-z0-9]+/', '-', $track->getTitle()) . '.mp3';
