@@ -18,20 +18,34 @@ $color-quinary: #e1e1e1 !default;
 }
 
 [id^="album_tracks_"] {
-  display: flex;
-  flex-wrap: wrap;
-  margin-bottom: 0.5em;
+  padding: 1em;
+  padding-left: 5rem;
+  position: relative;
+  border: 1px solid $color-quaternary;
+  margin-bottom: 0.3em;
 
-  .field {
-    flex: 1 1 100%;
+  label {
+    display: none;
+  }
 
-    &:nth-child(1) {
-      flex: 1 1 25%;
-    }
+  .field:last-child input {
+    margin-bottom: 0;
+  }
 
-    &:nth-child(2) {
-      flex: 1 1 75%;
-    }
+  &::before {
+    background-color: $color-tertiary;
+    border-right: 1px solid $color-quaternary;
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 3rem;
+    content: "\2195";
+    font-size: 2em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
   }
 }
 
@@ -40,4 +54,10 @@ $color-quinary: #e1e1e1 !default;
 .tracks li {
   list-style: none;
   margin: 0;
+}
+
+.tracks {
+  li:last-child {
+    margin-bottom: 1em;
+  }
 }
