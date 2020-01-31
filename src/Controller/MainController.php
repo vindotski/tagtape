@@ -5,6 +5,7 @@ namespace App\Controller;
 use App\Entity\TrackMetadata;
 use App\Form\AlbumType;
 use App\Service\PackageBuilder;
+use App\Service\RemoteImageDownloader;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -17,13 +18,16 @@ class MainController extends AbstractController
     /**
      * @Route("/", name="home")
      */
-    public function index(Request $request, PackageBuilder $packageBuilder)
+    public function index(Request $request, PackageBuilder $packageBuilder, RemoteImageDownloader $imgDownloader)
     {
         $form = $this->createForm(AlbumType::class);
 
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
+            $imageFileName = $imgDownloader->download($form->get('image')->getData());
+            $packageBuilder->setCoverImage($imageFileName);
+
             $tracks = $form->get('tracks')->getData();
             foreach ($tracks as $track) {
                 $packageBuilder->add($track);
