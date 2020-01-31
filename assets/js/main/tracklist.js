@@ -2,6 +2,7 @@ document.addEventListener("DOMContentLoaded", () => {
   let trackList = document.querySelector("#track-list");
   let addTrackButton = document.querySelector("#add-track");
   initTrackList(trackList, addTrackButton);
+  addTrackToTrackList(trackList);
 });
 
 function initTrackList(trackList, addTrackButton) {
