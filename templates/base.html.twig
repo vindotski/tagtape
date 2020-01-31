@@ -8,12 +8,20 @@
         {% block stylesheets %}
         <link rel="stylesheet" href="/css/main.css">
         {% endblock %}
+        {% if app.request.pathinfo != '/javascript-disabled' %}
+        <noscript>
+            <meta http-equiv="Refresh" content="0;{{ path('nojs') }}">
+        </noscript>
+        {% endif %}
     </head>
-    <body>
+
+    <body class="{% if app.request.pathinfo == '/javascript-disabled' %}no-js-page{% endif %}">
         {% block body %}{% endblock %}
 
-        {% block javascripts %}
-        <script src="/js/main.js"></script>
-        {% endblock %}
+        {% if app.request.pathinfo != '/javascript-disabled' %}
+            {% block javascripts %}
+            <script src="/js/main.js"></script>
+            {% endblock %}
+        {% endif %}
     </body>
 </html>
