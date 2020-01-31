@@ -20,6 +20,7 @@
 
         {% if app.request.pathinfo != '/javascript-disabled' %}
             {% block javascripts %}
+            <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.10.1/Sortable.min.js"></script>
             <script src="/js/main.js"></script>
             {% endblock %}
         {% endif %}
