@@ -41,3 +41,6 @@ services:
 
     App\Service\PackageBuilder:
         shared: false
+
+    App\Service\RemoteImageDownloader:
+        $imagesDirectory: '%kernel.project_dir%/var/tmp/uploads/'
