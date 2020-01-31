@@ -1,8 +1,15 @@
 @charset "utf-8";
-@import "node_modules/bulma/bulma.sass";
+
+$color-initial: #fff !default;
+$color-primary: #9b4dca !default;
+$color-secondary: #606c76 !default;
+$color-tertiary: #f4f5f6 !default;
+$color-quaternary: #d1d1d1 !default;
+$color-quinary: #e1e1e1 !default;
+
+@import "node_modules/milligram-scss/src/milligram";
 
 .no-js-page {
-  background-color: $warning;
   position: fixed;
   top: 0;
   left: 0;
@@ -26,4 +33,11 @@
       flex: 1 1 75%;
     }
   }
+}
+
+.tracks,
+.tracks ul,
+.tracks li {
+  list-style: none;
+  margin: 0;
 }
