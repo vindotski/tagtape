@@ -4,15 +4,20 @@
 
 {% block body %}
 	{{ form_start(form) }}
+  {{ form_errors(form) }}
 	{{ form_row(form.title) }}
 	{{ form_row(form.year) }}
 	{{ form_row(form.artist) }}
   <div>
     {{ form_label(form.tracks) }}
     <ul class="tracks" data-prototype="{{ form_widget(form.tracks.vars.prototype)|e('html_attr') }}">
+      {{ form_errors(form.tracks) }}
+      {% for track in form.tracks %}
+          <li>{{ form_row(track) }}</li>
+      {% endfor %}
     </ul>
   </div>
-  <button>Process and download</button>
+  <button class="button">Process and download</button>
 	{{ form_end(form) }}
 {% endblock %}
 
@@ -27,7 +32,7 @@
     var $collectionHolder;
 
     // setup an "add a tag" link
-    var $addTagButton = $('<button type="button" class="add_tag_link">Add a song</button>');
+    var $addTagButton = $('<button type="button" class="button add_tag_link">Add a song</button>');
     var $newLinkLi = $('<li></li>').append($addTagButton);
 
     jQuery(document).ready(function() {
