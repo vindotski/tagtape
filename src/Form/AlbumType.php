@@ -7,6 +7,7 @@ use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\CollectionType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
+use Symfony\Component\Validator\Constraints\Count;
 
 class AlbumType extends AbstractType
 {
@@ -23,7 +24,15 @@ class AlbumType extends AbstractType
                 'entry_options' => [
                     'label' => false
                 ],
-                'allow_add' => true
+                'allow_add' => true,
+                'constraints' => [
+                    new Count([
+                        'min' => 1,
+                        'max' => 10,
+                        'minMessage' => 'You must specify at least one song',
+                        'maxMessage' => 'You cannot specify more than {{ limit }} songs'
+                    ])
+                ]
             ]);
     }
 
