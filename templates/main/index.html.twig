@@ -1,6 +1,8 @@
 {% extends 'base.html.twig' %}
+{% import _self as formMacros %}
 
-{% block title %}Albumie{% endblock %}
+{% block title %}Albumie
+{% endblock %}
 
 {% block body %}
 	<article class="container">
@@ -15,10 +17,10 @@
 		</fieldset>
 		<fieldset class="column">
 			{{ form_label(form.tracks) }}
-			<ul id="track-list" class="tracks" data-prototype="{{ form_widget(form.tracks.vars.prototype)|e('html_attr') }}">
+			<ul id="track-list" class="tracks" data-prototype="{{ formMacros.printTrackRow(form.tracks.vars.prototype)|e('html_attr') }}">
 				{{ form_errors(form.tracks) }}
 				{% for track in form.tracks %}
-					<li>{{ form_row(track) }}</li>
+					<li>{{ formMacros.printTrackRow(track, loop.index) }}</li>
 				{% endfor %}
 			</ul>
 			<button type="button" id="add-track" class="button">Add song</button>
@@ -26,3 +28,23 @@
 		{{ form_end(form) }}
 	</main>
 {% endblock %}
+
+{% macro printTrackRow(track) %}
+	<article class="track">
+		<header class="track-header">
+      <h3 class="title">Track</h3>
+      <button type="button" class="button button-outline track-remove">×</button>
+    </header>
+
+		<div class="track-content">
+			{{ form_errors(track) }}
+			{{ form_row(track.number) }}
+			{{ form_row(track.title) }}
+			{{ form_row(track.source) }}
+		</div>
+
+    <button type="button" class="button track-grip">
+      &updownarrow;
+    </button>
+	</article>
+{% endmacro %}

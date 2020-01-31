@@ -3,7 +3,7 @@ document.addEventListener("DOMContentLoaded", () => {
   let addTrackButton = document.querySelector("#add-track");
 
   document.addEventListener("click", e => {
-    if (e.target && e.target.classList.contains("remove-track")) {
+    if (e.target && e.target.classList.contains("track-remove")) {
       e.target.parentElement.parentElement.remove();
       trackList.classList.toggle(
         "disable-remove-buttons",
@@ -33,6 +33,7 @@ function initTrackList(trackList, addTrackButton) {
       let entries = trackList.querySelectorAll("li");
       entries.forEach((value, index) => {
         value.querySelector("[id$=_number]").value = index + 1;
+        value.querySelector(".title").innerHTML = "Track " + (index + 1);
       });
     }
   });
@@ -49,11 +50,7 @@ function addTrackToTrackList(trackList) {
   trackFormEntry.innerHTML = trackPrototype;
   trackList.appendChild(trackFormEntry);
   trackFormEntry.querySelector("[id$=_number]").value = trackCount;
-  let removeTrackButton = document.createElement("button");
-  removeTrackButton.setAttribute("type", "button");
-  removeTrackButton.innerHTML = "&#215;";
-  removeTrackButton.classList.add("button", "button-clear", "remove-track");
-  trackFormEntry.querySelector("div").appendChild(removeTrackButton);
+  trackFormEntry.querySelector(".title").innerHTML = "Track " + trackCount;
 
   trackList.classList.toggle(
     "disable-remove-buttons",
