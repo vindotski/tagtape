@@ -64,6 +64,20 @@ $color-quinary: #e1e1e1 !default;
       justify-content: center;
     }
   }
+
+  &.disable-remove-buttons {
+    [id^="album_tracks_"] {
+      &::before {
+        top: 0;
+        height: 100%;
+        border-top: none;
+      }
+
+      .remove-track {
+        display: none;
+      }
+    }
+  }
 }
 
 .tracks,
