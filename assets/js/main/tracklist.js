@@ -12,6 +12,15 @@ function initTrackList(trackList, addTrackButton) {
   addTrackButton.addEventListener("click", e => {
     addTrackToTrackList(trackList);
   });
+
+  Sortable.create(trackList, {
+    onChange: () => {
+      let entries = trackList.querySelectorAll("li");
+      entries.forEach((value, index) => {
+        value.querySelector("[id$=_number]").value = index + 1;
+      });
+    }
+  });
 }
 
 function addTrackToTrackList(trackList) {
