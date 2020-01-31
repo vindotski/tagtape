@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "13d2ce7f7273fa958afc82fe3bc84ed8",
+    "content-hash": "c057daaade18c83dfac41e5d36f1c137",
     "packages": [
         {
             "name": "doctrine/annotations",
@@ -1200,6 +1200,49 @@
                 "validator"
             ],
             "time": "2020-01-05T14:11:20+00:00"
+        },
+        {
+            "name": "greeflas/php-image-downloader",
+            "version": "dev-master",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/greeflas/php-image-downloader.git",
+                "reference": "5b47b59d59b2e641ffcb4a9aeec59a54ab4a9add"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/greeflas/php-image-downloader/zipball/5b47b59d59b2e641ffcb4a9aeec59a54ab4a9add",
+                "reference": "5b47b59d59b2e641ffcb4a9aeec59a54ab4a9add",
+                "shasum": ""
+            },
+            "require": {
+                "ext-curl": "*",
+                "php": ">=5.6"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "greeflas\\tools\\": "src"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "BSD-3-Clause"
+            ],
+            "authors": [
+                {
+                    "name": "Vladimir Kuprienko",
+                    "email": "vldmr.kuprienko@gmail.com"
+                }
+            ],
+            "description": "Component for downloading images by URL",
+            "keywords": [
+                "download",
+                "downloader",
+                "image",
+                "php"
+            ],
+            "time": "2018-09-17T14:23:09+00:00"
         },
         {
             "name": "james-heinrich/getid3",
@@ -6915,6 +6958,7 @@
     "aliases": [],
     "minimum-stability": "stable",
     "stability-flags": {
+        "greeflas/php-image-downloader": 20,
         "stormiix/php-eyed3": 20
     },
     "prefer-stable": false,
