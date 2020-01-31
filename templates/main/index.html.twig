@@ -3,22 +3,26 @@
 {% block title %}Albumie{% endblock %}
 
 {% block body %}
-	{{ form_start(form) }}
-  {{ form_errors(form) }}
-	{{ form_row(form.image) }}
-	{{ form_row(form.title) }}
-	{{ form_row(form.year) }}
-	{{ form_row(form.artist) }}
-  <div>
-    {{ form_label(form.tracks) }}
-    <ul id="track-list" class="tracks" data-prototype="{{ form_widget(form.tracks.vars.prototype)|e('html_attr') }}">
-      {{ form_errors(form.tracks) }}
-      {% for track in form.tracks %}
-          <li>{{ form_row(track) }}</li>
-      {% endfor %}
-    </ul>
-    <button type="button" id="add-track" class="button">Add song</button>
-  </div>
-  <button class="button">Process and download</button>
-	{{ form_end(form) }}
+	<article class="container">
+		{{ form_start(form, { attr: { class: 'row' } }) }}
+		{{ form_errors(form) }}
+		<fieldset class="column">
+			{{ form_row(form.image) }}
+			{{ form_row(form.title) }}
+			{{ form_row(form.year) }}
+			{{ form_row(form.artist) }}
+			<button class="button">Process and download</button>
+		</fieldset>
+		<fieldset class="column">
+			{{ form_label(form.tracks) }}
+			<ul id="track-list" class="tracks" data-prototype="{{ form_widget(form.tracks.vars.prototype)|e('html_attr') }}">
+				{{ form_errors(form.tracks) }}
+				{% for track in form.tracks %}
+					<li>{{ form_row(track) }}</li>
+				{% endfor %}
+			</ul>
+			<button type="button" id="add-track" class="button">Add song</button>
+		</fieldset>
+		{{ form_end(form) }}
+	</main>
 {% endblock %}
