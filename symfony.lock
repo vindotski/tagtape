@@ -90,6 +90,9 @@
     "egulias/email-validator": {
         "version": "2.1.14"
     },
+    "greeflas/php-image-downloader": {
+        "version": "dev-master"
+    },
     "james-heinrich/getid3": {
         "version": "v1.9.19"
     },
