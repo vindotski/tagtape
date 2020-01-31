@@ -3,6 +3,7 @@
 namespace App\Form;
 
 use App\Entity\Track;
+use App\Validator\Constraint\Duration;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\UrlType;
 use Symfony\Component\Form\FormBuilderInterface;
@@ -15,7 +16,14 @@ class TrackType extends AbstractType
         $builder
             ->add('number')
             ->add('title')
-            ->add('source', UrlType::class);
+            ->add('source', UrlType::class, [
+                'constraints' => [
+                    new Duration([
+                        'max' => 600,
+                        'invalidMessage' => "Duration can't be determined. Please remove this track."
+                    ])
+                ]
+            ]);
     }
 
     public function configureOptions(OptionsResolver $resolver)
