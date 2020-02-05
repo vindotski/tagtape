@@ -5,11 +5,25 @@
 {% endblock %}
 
 {% block body %}
-	<article class="container">
+	<header class="header">
+		<div class="container">
+			<h1>Albumie</h1>
+			<p>
+				Download YouTube videos to mp3 files and automatically apply the metadata
+				to have organized music on any device that has standard MP3 player.
+			</p>
+		</div>
+	</header>
+
+	<main class="container">
 		{{ form_start(form, { attr: { class: 'row' } }) }}
 		{{ form_errors(form) }}
-		<fieldset class="column">
-			{{ form_row(form.image) }}
+		<fieldset class="column column-fixed-width">
+			<div class="field">
+				{{ form_label(form.image) }}
+				{{ form_widget(form.image) }}
+				{{ form_errors(form.image) }}
+			</div>
 			{{ form_row(form.title) }}
 			{{ form_row(form.year) }}
 			{{ form_row(form.artist) }}

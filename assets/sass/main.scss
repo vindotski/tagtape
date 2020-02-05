@@ -93,6 +93,27 @@ $color-quinary: #e1e1e1 !default;
   }
 }
 
+body {
+  padding: 0;
+  margin: 0;
+}
+
+.column.column-fixed-width {
+  max-width: 400px;
+}
+
+.header {
+  padding-top: 5rem;
+  padding-bottom: 5rem;
+  margin-bottom: 5rem;
+  background-color: $color-primary;
+  color: $color-initial;
+
+  h1 {
+    margin: 0;
+  }
+}
+
 /*
 .tracks {
   [id^="album_tracks_"] {
