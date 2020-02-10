@@ -6,7 +6,10 @@
 @import "node_modules/milligram-scss/src/milligram";
 
 @import "abstracts/reset";
+
 @import "layout/column";
+@import "layout/h-flex";
+
 @import "components/header";
 @import "components/tracks";
 @import "components/loader";
