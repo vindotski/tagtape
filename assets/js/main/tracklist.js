@@ -54,10 +54,9 @@ function updateTrackNumbers(trackList, trackCounter) {
   let trackCount = allTracks.length;
   trackList.setAttribute("data-track-count", trackCount);
   trackCounter.innerHTML = trackCount;
-  trackList.classList.toggle(
-    "disable-remove-buttons",
-    trackCount <= 1 || trackCount >= 10
-  );
+  trackList.classList.toggle("disable-remove-buttons", trackCount <= 1);
+  document.querySelector("#add-track").style.display = trackCount >= 10 ? "none" : "block";
+
   for (let i = 0; i < allTracks.length; i++) {
     let element = allTracks[i];
     let trackIndex = i + 1;
