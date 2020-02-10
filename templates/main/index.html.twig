@@ -41,6 +41,11 @@
 		</fieldset>
 		{{ form_end(form) }}
 	</main>
+
+	<div id="app-loader" class="loader">
+		<i class="loader-icon fas fa-spinner"></i>
+		Loading Albumie...
+	</div>
 {% endblock %}
 
 {% macro printTrackRow(track) %}
