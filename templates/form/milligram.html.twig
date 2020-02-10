@@ -22,7 +22,7 @@
     {%- if help is not empty -%}
         {%- set widget_attr = {attr: {'aria-describedby': id ~"_help"}} -%}
     {%- endif -%}
-    <div{% with {attr: row_attr|merge({class: ('field ' ~ row_attr.class|default(''))|trim})} %}{{ block('attributes') }}{% endwith %}>
+    <div{% with {attr: row_attr|merge({class: ('field ' ~ row_attr.class|default('') ~ ((not compound or force_error|default(false)) and not valid ? ' error'))|trim})} %}{{ block('attributes') }}{% endwith %}>
 				{{- form_label(form) -}}
 				{{- form_widget(form, widget_attr) -}}
 				{{- form_help(form) -}}
