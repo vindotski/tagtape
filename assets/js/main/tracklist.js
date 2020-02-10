@@ -31,6 +31,7 @@ function initTrackList() {
   });
 
   Sortable.create(trackList, {
+    animation: 150,
     onChange: () => {
       let entries = trackList.querySelectorAll("li");
       entries.forEach((value, index) => {
