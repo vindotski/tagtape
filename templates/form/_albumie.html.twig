@@ -1,0 +1,51 @@
+{% import _self as formMacros %}
+
+{{ form_start(form, { 'action': path('submit'), attr: { 'class': 'row', 'novalidate': 'novalidate' } }) }}
+{{ form_errors(form) }}
+<fieldset class="column column-fixed-width">
+	<div class="field">
+		{{ form_label(form.image) }}
+		{{ form_widget(form.image) }}
+		{{ form_errors(form.image) }}
+	</div>
+	{{ form_row(form.title) }}
+	{{ form_row(form.year) }}
+	{{ form_row(form.artist) }}
+	<button class="button">Process and download</button>
+</fieldset>
+<fieldset class="column">
+	<div class="h-flex">
+		{{ form_label(form.tracks) }}
+		<label role="alert">
+			<span id="track-counter">0</span>/10
+		</label>
+	</div>
+	<ul id="track-list" class="tracks" data-prototype="{{ formMacros.printTrackRow(form.tracks.vars.prototype)|e('html_attr') }}">
+		{{ form_errors(form.tracks) }}
+		{% for track in form.tracks %}
+			<li>{{ formMacros.printTrackRow(track, loop.index) }}</li>
+		{% endfor %}
+	</ul>
+	<button type="button" id="add-track" class="button">Add song</button>
+</fieldset>
+{{ form_end(form) }}
+
+{% macro printTrackRow(track) %}
+	<article class="track">
+		<header class="track-header">
+			<h3 class="title">Track</h3>
+			<button type="button" class="button button-outline track-remove">×</button>
+		</header>
+
+		<div class="track-content">
+			{{ form_errors(track) }}
+			{{ form_row(track.number) }}
+			{{ form_row(track.title) }}
+			{{ form_row(track.source) }}
+		</div>
+
+		<button type="button" class="button track-grip">
+			&updownarrow;
+		</button>
+	</article>
+{% endmacro %}
