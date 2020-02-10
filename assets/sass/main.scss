@@ -13,8 +13,7 @@ $color-quinary: #e1e1e1 !default;
 .header p {
   font-size: 2rem;
   color: transparentize($color-initial, 0.25);
-  margin-top: 1.3rem;
-  margin-bottom: 0;
+  margin: 1.3rem 0;
   max-width: 600px;
 }
 
@@ -256,5 +255,16 @@ body {
 
   to {
     transform: rotate(360deg);
+  }
+}
+
+.button.button-outline.button-outline-white {
+  border-color: $color-initial;
+  color: $color-initial;
+
+  &:hover,
+  &:active {
+    background-color: $color-initial;
+    color: $color-primary;
   }
 }
