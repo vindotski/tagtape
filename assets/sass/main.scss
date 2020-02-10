@@ -11,10 +11,12 @@
 @import "layout/h-flex";
 
 @import "components/header";
+@import "components/footer";
 @import "components/tracks";
 @import "components/loader";
 @import "components/button-outline-white";
 @import "components/field";
+@import "components/link-list";
 
 iframe {
   display: none;
