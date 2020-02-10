@@ -32,6 +32,19 @@ class AlbumType extends AbstractType
                     ])
                 ]
             ])
+            ->add('artist', ArtistType::class, [
+                'label' => false
+            ])
+            ->add('genre', TextType::class, [
+                'label' => 'Genre (optional)',
+                'required' => false,
+                'constraints' => [
+                    new Length([
+                        'min' => 1,
+                        'max' => 30
+                    ])
+                ]
+            ])
             ->add('year', TextType::class, [
                 'label' => 'Year (optional)',
                 'required' => false,
@@ -40,9 +53,6 @@ class AlbumType extends AbstractType
                         'max' => 4
                     ])
                 ]
-            ])
-            ->add('artist', ArtistType::class, [
-                'label' => false
             ])
             ->add('tracks', CollectionType::class, [
                 'entry_type' => TrackType::class,

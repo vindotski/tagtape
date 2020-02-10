@@ -61,7 +61,8 @@ class PackageBuilder
           'title' => $track->getTitle(),
           'album' => $track->getAlbum()->getTitle(),
           'artist' => $track->getAlbum()->getArtist() != null ? $track->getAlbum()->getArtist()->getName() : null,
-          'year' => $track->getAlbum()->getYear()
+          'year' => $track->getAlbum()->getYear(),
+          'genre' => $track->getAlbum()->getGenre()
         ]);
         $filename = $track->getNumber() . ' - ' . preg_replace('/[^A-Za-z0-9]+/', '-', $track->getTitle()) . '.mp3';
         $archive->addFile($file, $filename);

@@ -30,6 +30,11 @@ class Album
     private $artist;
 
     /**
+     * @ORM\Column(type="string", length=60)
+     */
+    private $genre;
+
+    /**
      * @ORM\Column(type="string", length=4, nullable=true)
      */
     private $year;
@@ -69,6 +74,18 @@ class Album
     public function setArtist(?Artist $artist): self
     {
         $this->artist = $artist;
+
+        return $this;
+    }
+
+    public function getGenre(): ?string
+    {
+        return $this->genre;
+    }
+
+    public function setGenre(string $genre): self
+    {
+        $this->genre = $genre;
 
         return $this;
     }
