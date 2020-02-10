@@ -4,18 +4,9 @@
 {% endblock %}
 
 {% block body %}
-	<article class="notification is-warning">
-		<h1 class="title">JavaScript is disabled</h1>
-		<p>
-			<strong>Albumie</strong>
-			needs JavaScript enabled to run safely and effectively.
-		</p>
-		<br>
-		<p>
-			Please <strong>enable JavaScript</strong> and click the
-      button below to use <strong>Albumie</strong>.
-		</p>
-    <br>
-    <a href="{{ path('home') }}" class="button">Try again</a>
-	</article>
+	<main class="container">
+		<h1>Albumie relies on JavaScript</h1>
+		<p>It appears your browser has JavaScript disabled. Please enable it and then click the button below to proceed.</p>
+		<a href="{{ path('home') }}" class="button button-outline button-outline-white">Try again</a>
+	</main>
 {% endblock %}

@@ -10,11 +10,23 @@ body {
   margin: 0;
 
   &.no-js-page {
-    position: fixed;
-    top: 0;
-    left: 0;
-    height: 100%;
-    width: 100%;
+    background-color: $color-primary;
+    color: $color-initial;
+
+    main {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      height: 100%;
+      max-width: 600px;
+      text-align: center;
+
+      p {
+        font-size: 2rem;
+        color: transparentize($color-initial, 0.25);
+      }
+    }
   }
 }
 

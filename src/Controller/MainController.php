@@ -90,6 +90,6 @@ class MainController extends AbstractController
    */
   public function nojs()
   {
-    return $this->render("no-js.html.twig");
+    return $this->render("main/no-js.html.twig");
   }
 }
