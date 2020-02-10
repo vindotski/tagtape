@@ -1,0 +1,10 @@
+.button.button-outline.button-outline-white {
+  border-color: $color-initial;
+  color: $color-initial;
+
+  &:hover,
+  &:active {
+    background-color: $color-initial;
+    color: $color-primary;
+  }
+}

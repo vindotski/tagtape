@@ -1,0 +1,75 @@
+.tracks {
+  ul,
+  li {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .track {
+    position: relative;
+    padding: 1em;
+    padding-left: 6rem;
+    border: 1px solid $color-quaternary;
+    margin-bottom: 0.5em;
+
+    .track-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1em;
+
+      .title {
+        font-size: 1.3em;
+        margin-bottom: 0;
+      }
+
+      .button.track-remove {
+        font-size: 1em;
+        margin-bottom: 0;
+        line-height: 1.3em;
+        min-height: 30px;
+        height: auto;
+        line-height: inherit;
+      }
+    }
+
+    .track-content {
+      label {
+        display: none;
+      }
+
+      input {
+        margin-bottom: 0;
+      }
+
+      .field {
+        margin-bottom: 0.5em;
+
+        &:last-child {
+          margin-bottom: 0;
+        }
+      }
+    }
+
+    .button.track-grip {
+      background-color: $color-tertiary;
+      color: $color-secondary;
+      border: none;
+      border-right: 1px solid $color-quaternary;
+      border-top-right-radius: 0;
+      border-bottom-right-radius: 0;
+      position: absolute;
+      top: 0;
+      left: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      box-sizing: border-box;
+      width: 4rem;
+      height: 100%;
+      padding: 0;
+      font-size: 1.5em;
+    }
+  }
+}
