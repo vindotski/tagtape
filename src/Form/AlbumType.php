@@ -3,6 +3,7 @@
 namespace App\Form;
 
 use App\Entity\Album;
+use App\Validator\Constraint\RemoteFileSize;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\CollectionType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
@@ -21,7 +22,12 @@ class AlbumType extends AbstractType
             ->add('image', UrlType::class, [
                 'label' => 'Image URL (optional)',
                 'mapped' => false,
-                'required' => false
+                'required' => false,
+                'constraints' => [
+                    new RemoteFileSize([
+                        'max' => '300'
+                    ])
+                ]
             ])
             ->add('title', TextType::class, [
                 'constraints' => [
