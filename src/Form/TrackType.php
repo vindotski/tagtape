@@ -6,11 +6,11 @@ use App\Entity\Track;
 use App\Validator\Constraint\Duration;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\HiddenType;
-use Symfony\Component\Form\Extension\Core\Type\NumberType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Form\Extension\Core\Type\UrlType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
+use Symfony\Component\Validator\Constraints\NotBlank;
 
 class TrackType extends AbstractType
 {
@@ -21,6 +21,9 @@ class TrackType extends AbstractType
             ->add('title', TextType::class, [
                 'attr' => [
                     'placeholder' => 'Title'
+                ],
+                'constraints' => [
+                    new NotBlank()
                 ]
             ])
             ->add('source', UrlType::class, [
@@ -28,6 +31,7 @@ class TrackType extends AbstractType
                     'placeholder' => 'YouTube link'
                 ],
                 'constraints' => [
+                    new NotBlank(),
                     new Duration([
                         'max' => 600,
                         'invalidMessage' => "Duration can't be determined. Please remove this track."

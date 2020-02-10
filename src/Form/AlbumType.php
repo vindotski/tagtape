@@ -10,6 +10,7 @@ use Symfony\Component\Form\Extension\Core\Type\UrlType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
 use Symfony\Component\Validator\Constraints\Count;
+use Symfony\Component\Validator\Constraints\NotBlank;
 
 class AlbumType extends AbstractType
 {
@@ -21,13 +22,16 @@ class AlbumType extends AbstractType
                 'mapped' => false,
                 'required' => false
             ])
-            ->add('title')
+            ->add('title', TextType::class, [
+                'constraints' => [
+                    new NotBlank()
+                ]
+            ])
             ->add('year', TextType::class, [
                 'label' => 'Year (optional)',
                 'required' => false
             ])
             ->add('artist', ArtistType::class, [
-                'required' => false,
                 'label' => false
             ])
             ->add('tracks', CollectionType::class, [
