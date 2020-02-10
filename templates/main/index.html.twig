@@ -1,7 +1,7 @@
 {% extends 'base.html.twig' %}
 {% import _self as formMacros %}
 
-{% block title %}Albumie
+{% block title %}Albumie - YouTube To MP3 with Metadata, YouTube Downloader
 {% endblock %}
 
 {% block body %}
@@ -52,9 +52,9 @@
 {% macro printTrackRow(track) %}
 	<article class="track">
 		<header class="track-header">
-      <h3 class="title">Track</h3>
-      <button type="button" class="button button-outline track-remove">×</button>
-    </header>
+			<h3 class="title">Track</h3>
+			<button type="button" class="button button-outline track-remove">×</button>
+		</header>
 
 		<div class="track-content">
 			{{ form_errors(track) }}
@@ -63,8 +63,8 @@
 			{{ form_row(track.source) }}
 		</div>
 
-    <button type="button" class="button track-grip">
-      &updownarrow;
-    </button>
+		<button type="button" class="button track-grip">
+			&updownarrow;
+		</button>
 	</article>
 {% endmacro %}
