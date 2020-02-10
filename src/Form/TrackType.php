@@ -10,6 +10,7 @@ use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Form\Extension\Core\Type\UrlType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
+use Symfony\Component\Validator\Constraints\Length;
 use Symfony\Component\Validator\Constraints\NotBlank;
 
 class TrackType extends AbstractType
@@ -23,7 +24,11 @@ class TrackType extends AbstractType
                     'placeholder' => 'Title'
                 ],
                 'constraints' => [
-                    new NotBlank()
+                    new NotBlank(),
+                    new Length([
+                        'min' => 1,
+                        'max' => 60
+                    ])
                 ]
             ])
             ->add('source', UrlType::class, [
