@@ -1,9 +1,9 @@
 .field {
   &.error {
-    color: red;
+    color: $color-error;
 
     input {
-      border-color: red;
+      border-color: $color-error;
       margin-bottom: 0;
     }
 
