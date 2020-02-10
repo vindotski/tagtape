@@ -1,20 +1,24 @@
-document.addEventListener("DOMContentLoaded", () => {
-  let trackList = document.querySelector("#track-list");
-  let addTrackButton = document.querySelector("#add-track");
-  let trackCounter = document.querySelector("#track-counter");
+var trackList = document.querySelector("#track-list");
+var addTrackButton = document.querySelector("#add-track");
+var trackCounter = document.querySelector("#track-counter");
 
-  document.addEventListener("click", e => {
-    if (e.target && e.target.classList.contains("track-remove")) {
-      e.target.parentElement.parentElement.parentElement.remove();
-      updateTrackNumbers(trackList, trackCounter);
-    }
-  });
-
-  initTrackList(trackList, addTrackButton, trackCounter);
-  addTrackToTrackList(trackList, trackCounter);
+document.addEventListener("click", e => {
+  if (e.target && e.target.classList.contains("track-remove")) {
+    e.target.parentElement.parentElement.parentElement.remove();
+    updateTrackNumbers();
+  }
 });
 
-function initTrackList(trackList, addTrackButton, trackCounter) {
+reinitTrackList();
+
+function reinitTrackList() {
+  trackList = document.querySelector("#track-list");
+  addTrackButton = document.querySelector("#add-track");
+  trackCounter = document.querySelector("#track-counter");
+  initTrackList();
+}
+
+function initTrackList() {
   let trackCount = trackList.querySelectorAll("li").length;
   trackList.setAttribute("data-track-count", trackCount);
   trackList.classList.toggle(
@@ -23,20 +27,26 @@ function initTrackList(trackList, addTrackButton, trackCounter) {
   );
 
   addTrackButton.addEventListener("click", e => {
-    addTrackToTrackList(trackList, trackCounter);
+    addTrackToTrackList();
   });
 
   Sortable.create(trackList, {
     onChange: () => {
       let entries = trackList.querySelectorAll("li");
       entries.forEach((value, index) => {
-        updateTrackNumbers(trackList, trackCounter);
+        updateTrackNumbers();
       });
     }
   });
+
+  updateTrackNumbers();
+
+  if (trackList.children.length == 0) {
+    addTrackToTrackList();
+  }
 }
 
-function addTrackToTrackList(trackList, trackCounter) {
+function addTrackToTrackList() {
   let trackPrototype = trackList.getAttribute("data-prototype");
   let trackCount = trackList.getAttribute("data-track-count");
   trackCount++;
@@ -46,16 +56,17 @@ function addTrackToTrackList(trackList, trackCounter) {
   trackFormEntry.innerHTML = trackPrototype;
   trackList.appendChild(trackFormEntry);
 
-  updateTrackNumbers(trackList, trackCounter);
+  updateTrackNumbers();
 }
 
-function updateTrackNumbers(trackList, trackCounter) {
-  let allTracks = trackList.querySelectorAll("li");
+function updateTrackNumbers() {
+  let allTracks = trackList.children;
   let trackCount = allTracks.length;
   trackList.setAttribute("data-track-count", trackCount);
   trackCounter.innerHTML = trackCount;
   trackList.classList.toggle("disable-remove-buttons", trackCount <= 1);
-  document.querySelector("#add-track").style.display = trackCount >= 10 ? "none" : "block";
+  document.querySelector("#add-track").style.display =
+    trackCount >= 10 ? "none" : "block";
 
   for (let i = 0; i < allTracks.length; i++) {
     let element = allTracks[i];
