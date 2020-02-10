@@ -1,7 +1,7 @@
 @charset "utf-8";
 
 $color-initial: #fff !default;
-$color-primary: #9b4dca !default;
+$color-primary: #1e7145 !default;
 $color-secondary: #606c76 !default;
 $color-tertiary: #f4f5f6 !default;
 $color-quaternary: #d1d1d1 !default;
@@ -10,11 +10,17 @@ $color-quinary: #e1e1e1 !default;
 @import "node_modules/milligram-scss/src/milligram";
 @import url("https://fonts.googleapis.com/css?family=Roboto:500,500i,700,700i&display=swap");
 
-.header p {
-  font-size: 2rem;
-  color: transparentize($color-initial, 0.25);
-  margin: 1.3rem 0;
-  max-width: 600px;
+.header {
+  h1 {
+    margin-bottom: 0;
+  }
+
+  p {
+    font-size: 2rem;
+    color: transparentize($color-initial, 0.25);
+    margin: 1.3rem 0 2rem;
+    max-width: 600px;
+  }
 }
 
 .no-js-page {
