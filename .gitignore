@@ -1,3 +1,8 @@
+public/css/
+public/js/
+public/index.php
+public/.htaccess
+
 ###> symfony/framework-bundle ###
 /.env.local
 /.env.local.php
@@ -18,7 +23,6 @@
 node_modules
 test/results
 test/coverage
-public/
 
 ## OS X
 .DS_Store
