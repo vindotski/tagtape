@@ -93,6 +93,9 @@
     "greeflas/php-image-downloader": {
         "version": "dev-master"
     },
+    "gumlet/php-image-resize": {
+        "version": "1.9.2"
+    },
     "james-heinrich/getid3": {
         "version": "v1.9.19"
     },

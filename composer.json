@@ -6,6 +6,7 @@
         "ext-ctype": "*",
         "ext-iconv": "*",
         "greeflas/php-image-downloader": "dev-master",
+        "gumlet/php-image-resize": "^1.9",
         "james-heinrich/getid3": "^1.9",
         "nelexa/zip": "^3.2",
         "norkunas/youtube-dl-php": "^1.4",
