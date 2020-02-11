@@ -92,4 +92,14 @@ class MainController extends AbstractController
   {
     return $this->render("main/no-js.html.twig");
   }
+
+  /**
+   * @Route("/new-form", name="newForm")
+   */
+  public function newFormTemplate()
+  {
+    return new Response($this->renderView('form/_albumie.html.twig', [
+      'form' => $this->createForm(AlbumType::class)->createView()
+    ]));
+  }
 }

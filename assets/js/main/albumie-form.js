@@ -12,6 +12,14 @@ function initAlbumieForm() {
       "/submit",
       serialize(albumieForm),
       data => {
+        toggleForm(albumieForm, true);
+        albumieForm.innerHTML = `
+          <div style="margin-bottom: 5rem;">
+            <h2>Done!</h2>
+            <p>Automatic download of your files will start shortly.</p>
+            <button type="button" onclick="reloadForm()">Convert more files</button>
+          </div>
+        `;
         data = JSON.parse(data).archiveName;
         let iframe = document.querySelector("iframe");
         iframe.setAttribute("src", "/download/" + data);
@@ -26,11 +34,35 @@ function initAlbumieForm() {
   };
 }
 
+function reloadForm() {
+  let albumieFormWrapper = document.querySelector("#albumie-form-wrapper");
+  let albumieForm = albumieFormWrapper.querySelector("form");
+
+  toggleForm(albumieForm, false);
+  postAjax(
+    "/new-form",
+    "",
+    data => {
+      albumieFormWrapper.innerHTML = data;
+      initAlbumieForm();
+      reinitTrackList();
+      toggleForm(albumieForm, true);
+      document.querySelector("form[name='album'] > div").remove();
+    },
+    data => {}
+  );
+}
+
 function toggleForm(form, isEnabled) {
-  form.style.opacity = isEnabled ? "1" : "0.5";
+  form.classList.toggle("processing", !isEnabled);
   let elements = form.elements;
-  for (var i = 0, len = elements.length; i < len; ++i) {
-    elements[i].readOnly = !isEnabled;
+  for (var i = 0; i < elements.length; ++i) {
+    let element = elements[i];
+    if (element.tagName == "BUTTON") {
+      element.disabled = !isEnabled;
+    } else {
+      element.readonly = !isEnabled;
+    }
   }
 }
 
