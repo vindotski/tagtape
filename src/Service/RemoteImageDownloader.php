@@ -20,7 +20,12 @@ class RemoteImageDownloader
     ]);
     $fileName = $this->uuidGenerator->generate();
     $downloader->download($url, $this->getImagesDirectory(), $fileName);
-    return $this->getImagesDirectory() . $fileName;
+    $imageFilename = $this->getImagesDirectory() . $fileName;
+    $image = new \Gumlet\ImageResize($imageFilename);
+    $image->quality_jpg = 100;
+    $image->resize(1000, 1000, $allow_enlarge = true);
+    $image->save($imageFilename, IMAGETYPE_JPEG);
+    return $imageFilename;
   }
 
   public function getImagesDirectory()
