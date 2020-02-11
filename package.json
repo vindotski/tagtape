@@ -1,13 +1,13 @@
 {
   "name": "albumie",
   "version": "0.0.1",
+  "license": "MIT",
   "description": "Convert YouTube to MP3 with metadata for standard MP3 players.",
   "main": "gulpfile.js",
   "author": {
     "name": "Ivan Vinski",
     "url": "https://ivanvinski.com"
   },
-  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/ivanvinski/albumie"
