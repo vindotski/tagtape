@@ -7,6 +7,7 @@ function initAlbumieForm() {
   let albumieForm = albumieFormWrapper.querySelector("form");
   albumieForm.onsubmit = e => {
     e.preventDefault();
+    toggleForm(albumieForm, false);
     postAjax(
       "/submit",
       serialize(albumieForm),
@@ -19,9 +20,18 @@ function initAlbumieForm() {
         albumieFormWrapper.innerHTML = data;
         initAlbumieForm();
         reinitTrackList();
+        toggleForm(albumieForm, true);
       }
     );
   };
+}
+
+function toggleForm(form, isEnabled) {
+  form.style.opacity = isEnabled ? "1" : "0.5";
+  let elements = form.elements;
+  for (var i = 0, len = elements.length; i < len; ++i) {
+    elements[i].readOnly = !isEnabled;
+  }
 }
 
 function postAjax(url, data, success, failure) {
