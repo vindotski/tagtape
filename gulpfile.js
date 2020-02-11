@@ -232,7 +232,7 @@ var copyFiles = function (done) {
 	if (!settings.copy) return done();
 
 	// Copy static files
-	return src(paths.copy.input)
+	return src(paths.copy.input, { dot: true })
 		.pipe(dest(paths.copy.output));
 
 };
