@@ -44,6 +44,22 @@ docker run --rm -p 127.0.0.1:4000:4000 -e API_TOKEN=$(openssl rand -hex 32) tagt
 
 YouTube changes often, so update yt-dlp by bumping the `YTDLP_VERSION` build argument (or pass `--build-arg YTDLP_VERSION=…`) and rebuilding.
 
+### Prebuilt image
+
+CI publishes the image to Docker Hub as [`vindotski/tagtape`](https://hub.docker.com/r/vindotski/tagtape) for linux/amd64 and linux/arm64, with provenance and an SBOM attached. It only publishes after lint, tests and the container smoke test pass.
+
+```bash
+docker run --rm -p 127.0.0.1:4000:4000 -e API_TOKEN=$(openssl rand -hex 32) vindotski/tagtape
+```
+
+| Tag | Published from |
+|---|---|
+| `latest` | every push to `main` |
+| `1.2.3`, `1.2`, `1` | the git tag `v1.2.3` |
+| `sha-abc1234` | every publish (immutable; use it to pin a deployment) |
+
+To cut a release, run `git tag v1.0.0 && git push origin v1.0.0`.
+
 ## End-to-end test
 
 `src/e2e.test.ts` runs against a running API with the real binaries, and is skipped unless `TAGTAPE_E2E_URL` is set. It converts a 19-second video, and checks the tags, the 1000×1000 front cover and the ZIP file names:

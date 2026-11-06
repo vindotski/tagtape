@@ -3,6 +3,7 @@ name: CI
 on:
   push:
     branches: [main, dev]
+    tags: ["v*.*.*"]
   pull_request:
 
 permissions:
@@ -82,3 +83,61 @@ jobs:
       - name: Container logs
         if: failure()
         run: docker logs api
+
+  # Publishes vindotski/tagtape to Docker Hub, only from main and version tags,
+  # and only after every check above has passed.
+  # Needs repo variable DOCKERHUB_USERNAME and secret DOCKERHUB_TOKEN.
+  publish:
+    name: Publish API image to Docker Hub
+    needs: [checks, api-image]
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # arm64 is built under QEMU emulation on the amd64 runner.
+      - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # main → latest; v1.2.3 → 1.2.3, 1.2, 1; every publish → sha-abc1234.
+      - id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: vindotski/tagtape
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=sha,format=short
+          labels: |
+            org.opencontainers.image.title=TagTape API
+            org.opencontainers.image.description=Turns YouTube links into a ZIP of ID3-tagged MP3s (yt-dlp + ffmpeg). Backend for https://tagtape.app
+            org.opencontainers.image.licenses=GPL-2.0
+            org.opencontainers.image.url=https://tagtape.app
+
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: apps/api/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          provenance: mode=max
+          sbom: true
+          cache-from: |
+            type=gha,scope=api
+            type=gha,scope=api-release
+          cache-to: type=gha,scope=api-release,mode=max

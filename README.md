@@ -28,9 +28,10 @@ The API needs yt-dlp and ffmpeg. The easiest way to get them is the API's Docker
 pnpm install
 TOKEN=$(openssl rand -hex 32)
 
-# 1. API (Docker, with yt-dlp + ffmpeg) on :4000
-docker build -f apps/api/Dockerfile -t tagtape-api .
-docker run --rm -p 127.0.0.1:4000:4000 -e API_TOKEN=$TOKEN tagtape-api
+# 1. API (Docker, with yt-dlp + ffmpeg) on :4000, using the published image
+docker run --rm -p 127.0.0.1:4000:4000 -e API_TOKEN=$TOKEN vindotski/tagtape
+#    or build it from source:
+#    docker build -f apps/api/Dockerfile -t tagtape-api . && docker run … tagtape-api
 
 # 2. Web app on :3000 (in another terminal)
 printf 'API_URL=http://127.0.0.1:4000\nAPI_TOKEN=%s\n' "$TOKEN" > apps/web/.env

@@ -123,6 +123,11 @@ Run `pnpm check`, `pnpm typecheck` and the relevant tests before calling a task 
 - **`ci.yml`** runs on pushes to `main`/`dev` and on every PR:
   - `biome ci`, `pnpm typecheck`, `pnpm test` and `pnpm build`, with a frozen lockfile.
   - It also builds the API image and smoke-tests it: health ok, 401 without a token, non-root user, tini as PID 1.
+- **`publish`** (a job in `ci.yml`) pushes the multi-arch API image (amd64 + arm64, built under QEMU) to Docker Hub as `vindotski/tagtape`:
+  - It runs only on pushes to `main` and tags `v*.*.*`, and only after `checks` and `api-image` pass.
+  - Tags: `latest` (main), `X.Y.Z`, `X.Y` and `X` (version tags), plus `sha-<short>`.
+  - It uses the repo variable `DOCKERHUB_USERNAME` and the secret `DOCKERHUB_TOKEN` (a Docker Hub personal access token with Read & Write scope).
+  - Never publish from `dev` or from PRs.
 - **`e2e.yml`** runs weekly (and on demand): a real YouTube conversion through the API image.
   - A failure saying "confirm you're not a bot" means YouTube blocked GitHub's IP; it isn't a code bug.
   - Other failures usually mean `YTDLP_VERSION` needs bumping.
