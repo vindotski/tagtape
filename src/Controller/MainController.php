@@ -35,7 +35,7 @@ class MainController extends AbstractController
     $form->handleRequest($request);
 
     if (!$form->isValid()) {
-      $html = $this->renderView('form/_albumie.html.twig', [
+      $html = $this->renderView('form/_tagtape.html.twig', [
         'form' => $form->createView()
       ]);
       return new Response($html, 400);
@@ -98,7 +98,7 @@ class MainController extends AbstractController
    */
   public function newFormTemplate()
   {
-    return new Response($this->renderView('form/_albumie.html.twig', [
+    return new Response($this->renderView('form/_tagtape.html.twig', [
       'form' => $this->createForm(AlbumType::class)->createView()
     ]));
   }

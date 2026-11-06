@@ -1,25 +1,25 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Albumie - YouTube To MP3 with Metadata, YouTube Downloader
+{% block title %}TagTape - YouTube To MP3 with Metadata, YouTube Downloader
 {% endblock %}
 
 {% block body %}
 	<header class="header">
 		<div class="container">
-			<h1>Albumie</h1>
+			<h1>TagTape</h1>
 			<p>
 				Download YouTube videos to MP3 files and automatically apply the metadata to have organized music on any device that has standard MP3 player.
 			</p>
 		</div>
 	</header>
 
-	<main id="albumie-form-wrapper" class="container">
-		{{ include('form/_albumie.html.twig') }}
+	<main id="tagtape-form-wrapper" class="container">
+		{{ include('form/_tagtape.html.twig') }}
 	</main>
 
 	<div id="app-loader" class="loader">
 		<i class="loader-icon fas fa-spinner"></i>
-		Loading Albumie...
+		Loading TagTape...
 	</div>
 
 	<iframe></iframe>

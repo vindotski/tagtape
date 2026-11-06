@@ -1,16 +1,17 @@
 {
-  "name": "albumie",
+  "name": "tagtape",
   "version": "0.0.1",
-  "license": "MIT",
+  "license": "GPL-2.0",
   "description": "Convert YouTube to MP3 with metadata for standard MP3 players.",
   "main": "gulpfile.js",
   "author": {
     "name": "Ivan Vinski",
-    "url": "https://ivanvinski.com"
+    "email": "ivan@vin.ski",
+    "url": "https://www.vin.ski"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/ivanvinski/albumie"
+    "url": "https://github.com/vindotski/tagtape"
   },
   "boilerplate": {
     "version": "2.2.6",

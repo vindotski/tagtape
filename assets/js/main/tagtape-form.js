@@ -1,19 +1,19 @@
 document.addEventListener("DOMContentLoaded", () => {
-  initAlbumieForm();
+  initTagtapeForm();
 });
 
-function initAlbumieForm() {
-  let albumieFormWrapper = document.querySelector("#albumie-form-wrapper");
-  let albumieForm = albumieFormWrapper.querySelector("form");
-  albumieForm.onsubmit = e => {
+function initTagtapeForm() {
+  let tagtapeFormWrapper = document.querySelector("#tagtape-form-wrapper");
+  let tagtapeForm = tagtapeFormWrapper.querySelector("form");
+  tagtapeForm.onsubmit = e => {
     e.preventDefault();
-    toggleForm(albumieForm, false);
+    toggleForm(tagtapeForm, false);
     postAjax(
       "/submit",
-      serialize(albumieForm),
+      serialize(tagtapeForm),
       data => {
-        toggleForm(albumieForm, true);
-        albumieForm.innerHTML = `
+        toggleForm(tagtapeForm, true);
+        tagtapeForm.innerHTML = `
           <div style="margin-bottom: 5rem;">
             <h2>Done!</h2>
             <p>Automatic download of your files will start shortly.</p>
@@ -25,28 +25,28 @@ function initAlbumieForm() {
         iframe.setAttribute("src", "/download/" + data);
       },
       data => {
-        albumieFormWrapper.innerHTML = data;
-        initAlbumieForm();
+        tagtapeFormWrapper.innerHTML = data;
+        initTagtapeForm();
         reinitTrackList();
-        toggleForm(albumieForm, true);
+        toggleForm(tagtapeForm, true);
       }
     );
   };
 }
 
 function reloadForm() {
-  let albumieFormWrapper = document.querySelector("#albumie-form-wrapper");
-  let albumieForm = albumieFormWrapper.querySelector("form");
+  let tagtapeFormWrapper = document.querySelector("#tagtape-form-wrapper");
+  let tagtapeForm = tagtapeFormWrapper.querySelector("form");
 
-  toggleForm(albumieForm, false);
+  toggleForm(tagtapeForm, false);
   postAjax(
     "/new-form",
     "",
     data => {
-      albumieFormWrapper.innerHTML = data;
-      initAlbumieForm();
+      tagtapeFormWrapper.innerHTML = data;
+      initTagtapeForm();
       reinitTrackList();
-      toggleForm(albumieForm, true);
+      toggleForm(tagtapeForm, true);
       document.querySelector("form[name='album'] > div").remove();
     },
     data => {}
