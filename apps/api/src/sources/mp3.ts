@@ -85,12 +85,17 @@ export interface Mp3Info {
  * Reads the start of an MP3 file: `buf` holds the first bytes (the tag plus
  * `HEADER_WINDOW`), `totalBytes` is the file size if known. `null` when it
  * isn't MPEG Layer III audio.
+ *
+ * `skipped`: when the caller already skipped the ID3v2 tag without keeping it
+ * (so a big embedded cover isn't buffered), `buf` starts right after the tag
+ * and `skipped` is the tag's size.
  */
 export function readMp3Info(
 	buf: Uint8Array,
 	totalBytes: number | null,
+	skipped = 0,
 ): Mp3Info | null {
-	const tag = id3v2Size(buf);
+	const tag = skipped > 0 ? 0 : id3v2Size(buf);
 	// Some files have a little padding or junk between the tag and the audio.
 	const searchEnd = Math.min(buf.length - 4, tag + 4096);
 	for (let offset = tag; offset <= searchEnd; offset++) {
@@ -99,7 +104,7 @@ export function readMp3Info(
 		// A real stream has another frame right after this one (avoids false syncs).
 		const next = offset + frame.length;
 		if (next + 4 <= buf.length && !frameAt(buf, next)) continue;
-		return describe(buf, offset, frame, totalBytes);
+		return describe(buf, offset, frame, totalBytes, skipped);
 	}
 	return null;
 }
@@ -109,6 +114,7 @@ function describe(
 	offset: number,
 	frame: FrameHeader,
 	totalBytes: number | null,
+	skipped: number,
 ): Mp3Info {
 	const ascii = (at: number) =>
 		String.fromCharCode(...buf.subarray(at, at + 4));
@@ -126,7 +132,7 @@ function describe(
 	const xing = offset + 4 + sideInfo;
 	const xingTag = ascii(xing);
 	const base = {
-		audioOffset: offset,
+		audioOffset: skipped + offset,
 		bitrateKbps: frame.bitrateKbps,
 		sampleRate: frame.sampleRate,
 	};
@@ -136,7 +142,7 @@ function describe(
 		const vbr = xingTag === "Xing";
 		const durationSeconds =
 			secondsFor(frames) ??
-			(vbr ? null : cbrSeconds(frame, offset, totalBytes));
+			(vbr ? null : cbrSeconds(frame, skipped + offset, totalBytes));
 		return { ...base, vbr, durationSeconds };
 	}
 	// Fraunhofer's VBRI header: always 32 bytes after the frame header.
@@ -150,7 +156,7 @@ function describe(
 	return {
 		...base,
 		vbr: false,
-		durationSeconds: cbrSeconds(frame, offset, totalBytes),
+		durationSeconds: cbrSeconds(frame, skipped + offset, totalBytes),
 	};
 }
 

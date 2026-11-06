@@ -25,7 +25,7 @@ const xingFrame = (tag: "Xing" | "Info", frames: number) =>
 const id3 = (size: number) => {
 	const tag = Buffer.alloc(10 + size);
 	tag.write("ID3", 0, "latin1");
-	tag.set([3, 0, 0]);
+	tag.set([3, 0, 0], 3); // version 2.3, flags
 	tag.set(
 		[(size >> 21) & 0x7f, (size >> 14) & 0x7f, (size >> 7) & 0x7f, size & 0x7f],
 		6,
@@ -37,6 +37,8 @@ const frames = (n: number) =>
 
 /** ~10 s of CBR audio (1152 samples per frame at 44.1 kHz), behind a 2 KB tag. */
 const CBR = Buffer.concat([id3(2048), frames(383)]);
+/** The same audio behind a 600 KB tag (e.g. embedded artwork). */
+const BIG_TAG = Buffer.concat([id3(600_000), frames(383)]);
 /** A VBR file whose Xing header says 1000 frames (≈ 26 s). */
 const VBR = Buffer.concat([xingFrame("Xing", 1000), frames(30)]);
 
@@ -115,6 +117,8 @@ beforeAll(async () => {
 		switch (req.url) {
 			case "/cbr.mp3":
 				return send("audio/mpeg", CBR);
+			case "/big-tag.mp3":
+				return send("audio/mpeg", BIG_TAG);
 			case "/vbr.mp3":
 				return send("audio/mpeg; charset=binary", VBR);
 			case "/page.mp3":
@@ -158,6 +162,9 @@ beforeAll(async () => {
 				res.writeHead(200, { "content-type": "audio/mpeg" });
 				res.write(CBR);
 				return; // never ends
+			case "/to-port.mp3":
+				res.writeHead(302, { location: "http://music.example.com:2222/a.mp3" });
+				return res.end();
 			case "/to-metadata.mp3":
 				res.writeHead(302, { location: "http://169.254.169.254/latest.mp3" });
 				return res.end();
@@ -201,6 +208,7 @@ const fakeFfmpeg = ((_cmd, _args, { stdin, signal }) => {
 const source = (
 	overrides: {
 		maxBytes?: number;
+		maxOutputBytes?: number;
 		lookup?: LookupFunction | null;
 		connectTimeoutMs?: number;
 		idleTimeoutMs?: number;
@@ -211,6 +219,10 @@ const source = (
 		maxBytes: overrides.maxBytes ?? 1024 * 1024,
 		timeoutMs: 10_000,
 		spawnStream: fakeFfmpeg,
+		testPort: new URL(base).port,
+		...(overrides.maxOutputBytes
+			? { maxOutputBytes: overrides.maxOutputBytes }
+			: {}),
 		...(overrides.connectTimeoutMs
 			? { connectTimeoutMs: overrides.connectTimeoutMs }
 			: {}),
@@ -257,10 +269,24 @@ describe("direct MP3 source", () => {
 		await expect(probe(path)).rejects.toThrow(message);
 	});
 
-	test("blocks private addresses (SSRF)", async () => {
+	test("blocks host names that resolve to private addresses (SSRF)", async () => {
+		// Same message as a host that doesn't exist: no internal-DNS oracle.
 		await expect(probe("/cbr.mp3", source({ lookup: null }))).rejects.toThrow(
-			"private network",
+			"Track link couldn't be reached",
 		);
+	});
+
+	test.each([
+		["a custom port", "http://music.example.com:8080/a.mp3"],
+		["credentials", "https://user:pass@music.example.com/a.mp3"],
+	])("refuses %s", async (_label, url) => {
+		await expect(source().probe({ url, signal: signal() })).rejects.toThrow(
+			"standard port, without a username or password",
+		);
+	});
+
+	test("refuses a redirect to another port", async () => {
+		await expect(probe("/to-port.mp3")).rejects.toThrow("standard port");
 	});
 
 	// Node never calls `lookup` for IP-literal hosts, so these must be caught
@@ -304,6 +330,22 @@ describe("direct MP3 source", () => {
 		await expect(buffer(stream)).rejects.toThrow("larger than");
 	});
 
+	test("skips a big ID3 tag instead of buffering it", async () => {
+		expect(await probe("/big-tag.mp3")).toMatchObject({
+			durationSeconds: 10,
+			state: { vbr: false },
+		});
+	});
+
+	test("caps what comes out of ffmpeg", async () => {
+		const s = source({ maxOutputBytes: 1000 });
+		const stream = s.stream({
+			state: { url: `${base}/cbr.mp3`, vbr: false },
+			signal: signal(),
+		});
+		await expect(buffer(stream)).rejects.toThrow("larger than");
+	});
+
 	test("a transfer slower than the connect timeout still completes", async () => {
 		const s = source({ connectTimeoutMs: 100 });
 		const stream = s.stream({
@@ -340,6 +382,13 @@ describe("direct MP3 source", () => {
 		expect(after(copy, "-c:a")).toBe("copy");
 		expect(after(copy, "-f")).toBe("mp3"); // input must be MP3
 		expect(after(copy, "-write_xing")).toBe("0");
+		// Hardening: stdin only, one thread, never longer than the 2-hour limit.
+		expect(after(copy, "-protocol_whitelist")).toBe("pipe");
+		expect(copy.indexOf("-protocol_whitelist")).toBeLessThan(
+			copy.indexOf("-i"),
+		);
+		expect(after(copy, "-threads")).toBe("1");
+		expect(after(copy, "-t")).toBe("7200");
 		expect(after(copy, "-id3v2_version")).toBe("0");
 		const encode = ffmpegArgs(true);
 		expect(after(encode, "-c:a")).toBe("libmp3lame");

@@ -12,8 +12,10 @@ const app = await buildApp({
 	config,
 	// Built after the app so plugins log through Fastify's logger.
 	pipeline: async (log) => {
+		// Plugins read their own settings from the environment, minus the API's secret.
+		const { API_TOKEN: _token, ...pluginEnv } = process.env;
 		const plugins = await loadPlugins(pluginPaths(config.TAGTAPE_PLUGINS), {
-			env: process.env,
+			env: pluginEnv,
 			ffmpegBin: config.FFMPEG_BIN,
 			run,
 			spawnStream,

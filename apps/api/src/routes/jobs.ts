@@ -138,6 +138,13 @@ export const jobRoutes: FastifyPluginAsyncZod<{
 						error: "Conflict",
 						message: "This album is already downloading",
 					});
+				case "exhausted":
+					return reply.code(410).send({
+						statusCode: 410,
+						error: "Gone",
+						message:
+							"This album was downloaded too many times. Convert it again to download it.",
+					});
 				case "full":
 					return reply.code(429).header("retry-after", "30").send({
 						statusCode: 429,

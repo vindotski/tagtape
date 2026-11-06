@@ -17,6 +17,9 @@ services:
       MAX_QUEUED_STREAMS: ${MAX_QUEUED_STREAMS:-10}
       TRACK_CONCURRENCY: ${TRACK_CONCURRENCY:-2}
       MAX_DIRECT_MB: ${MAX_DIRECT_MB:-300}
+      MAX_DOWNLOADS_PER_JOB: ${MAX_DOWNLOADS_PER_JOB:-5}
+      MAX_STORED_JOBS: ${MAX_STORED_JOBS:-500}
+      CHECK_TIMEOUT_SEC: ${CHECK_TIMEOUT_SEC:-180}
     # Redeploys stop running downloads (nothing is stored to resume); users retry.
     stop_grace_period: 30s
 

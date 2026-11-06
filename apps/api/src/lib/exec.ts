@@ -2,6 +2,20 @@ import { spawn } from "node:child_process";
 import { createInterface } from "node:readline";
 import type { Readable } from "node:stream";
 
+/**
+ * What child processes see of the environment: enough to find binaries and
+ * handle UTF-8, never secrets such as API_TOKEN.
+ */
+export function childEnv(
+	env: NodeJS.ProcessEnv = process.env,
+): NodeJS.ProcessEnv {
+	return {
+		PATH: env.PATH ?? "/usr/local/bin:/usr/bin:/bin",
+		LANG: "C.UTF-8",
+		...(env.HOME ? { HOME: env.HOME } : {}),
+	};
+}
+
 export interface RunOptions {
 	signal?: AbortSignal;
 	/** Kill the process after this many milliseconds. */
@@ -70,6 +84,7 @@ export function run(
 		// leave ffmpeg running as an orphan.
 		const child = spawn(command, args, {
 			shell: false,
+			env: childEnv(),
 			stdio: ["ignore", "pipe", "pipe"],
 			detached: process.platform !== "win32",
 		});
@@ -178,6 +193,7 @@ export function spawnStream(
 
 	const child = spawn(command, args, {
 		shell: false,
+		env: childEnv(),
 		stdio: [options.stdin === undefined ? "ignore" : "pipe", "pipe", "pipe"],
 		detached: process.platform !== "win32",
 	});

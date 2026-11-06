@@ -46,7 +46,7 @@ The web app and the API share **one version**, which lives in the root `package.
 | Variable | Default | |
 |---|---|---|
 | `PORT` | `3000` | Public port of the web app. |
-| `JOB_TTL_MIN`, `MAX_ACTIVE_STREAMS`, `MAX_QUEUED_STREAMS`, `MAX_ACTIVE_PROBES`, `MAX_QUEUED_JOBS`, `TRACK_CONCURRENCY`, `MAX_DIRECT_MB`, `LOG_LEVEL` | see [apps/api/.env.example](apps/api/.env.example) | API tuning. These are passed through. |
+| `JOB_TTL_MIN`, `MAX_ACTIVE_STREAMS`, `MAX_QUEUED_STREAMS`, `MAX_ACTIVE_PROBES`, `MAX_QUEUED_JOBS`, `TRACK_CONCURRENCY`, `MAX_DIRECT_MB`, `MAX_DOWNLOADS_PER_JOB`, `MAX_STORED_JOBS`, `CHECK_TIMEOUT_SEC`, `LOG_LEVEL` | see [apps/api/.env.example](apps/api/.env.example) | API tuning. These are passed through. |
 | `API_HOST`, `API_TOKEN` | `127.0.0.1`, random | Set both only to expose the API on purpose, e.g. for the end-to-end test. |
 
 ## Development

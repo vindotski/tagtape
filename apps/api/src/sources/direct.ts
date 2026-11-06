@@ -15,6 +15,7 @@
 import type { IncomingMessage } from "node:http";
 import type { LookupFunction } from "node:net";
 import { PassThrough, pipeline, type Readable, Transform } from "node:stream";
+import { MAX_TRACK_SECONDS } from "@tagtape/shared";
 import { UserFacingError } from "../lib/errors.ts";
 import { spawnStream as realSpawnStream } from "../lib/exec.ts";
 import { openPublicUrl } from "../lib/http.ts";
@@ -26,8 +27,11 @@ const LABEL = "Track link";
 const CONNECT_TIMEOUT_MS = 30_000;
 /** How long the body may stall (no bytes at all) before the track fails. */
 const IDLE_TIMEOUT_MS = 60_000;
-/** Embedded artwork can make tags big; anything beyond this isn't worth reading. */
-const MAX_TAG_BYTES = 16 * 1024 * 1024;
+/**
+ * Embedded artwork can make tags big. The tag is skipped (counted, not kept),
+ * so this only bounds how much a check downloads.
+ */
+const MAX_TAG_BYTES = 8 * 1024 * 1024;
 /** Re-encoding bitrate for VBR files (same as the site sources). */
 const MP3_BITRATE = "256k";
 
@@ -53,6 +57,10 @@ export interface DirectSourceOptions {
 	lookup?: LookupFunction;
 	/** For tests: replaces ffmpeg. */
 	spawnStream?: typeof realSpawnStream;
+	/** For tests: the port of a local test server. */
+	testPort?: string;
+	/** For tests: a smaller output cap. */
+	maxOutputBytes?: number;
 	/** For tests: shorter timeouts. */
 	connectTimeoutMs?: number;
 	idleTimeoutMs?: number;
@@ -82,6 +90,7 @@ export function createDirectSource(options: DirectSourceOptions): Source {
 				accept: "audio/mpeg, */*;q=0.5",
 				label: LABEL,
 				...(options.lookup ? { lookup: options.lookup } : {}),
+				...(options.testPort ? { testPort: options.testPort } : {}),
 			});
 		} catch (error) {
 			if (connect.signal.aborted && !signal.aborted) {
@@ -126,8 +135,8 @@ export function createDirectSource(options: DirectSourceOptions): Source {
 
 		async probe({ url, signal }): Promise<TrackProbe> {
 			const { response, totalBytes } = await open(url, signal);
-			const head = await readHead(response);
-			const info = readMp3Info(head, totalBytes);
+			const { head, skipped } = await readHead(response);
+			const info = readMp3Info(head, totalBytes, skipped);
 			if (!info) throw notMp3();
 			const state: DirectState = { url, vbr: info.vbr };
 			return {
@@ -163,7 +172,12 @@ export function createDirectSource(options: DirectSourceOptions): Source {
 						signal: both,
 						timeoutMs: options.timeoutMs,
 					});
-					ffmpeg.stdout.pipe(out, { end: false });
+					// The input is capped, but a re-encode can still grow (or a file can
+					// lie about its length): cap what goes out too.
+					const output = ffmpeg.stdout.pipe(capBytes(maxOutputBytes(options)));
+					// Closing `out` aborts `local`, which kills ffmpeg.
+					output.once("error", (error) => out.destroy(error));
+					output.pipe(out, { end: false });
 					await ffmpeg.done;
 
 					// ffmpeg exits cleanly when its input simply ends, so a download that
@@ -202,6 +216,10 @@ export function ffmpegArgs(vbr: boolean): string[] {
 		"-hide_banner",
 		"-loglevel",
 		"error",
+		// Read only from stdin: never let a crafted file make ffmpeg open
+		// other protocols (files, URLs).
+		"-protocol_whitelist",
+		"pipe",
 		"-f",
 		"mp3",
 		"-i",
@@ -211,6 +229,11 @@ export function ffmpegArgs(vbr: boolean): string[] {
 		"-map_metadata",
 		"-1",
 		...(vbr ? ["-c:a", "libmp3lame", "-b:a", MP3_BITRATE] : ["-c:a", "copy"]),
+		// Never more than the longest track we accept, whatever the file claims.
+		"-t",
+		String(MAX_TRACK_SECONDS),
+		"-threads",
+		"1",
 		"-id3v2_version",
 		"0",
 		"-write_id3v1",
@@ -223,21 +246,38 @@ export function ffmpegArgs(vbr: boolean): string[] {
 	];
 }
 
-/** The tag plus `HEADER_WINDOW` bytes, then stops the download. */
-async function readHead(response: IncomingMessage): Promise<Buffer> {
-	const chunks: Buffer[] = [];
-	let total = 0;
-	let needed = HEADER_WINDOW + 10;
+/**
+ * The bytes right after the ID3v2 tag (`HEADER_WINDOW` of them), then stops
+ * the download. The tag itself is skipped, not buffered: a big embedded cover
+ * costs download time but no memory.
+ */
+async function readHead(
+	response: IncomingMessage,
+): Promise<{ head: Buffer; skipped: number }> {
+	let start = Buffer.alloc(0);
+	let skipped: number | undefined;
+	let seen = 0;
+	const kept: Buffer[] = [];
+	let keptBytes = 0;
 	try {
-		for await (const chunk of response) {
-			chunks.push(chunk as Buffer);
-			total += (chunk as Buffer).length;
-			if (total >= 10 && needed === HEADER_WINDOW + 10) {
-				const tag = id3v2Size(Buffer.concat(chunks).subarray(0, 10));
-				if (tag > MAX_TAG_BYTES) throw notMp3();
-				needed = tag + HEADER_WINDOW;
+		for await (const piece of response) {
+			let chunk = piece as Buffer;
+			if (skipped === undefined) {
+				start = Buffer.concat([start, chunk]);
+				if (start.length < 10) continue;
+				skipped = id3v2Size(start);
+				if (skipped > MAX_TAG_BYTES) throw notMp3();
+				chunk = start;
+				seen = 0;
 			}
-			if (total >= needed) break;
+			// Drop whatever still belongs to the tag, keep the rest.
+			const tagLeft = Math.max(0, skipped - seen);
+			seen += chunk.length;
+			if (tagLeft >= chunk.length) continue;
+			const rest = chunk.subarray(tagLeft);
+			kept.push(rest);
+			keptBytes += rest.length;
+			if (keptBytes >= HEADER_WINDOW) break;
 		}
 	} catch (error) {
 		if (error instanceof UserFacingError) throw error;
@@ -245,7 +285,14 @@ async function readHead(response: IncomingMessage): Promise<Buffer> {
 	} finally {
 		response.destroy();
 	}
-	return Buffer.concat(chunks);
+	if (skipped === undefined) return { head: start, skipped: 0 };
+	return { head: Buffer.concat(kept), skipped };
+}
+
+/** Output cap: the input cap plus room for re-encoding up to 2 hours at 320 kbps. */
+function maxOutputBytes(options: DirectSourceOptions): number {
+	if (options.maxOutputBytes) return options.maxOutputBytes;
+	return Math.max(options.maxBytes, (MAX_TRACK_SECONDS * 320_000) / 8) * 1.1;
 }
 
 /** Fails the stream once more than `maxBytes` came through. */

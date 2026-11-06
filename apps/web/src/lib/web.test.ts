@@ -283,4 +283,27 @@ describe("streamArchive (/download/:jobId)", () => {
 		);
 		expect((await streamArchive(JOB_ID, twice.config)).status).toBe(409);
 	});
+
+	test("downloaded too often (410) is passed on; errors are never cached", async () => {
+		const gone = archiveApi(
+			() =>
+				new Response(
+					JSON.stringify({
+						message: "This album was downloaded too many times.",
+					}),
+					{ status: 410 },
+				),
+		);
+		const response = await streamArchive(JOB_ID, gone.config);
+		expect(response.status).toBe(410);
+		expect(response.headers.get("cache-control")).toBe("no-store");
+		expect(await response.text()).toBe(
+			"This album was downloaded too many times.",
+		);
+
+		const missing = archiveApi(() => new Response("{}", { status: 404 }));
+		const notFound = await streamArchive(JOB_ID, missing.config);
+		expect(notFound.status).toBe(404);
+		expect(notFound.headers.get("cache-control")).toBe("no-store");
+	});
 });

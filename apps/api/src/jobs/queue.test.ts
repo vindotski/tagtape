@@ -25,6 +25,22 @@ describe("Semaphore", () => {
 		expect(slots.active).toBe(0);
 	});
 
+	test("a waiter that gives up leaves the queue", async () => {
+		const slots = new Semaphore(1);
+		const release = await slots.acquire();
+		const controller = new AbortController();
+		const waiting = slots.acquire(controller.signal);
+		expect(slots.waiting).toBe(1);
+		controller.abort(new Error("client left"));
+		await expect(waiting).rejects.toThrow("client left");
+		expect(slots.waiting).toBe(0);
+		// The slot goes to the next real waiter, not to the one that left.
+		const next = slots.acquire();
+		release();
+		(await next)();
+		expect(slots.active).toBe(0);
+	});
+
 	test("releasing twice is harmless", async () => {
 		const slots = new Semaphore(1);
 		const release = await slots.acquire();

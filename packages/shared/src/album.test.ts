@@ -52,8 +52,23 @@ describe("albumInputSchema", () => {
 		["missing artist", { artist: "" }, ["artist"]],
 		["genre over 30", { genre: "x".repeat(31) }, ["genre"]],
 		["two-digit year", { year: "87" }, ["year"]],
-		["cover not a url", { coverUrl: "cover.jpg" }, ["coverUrl"]],
+		["cover not a url", { coverUrl: "my cover" }, ["coverUrl"]],
 		["cover with ftp", { coverUrl: "ftp://example.com/a.jpg" }, ["coverUrl"]],
+		[
+			"cover with a port",
+			{ coverUrl: "https://example.com:8443/a.jpg" },
+			["coverUrl"],
+		],
+		[
+			"cover with credentials",
+			{ coverUrl: "https://u:p@example.com/a.jpg" },
+			["coverUrl"],
+		],
+		[
+			"a link over 2048 characters",
+			{ coverUrl: `https://example.com/${"a".repeat(2048)}.jpg` },
+			["coverUrl"],
+		],
 		["no tracks", { tracks: [] }, ["tracks"]],
 		[
 			"a track link with ftp",

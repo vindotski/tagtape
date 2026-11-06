@@ -16,13 +16,30 @@ export class Semaphore {
 		return this.#waiters.length;
 	}
 
-	/** Resolves with a `release` function once a slot is free. */
-	async acquire(): Promise<() => void> {
+	/**
+	 * Resolves with a `release` function once a slot is free. Aborting `signal`
+	 * while waiting leaves the queue (rejects), so a client that gave up never
+	 * holds a place in line.
+	 */
+	async acquire(signal?: AbortSignal): Promise<() => void> {
+		signal?.throwIfAborted();
 		if (this.#active < this.#limit) {
 			this.#active++;
 		} else {
 			// The releasing caller hands its slot straight to us, so #active stays put.
-			await new Promise<void>((resolve) => this.#waiters.push(resolve));
+			await new Promise<void>((resolve, reject) => {
+				const waiter = () => {
+					signal?.removeEventListener("abort", onAbort);
+					resolve();
+				};
+				const onAbort = () => {
+					const index = this.#waiters.indexOf(waiter);
+					if (index !== -1) this.#waiters.splice(index, 1);
+					reject(signal?.reason);
+				};
+				signal?.addEventListener("abort", onAbort, { once: true });
+				this.#waiters.push(waiter);
+			});
 		}
 		let released = false;
 		return () => {

@@ -65,14 +65,18 @@ describe("cover", () => {
 
 	test("blocks private addresses by default (SSRF)", async () => {
 		await expect(
-			downloadImage(`${base}/cover.png`, { signal: signal() }),
-		).rejects.toThrow("private network");
+			downloadImage(`${base}/cover.png`, {
+				signal: signal(),
+				testPort: new URL(base).port,
+			}),
+		).rejects.toThrow("couldn't be reached");
 	});
 
 	test("downloads and follows redirects", async () => {
 		const image = await downloadImage(`${base}/redirect`, {
 			signal: signal(),
 			lookup: anyAddress,
+			testPort: new URL(base).port,
 		});
 		expect((await sharp(image).metadata()).width).toBe(1600);
 	});
@@ -82,7 +86,11 @@ describe("cover", () => {
 		["/missing", "HTTP 404"],
 	])("rejects %s", async (path, message) => {
 		await expect(
-			downloadImage(`${base}${path}`, { signal: signal(), lookup: anyAddress }),
+			downloadImage(`${base}${path}`, {
+				signal: signal(),
+				lookup: anyAddress,
+				testPort: new URL(base).port,
+			}),
 		).rejects.toThrow(message);
 	});
 
@@ -91,6 +99,7 @@ describe("cover", () => {
 			downloadImage(`${base}/huge-chunked`, {
 				signal: signal(),
 				lookup: anyAddress,
+				testPort: new URL(base).port,
 				maxBytes: 1024,
 			}),
 		).rejects.toBeInstanceOf(UserFacingError);
@@ -104,6 +113,45 @@ describe("cover", () => {
 			width: COVER_SIZE,
 			height: COVER_SIZE,
 		});
+	});
+
+	test.each([
+		[
+			"a GIF",
+			() =>
+				sharp({
+					create: { width: 10, height: 10, channels: 3, background: "#000" },
+				})
+					.gif()
+					.toBuffer(),
+			"must be a JPEG, PNG or WebP",
+		],
+		[
+			"an SVG",
+			async () =>
+				Buffer.from(
+					'<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"/>',
+				),
+			"must be a JPEG, PNG or WebP",
+		],
+		[
+			// 8000×8000 = 64 MP of one colour: a few KB as PNG, ~200 MB decoded.
+			"a decompression bomb",
+			() =>
+				sharp({
+					create: {
+						width: 8000,
+						height: 8000,
+						channels: 3,
+						background: "#fff",
+					},
+				})
+					.png({ compressionLevel: 9 })
+					.toBuffer(),
+			"too many pixels",
+		],
+	])("rejects %s", async (_label, make, message) => {
+		await expect(processCover(await make())).rejects.toThrow(message);
 	});
 
 	test("rejects data that isn't an image", async () => {

@@ -31,6 +31,12 @@ export const configSchema = z.object({
 	MAX_ACTIVE_STREAMS: positiveInt(2),
 	/** Downloads allowed to wait for a slot before the archive route answers 429. */
 	MAX_QUEUED_STREAMS: queueSize(10),
+	/** Downloads one job may start; after that the album must be converted again. */
+	MAX_DOWNLOADS_PER_JOB: positiveInt(5),
+	/** Jobs kept in memory at once (any status, until they expire). */
+	MAX_STORED_JOBS: positiveInt(500),
+	/** Seconds a job's whole check (every track and the cover) may take. */
+	CHECK_TIMEOUT_SEC: positiveInt(180),
 	/** Tracks checked in parallel within one job. */
 	TRACK_CONCURRENCY: positiveInt(2),
 	/** Largest MP3 file a direct link may point to, in MB (300 MB ≈ 2 hours at 320 kbps). */

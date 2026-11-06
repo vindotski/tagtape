@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { ExecError, run } from "./exec.ts";
+import { childEnv, ExecError, run } from "./exec.ts";
 import {
 	archiveFileName,
 	contentDisposition,
@@ -50,6 +50,17 @@ describe("filenames", () => {
 	});
 });
 
+test("child processes get a minimal environment, never the API token", () => {
+	expect(
+		childEnv({
+			PATH: "/bin",
+			HOME: "/home/node",
+			API_TOKEN: "secret",
+			FOO: "x",
+		}),
+	).toEqual({ PATH: "/bin", HOME: "/home/node", LANG: "C.UTF-8" });
+});
+
 describe("isPrivateAddress", () => {
 	test.each([
 		"127.0.0.1",
@@ -68,6 +79,13 @@ describe("isPrivateAddress", () => {
 		"fe80::1",
 		"::ffff:127.0.0.1",
 		"::ffff:10.0.0.1",
+		"::ffff:a00:1", // the same, as Node's URL normalises it
+		"::7f00:1", // IPv4-compatible (deprecated)
+		"64:ff9b::7f00:1", // NAT64 → 127.0.0.1
+		"100::1", // discard prefix
+		"2001::1", // Teredo
+		"2001:db8::1", // documentation
+		"2002:7f00:1::1", // 6to4
 		"not an ip",
 	])("blocks %s", (address) => {
 		expect(isPrivateAddress(address)).toBe(true);
@@ -78,6 +96,9 @@ describe("isPrivateAddress", () => {
 		"142.250.74.14",
 		"172.32.0.1",
 		"2a00:1450:4001:80b::200e",
+		"2001:4860:4860::8888", // public, despite starting with 2001
+		"64:ff9b::808:808", // NAT64 → 8.8.8.8
+		"::ffff:8.8.8.8",
 	])("allows %s", (address) => {
 		expect(isPrivateAddress(address)).toBe(false);
 	});

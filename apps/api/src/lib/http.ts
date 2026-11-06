@@ -16,6 +16,8 @@ export interface OpenUrlOptions {
 	label: string;
 	/** DNS lookup used for every connection. Defaults to one that blocks private networks. */
 	lookup?: LookupFunction;
+	/** For tests: the one non-standard port a local test server listens on. */
+	testPort?: string;
 }
 
 /**
@@ -35,6 +37,17 @@ export async function openPublicUrl(
 	for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
 		if (current.protocol !== "http:" && current.protocol !== "https:") {
 			throw new UserFacingError(`${options.label} must use http or https`);
+		}
+		// Checked on every hop, redirects included: only the standard port, and
+		// no credentials (no port scans of third parties through TagTape).
+		if (
+			(current.port !== "" && current.port !== options.testPort) ||
+			current.username ||
+			current.password
+		) {
+			throw new UserFacingError(
+				`${options.label} must use the standard port, without a username or password`,
+			);
 		}
 		// Node skips `lookup` for IP-literal hosts (http://169.254.169.254/…),
 		// so those are checked here, on every hop.
@@ -84,8 +97,10 @@ function get(
 			resolve,
 		);
 		req.once("error", (error) => {
-			if (error instanceof UserFacingError) reject(error);
-			else if (signal.aborted) reject(signal.reason ?? error);
+			if (signal.aborted) reject(signal.reason ?? error);
+			// One answer for everything else, including a host that resolves to
+			// a private address (see publicOnlyLookup): no hint about which
+			// internal host names exist.
 			else reject(new UserFacingError(`${label} couldn't be reached`));
 		});
 		req.end();

@@ -54,8 +54,18 @@ export function fakePipeline(): FakePipeline {
 		probes: new Map(),
 		streamed: [],
 		aborted: [],
-		async probe({ url }) {
-			if (fake.gate) await fake.gate;
+		async probe({ url, signal }) {
+			if (fake.gate) {
+				// Like a real source: give up when the job is aborted.
+				await Promise.race([
+					fake.gate,
+					new Promise((_, reject) =>
+						signal.addEventListener("abort", () => reject(signal.reason), {
+							once: true,
+						}),
+					),
+				]);
+			}
 			const result = fake.probes.get(url) ?? {
 				title: "Track",
 				durationSeconds: 200,

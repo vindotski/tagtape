@@ -8,7 +8,7 @@ The Fastify service that turns track links into a ZIP of tagged MP3s, using ffmp
 |---|---|---|---|
 | POST | `/jobs` | Bearer | Body: `AlbumInput` from `@tagtape/shared`. Returns `202 { jobId }`; `400` with `issues` for invalid input, including links no loaded source handles (`/tracks/N/url`); `429` when the check queue is full. |
 | GET | `/jobs/:id` | Bearer | `JobSnapshot`: status (`queued → probing → ready → streaming → done`, or `failed`), per-track status and errors, and `downloadReady`. Poll it. |
-| GET | `/jobs/:id/archive` | public | **The download is the conversion.** Streams the ZIP as tracks convert (no `content-length`). `404` if the job is unknown or not checked yet, `409` if this album is already downloading, `429` if downloads are full. Can be repeated (it converts again) until `JOB_TTL_MIN` after the last activity. |
+| GET | `/jobs/:id/archive` | public | **The download is the conversion.** Streams the ZIP as tracks convert (no `content-length`). `404` if the job is unknown or not checked yet, `409` if this album is already downloading, `410` once it was downloaded `MAX_DOWNLOADS_PER_JOB` times, `429` if downloads are full. Can be repeated (it converts again) until `JOB_TTL_MIN` after the check. |
 | GET | `/sources` | Bearer | `{ sources: [{ id, name }] }`: the loaded sources, in matching order. The web app shows their names. |
 | GET | `/health` | public | Checks that ffmpeg and every source's tools run; reports the image `version` and `versions`. Returns `503` if they don't. |
 
@@ -38,7 +38,16 @@ One source is built in and always tried last: **direct links to MP3 files** ([`s
 - **CBR, and no Xing header** (`-write_xing 0`): a VBR header would have to be rewritten at the end of the file, which a stream can't do.
 - **ffmpeg writes no tags** (`-id3v2_version 0 -write_id3v1 0`): ours is the only one.
 
-Jobs live in memory (metadata and cover only), and a sweeper forgets them `JOB_TTL_MIN` minutes after their last activity. Binaries are always spawned with an argument array, never through a shell, each in its own process group so cancelling also kills any children they started.
+Jobs live in memory (metadata and cover only), and a sweeper forgets them `JOB_TTL_MIN` minutes after their check; downloading doesn't extend that.
+
+**What one job can cost** is bounded:
+- **Check:** `CHECK_TIMEOUT_SEC` for the whole check. Direct links read only the tag header and a few KB; the tag is skipped, not buffered, up to 8 MB.
+- **Downloads:** at most `MAX_DOWNLOADS_PER_JOB` of them; ffmpeg runs one thread, reads only stdin (`-protocol_whitelist pipe`), stops at 2 hours (`-t`), and its output is capped.
+- **Covers:** JPEG, PNG or WebP only, at most 40 megapixels (checked from the header before decoding), one decode at a time.
+- **Memory:** at most `MAX_STORED_JOBS` jobs exist at once.
+- **Waiting:** a download that gives up while queued leaves the queue at once.
+- **URLs:** every fetched URL, redirects included, must use the standard port and no credentials.
+- **Logs and secrets:** request logs mask job ids, and child processes get a minimal environment without `API_TOKEN`. Binaries are always spawned with an argument array, never through a shell, each in its own process group so cancelling also kills any children they started.
 
 ## Development
 

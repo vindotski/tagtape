@@ -1,7 +1,7 @@
 import type { IncomingMessage } from "node:http";
 import type { LookupFunction } from "node:net";
 import { MAX_COVER_BYTES } from "@tagtape/shared";
-import sharp from "sharp";
+import sharp, { type Metadata } from "sharp";
 import { UserFacingError } from "../lib/errors.ts";
 import { openPublicUrl } from "../lib/http.ts";
 
@@ -14,6 +14,8 @@ export interface DownloadOptions {
 	maxBytes?: number;
 	/** DNS lookup used for every connection. Defaults to one that blocks private networks. */
 	lookup?: LookupFunction;
+	/** For tests: the port of a local test server. */
+	testPort?: string;
 }
 
 /**
@@ -35,6 +37,7 @@ export async function downloadImage(
 			accept: "image/*",
 			label: LABEL,
 			...(options.lookup ? { lookup: options.lookup } : {}),
+			...(options.testPort ? { testPort: options.testPort } : {}),
 		});
 	} catch (error) {
 		if (timeout.aborted) {
@@ -83,13 +86,38 @@ function tooLarge(maxBytes: number): UserFacingError {
 	);
 }
 
+/** Formats we decode; SVG, GIF, TIFF, HEIF etc. are refused (smaller attack surface). */
+const COVER_FORMATS = new Set(["jpeg", "png", "webp"]);
+/** A 5 MB file can still decode to gigabytes: cap the pixels, not just the bytes. */
+export const MAX_COVER_PIXELS = 40_000_000;
+
+// One decode at a time per process: covers are small, and parallel checks
+// shouldn't multiply CPU and memory use.
+sharp.concurrency(1);
+
 /**
  * Square 1000×1000 JPEG, centre-cropped (TagTape v1 stretched non-square images).
  * EXIF orientation is applied first so phone photos aren't sideways.
  */
 export async function processCover(input: Buffer): Promise<Buffer> {
+	let metadata: Metadata;
 	try {
-		return await sharp(input, { failOn: "error" })
+		// Reads the header only: nothing is decoded yet.
+		metadata = await sharp(input).metadata();
+	} catch {
+		throw new UserFacingError("Cover image couldn't be read as an image");
+	}
+	if (!COVER_FORMATS.has(metadata.format ?? "")) {
+		throw new UserFacingError("Cover image must be a JPEG, PNG or WebP");
+	}
+	if ((metadata.width ?? 0) * (metadata.height ?? 0) > MAX_COVER_PIXELS) {
+		throw new UserFacingError("Cover image has too many pixels");
+	}
+	try {
+		return await sharp(input, {
+			failOn: "error",
+			limitInputPixels: MAX_COVER_PIXELS,
+		})
 			.rotate()
 			.resize(COVER_SIZE, COVER_SIZE, { fit: "cover", position: "centre" })
 			.flatten({ background: "#ffffff" })

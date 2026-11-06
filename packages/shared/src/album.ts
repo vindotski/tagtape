@@ -4,6 +4,7 @@ import {
 	MAX_GENRE_LENGTH,
 	MAX_TITLE_LENGTH,
 	MAX_TRACKS,
+	MAX_URL_LENGTH,
 } from "./limits.ts";
 import { parseWebUrl } from "./web-url.ts";
 
@@ -28,6 +29,7 @@ export const trackInputSchema = z.object({
 		.string()
 		.trim()
 		.min(1, { error: "Track link is required" })
+		.max(MAX_URL_LENGTH, { error: "That link is too long" })
 		// Only the shape is checked here (it runs in the browser too). Which
 		// links work depends on the server's sources, which also canonicalise them.
 		.refine((value) => parseWebUrl(value) !== null, {
@@ -53,11 +55,16 @@ export const albumInputSchema = z.object({
 			.trim()
 			.regex(/^\d{4}$/, { error: "Year must be four digits" }),
 	),
+	// Same rules as track links: http(s), standard port, no credentials.
 	coverUrl: optionalText(
-		z.url({
-			protocol: /^https?$/,
-			error: "Cover must be an http(s) image URL",
-		}),
+		z
+			.string()
+			.trim()
+			.max(MAX_URL_LENGTH, { error: "That link is too long" })
+			.refine((value) => parseWebUrl(value) !== null, {
+				error: "Cover must be an http(s) image URL",
+			})
+			.transform((value) => (parseWebUrl(value) as URL).href),
 	),
 	tracks: z
 		.array(trackInputSchema)

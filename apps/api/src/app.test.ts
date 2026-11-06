@@ -1,5 +1,6 @@
 import NodeID3 from "node-id3";
 import { afterEach, describe, expect, test } from "vitest";
+import { maskJobIds } from "./app.ts";
 import { UserFacingError } from "./lib/errors.ts";
 import { UNSUPPORTED_LINK } from "./routes/jobs.ts";
 import {
@@ -74,6 +75,12 @@ describe("auth", () => {
 		({ app } = await testApp({ pipeline }));
 		expect((await app.inject("/health")).statusCode).toBe(503);
 	});
+});
+
+test("request logs mask job ids", () => {
+	expect(
+		maskJobIds("/jobs/8F14E45F-CEEA-4E7A-9F3B-1C2D3E4F5A6B/archive?x=1"),
+	).toBe("/jobs/:id/archive?x=1");
 });
 
 describe("GET /sources", () => {
@@ -373,5 +380,94 @@ describe("job lifecycle", () => {
 		open();
 		await app.jobs.settled();
 		expect((await createJob(app)).response.statusCode).toBe(202);
+	});
+});
+
+describe("limits per job and per server", () => {
+	const snapshot = async (target: App, id: string) =>
+		(await target.inject({ url: `/jobs/${id}`, headers: auth })).json();
+
+	test("a job can be downloaded MAX_DOWNLOADS_PER_JOB times, then 410", async () => {
+		({ app } = await testApp({ config: { MAX_DOWNLOADS_PER_JOB: 2 } }));
+		const { jobId } = await createJob(app);
+		await app.jobs.settled();
+		for (let i = 0; i < 2; i++) {
+			expect((await app.inject(`/jobs/${jobId}/archive`)).statusCode).toBe(200);
+			await app.jobs.settled();
+		}
+		expect(await snapshot(app, jobId)).toMatchObject({
+			status: "done",
+			downloadReady: false,
+		});
+		const third = await app.inject(`/jobs/${jobId}/archive`);
+		expect(third.statusCode).toBe(410);
+		expect(third.json().message).toContain("Convert it again");
+	});
+
+	test("downloading doesn't extend a job's life", async () => {
+		let clock = new Date("2026-11-06T12:00:00Z");
+		({ app } = await testApp({
+			config: { JOB_TTL_MIN: 30 },
+			now: () => clock,
+		}));
+		const { jobId } = await createJob(app);
+		await app.jobs.settled();
+		clock = new Date("2026-11-06T12:25:00Z");
+		expect((await app.inject(`/jobs/${jobId}/archive`)).statusCode).toBe(200);
+		await app.jobs.settled();
+		clock = new Date("2026-11-06T12:31:00Z");
+		expect(app.jobs.sweep()).toBe(1);
+	});
+
+	test("at most MAX_STORED_JOBS jobs exist at once", async () => {
+		({ app } = await testApp({ config: { MAX_STORED_JOBS: 2 } }));
+		expect((await createJob(app)).response.statusCode).toBe(202);
+		expect((await createJob(app)).response.statusCode).toBe(202);
+		await app.jobs.settled();
+		expect((await createJob(app)).response.statusCode).toBe(429);
+	});
+
+	test("a check that takes too long fails the job", async () => {
+		const pipeline = fakePipeline();
+		pipeline.gate = new Promise(() => {}); // a source that never answers
+		({ app } = await testApp({ pipeline, config: { CHECK_TIMEOUT_SEC: 1 } }));
+		const { jobId } = await createJob(app);
+		await app.jobs.settled();
+		expect(await snapshot(app, jobId)).toMatchObject({
+			status: "failed",
+			error: expect.stringContaining("took too long"),
+		});
+	});
+
+	test("a download that gives up while queued keeps its job downloadable", async () => {
+		const pipeline = fakePipeline();
+		pipeline.holdStreams = true;
+		({ app } = await testApp({
+			pipeline,
+			config: { MAX_ACTIVE_STREAMS: 1, MAX_QUEUED_STREAMS: 1 },
+		}));
+		const first = (await createJob(app)).jobId;
+		const second = (await createJob(app)).jobId;
+		await app.jobs.settled();
+		const server = app;
+		const address = await server.listen({ port: 0, host: "127.0.0.1" });
+
+		const holder = new AbortController();
+		await fetch(`${address}/jobs/${first}/archive`, { signal: holder.signal });
+		const waiter = new AbortController();
+		const queued = fetch(`${address}/jobs/${second}/archive`, {
+			signal: waiter.signal,
+		}).catch(() => "gave up");
+		await expect
+			.poll(async () => (await snapshot(server, second)).status)
+			.toBe("queued");
+		waiter.abort();
+		expect(await queued).toBe("gave up");
+		await expect
+			.poll(async () => (await snapshot(server, second)).status)
+			.toBe("ready");
+
+		holder.abort();
+		await app.jobs.settled();
 	});
 });

@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { Readable } from "node:stream";
 import type { Album } from "@tagtape/shared";
+import { UserFacingError } from "../lib/errors.ts";
 import { archiveFileName } from "../lib/filenames.ts";
 import type { Pipeline, ResolvedLink } from "../pipeline/types.ts";
 import { Semaphore } from "./queue.ts";
@@ -16,6 +17,12 @@ export interface JobManagerOptions {
 	/** Downloads converting at the same time, and how many may wait for that. */
 	maxActiveStreams: number;
 	maxQueuedStreams: number;
+	/** Downloads one job may start before it has to be converted again. */
+	maxDownloadsPerJob: number;
+	/** Jobs kept in memory (any status) before new ones are refused. */
+	maxStoredJobs: number;
+	/** A job's whole check (every track + the cover) must finish within this. */
+	checkTimeoutMs: number;
 	trackConcurrency: number;
 	log: {
 		info: (obj: object, msg: string) => void;
@@ -34,6 +41,8 @@ export type OpenStreamResult =
 	| { kind: "busy" }
 	/** Too many downloads waiting. */
 	| { kind: "full" }
+	/** This job was downloaded `maxDownloadsPerJob` times already. */
+	| { kind: "exhausted" }
 	/** The client left while waiting for a slot. */
 	| { kind: "aborted" };
 
@@ -70,11 +79,17 @@ export class JobManager {
 	 * full. `links` holds each track's source and canonical URL, in order.
 	 */
 	create(album: Album, links: ResolvedLink[]): Job | undefined {
-		const { maxActiveProbes, maxQueuedJobs, ttlMs } = this.#options;
+		const { maxActiveProbes, maxQueuedJobs, maxStoredJobs, ttlMs } =
+			this.#options;
 		if (
 			this.#probeSlots.active + this.#probeSlots.waiting >=
 			maxActiveProbes + maxQueuedJobs
 		) {
+			return undefined;
+		}
+		// Every job (even a finished one) holds metadata and a cover in memory
+		// until it expires: cap how many exist at once.
+		if (this.#jobs.size >= maxStoredJobs && this.sweep() === 0) {
 			return undefined;
 		}
 		const createdAt = this.#now();
@@ -97,6 +112,7 @@ export class JobManager {
 			createdAt,
 			expiresAt: new Date(createdAt.getTime() + ttlMs),
 			controller: new AbortController(),
+			downloadsLeft: this.#options.maxDownloadsPerJob,
 		};
 		this.#jobs.set(job.id, job);
 		this.#track(this.#probe(job));
@@ -116,6 +132,7 @@ export class JobManager {
 		const job = this.#jobs.get(id);
 		if (!job) return { kind: "not-found" };
 		if (!isProbed(job)) return { kind: "not-ready" };
+		if (job.downloadsLeft <= 0) return { kind: "exhausted" };
 		if (!canStream(job)) return { kind: "busy" };
 		const { maxActiveStreams, maxQueuedStreams } = this.#options;
 		if (
@@ -127,13 +144,16 @@ export class JobManager {
 
 		const previous = job.status;
 		job.status = "queued";
-		const release = await this.#streamSlots.acquire();
 		const streamSignal = AbortSignal.any([signal, this.#shutdown.signal]);
-		if (streamSignal.aborted) {
-			release();
+		let release: () => void;
+		try {
+			// Leaves the queue if the client goes away while waiting.
+			release = await this.#streamSlots.acquire(streamSignal);
+		} catch {
 			job.status = previous;
 			return { kind: "aborted" };
 		}
+		job.downloadsLeft--;
 
 		const stream = streamJob(job, this.#runnerContext(), streamSignal);
 		this.#track(
@@ -193,15 +213,33 @@ export class JobManager {
 
 	async #probe(job: Job): Promise<void> {
 		const release = await this.#probeSlots.acquire();
+		// A slow (or malicious) source must not hold a check slot for long.
+		const budget = setTimeout(
+			() =>
+				job.controller.abort(
+					new UserFacingError("Checking the tracks took too long"),
+				),
+			this.#options.checkTimeoutMs,
+		);
 		try {
 			if (job.controller.signal.aborted) return;
 			await probeJob(job, this.#runnerContext());
+			const reason = job.controller.signal.reason;
+			if (
+				(job.status === "probing" || job.status === "queued") &&
+				reason instanceof UserFacingError
+			) {
+				job.status = "failed";
+				job.error = `${reason.message}. Try again, or remove slow links.`;
+				job.expiresAt = this.#expiry();
+			}
 		} catch (error) {
 			this.#options.log.error({ err: error, jobId: job.id }, "Job crashed");
 			job.status = "failed";
 			job.error = "Something went wrong on our side. Please try again.";
 			job.expiresAt = this.#expiry();
 		} finally {
+			clearTimeout(budget);
 			release();
 			this.#options.log.info(
 				{ jobId: job.id, status: job.status },
@@ -211,7 +249,8 @@ export class JobManager {
 	}
 
 	#settleStream(job: Job, ended: boolean, aborted: boolean): void {
-		job.expiresAt = this.#expiry();
+		// The expiry is fixed when the check finishes: downloading again doesn't
+		// extend it, so a job can't be kept alive (and re-fetched) forever.
 		if (ended) {
 			job.status = "done";
 		} else if (

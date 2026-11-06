@@ -14,3 +14,6 @@ export const MAX_COVER_BYTES = 5 * 1024 * 1024;
 export const MAX_TITLE_LENGTH = 60;
 export const MAX_ARTIST_LENGTH = 60;
 export const MAX_GENRE_LENGTH = 30;
+
+/** Longest link (track or cover) we accept. */
+export const MAX_URL_LENGTH = 2048;

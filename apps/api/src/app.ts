@@ -43,6 +43,13 @@ export async function buildApp({
 		logger: logger ?? {
 			level: config.LOG_LEVEL,
 			redact: ["req.headers.authorization"],
+			serializers: {
+				// A job id is the only key to its download: keep it out of the logs.
+				req: (request: { method: string; url: string }) => ({
+					method: request.method,
+					url: maskJobIds(request.url),
+				}),
+			},
 		},
 	});
 	const pipeline =
@@ -59,6 +66,9 @@ export async function buildApp({
 		maxQueuedJobs: config.MAX_QUEUED_JOBS,
 		maxActiveStreams: config.MAX_ACTIVE_STREAMS,
 		maxQueuedStreams: config.MAX_QUEUED_STREAMS,
+		maxDownloadsPerJob: config.MAX_DOWNLOADS_PER_JOB,
+		maxStoredJobs: config.MAX_STORED_JOBS,
+		checkTimeoutMs: config.CHECK_TIMEOUT_SEC * 1000,
 		trackConcurrency: config.TRACK_CONCURRENCY,
 		log: app.log,
 		...(now ? { now } : {}),
@@ -116,6 +126,13 @@ export async function buildApp({
 	await app.register(jobRoutes, { jobs, pipeline });
 
 	return app;
+}
+
+const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;
+
+/** "/jobs/8f14e45f-…/archive" → "/jobs/:id/archive". */
+export function maskJobIds(url: string): string {
+	return url.replace(UUID, ":id");
 }
 
 function digest(value: string): Buffer {

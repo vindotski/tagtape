@@ -36,19 +36,62 @@ function isBlockedV4(address: string): boolean {
 	});
 }
 
+/** The 8 groups of an IPv6 address (handles `::` and a dotted IPv4 tail). */
+function v6Groups(address: string): number[] {
+	let text = address.toLowerCase();
+	const v4 = text.match(/(\d+)\.(\d+)\.(\d+)\.(\d+)$/);
+	if (v4) {
+		const [a, b, c, d] = v4.slice(1).map(Number) as [
+			number,
+			number,
+			number,
+			number,
+		];
+		text = `${text.slice(0, v4.index)}${((a << 8) | b).toString(16)}:${((c << 8) | d).toString(16)}`;
+	}
+	const [head = "", tail] = text.split("::");
+	const left = head ? head.split(":") : [];
+	const right = tail ? tail.split(":") : [];
+	const zeros =
+		tail === undefined ? [] : Array(8 - left.length - right.length).fill("0");
+	return [...left, ...zeros, ...right].map(
+		(group) => Number.parseInt(group, 16) || 0,
+	);
+}
+
 function isBlockedV6(address: string): boolean {
-	const lower = address.toLowerCase();
-	// IPv4-mapped (::ffff:127.0.0.1) and NAT64 (64:ff9b::7f00:1) carry a v4 address.
-	const mapped = lower.match(/^(?:::ffff:|64:ff9b::)(\d+\.\d+\.\d+\.\d+)$/);
-	if (mapped?.[1]) return isBlockedV4(mapped[1]);
-	if (lower === "::" || lower === "::1") return true;
-	const first = Number.parseInt(lower.split(":")[0] || "0", 16);
+	const [
+		first = 0,
+		second = 0,
+		g2 = 0,
+		g3 = 0,
+		g4 = 0,
+		g5 = 0,
+		g6 = 0,
+		g7 = 0,
+	] = v6Groups(address);
+	// IPv4-mapped (::ffff:a.b.c.d) and NAT64 (64:ff9b::a.b.c.d) carry a v4
+	// address in the last two groups: judge that one.
+	const embedded = `${g6 >> 8}.${g6 & 0xff}.${g7 >> 8}.${g7 & 0xff}`;
+	const mapped =
+		first === 0 &&
+		second === 0 &&
+		g2 === 0 &&
+		g3 === 0 &&
+		g4 === 0 &&
+		g5 === 0xffff;
+	if (mapped || (first === 0x64 && second === 0xff9b)) {
+		return isBlockedV4(embedded);
+	}
 	return (
+		first === 0 || // ::/16: unspecified, loopback, IPv4-compatible and other reserved forms
+		(first & 0xff00) === 0x0100 || // 0100::/8 reserved, incl. 100::/64 discard
+		(first === 0x2001 && second === 0) || // 2001::/32 Teredo
+		(first === 0x2001 && second === 0x0db8) || // 2001:db8::/32 documentation
+		first === 0x2002 || // 2002::/16 6to4 (embeds an IPv4 address)
 		(first & 0xfe00) === 0xfc00 || // fc00::/7 unique local
 		(first & 0xffc0) === 0xfe80 || // fe80::/10 link-local
-		(first & 0xff00) === 0xff00 || // ff00::/8 multicast
-		lower.startsWith("::ffff:") || // other mapped forms
-		lower.startsWith("64:ff9b:") // NAT64
+		(first & 0xff00) === 0xff00 // ff00::/8 multicast
 	);
 }
 
@@ -84,7 +127,9 @@ export function publicOnlyLookup(
 		const blocked = addresses.find((entry) => isPrivateAddress(entry.address));
 		if (blocked || addresses.length === 0) {
 			callback(
-				new UserFacingError("This link points to a private network address"),
+				// Same as "doesn't exist" (see lib/http.ts): no hint about which
+				// internal host names exist.
+				new UserFacingError("This link couldn't be reached"),
 				[],
 			);
 			return;

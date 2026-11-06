@@ -158,28 +158,27 @@ export async function streamArchive(
 			},
 		);
 	} catch {
-		return new Response("TagTape's converter isn't reachable right now.", {
-			status: 502,
-		});
+		return errorResponse("TagTape's converter isn't reachable right now.", 502);
 	} finally {
 		clearTimeout(timer);
 	}
-	if (upstream.status === 409 || upstream.status === 429) {
-		// Already downloading, or too busy: say so instead of a generic error.
+	if ([409, 410, 429].includes(upstream.status)) {
+		// Already downloading, downloaded too often, or too busy: say so
+		// instead of a generic error.
 		const body = (await upstream.json().catch(() => ({}))) as {
 			message?: string;
 		};
-		return new Response(body.message ?? "Please try again in a minute.", {
-			status: upstream.status,
-			headers: upstream.headers.get("retry-after")
-				? { "retry-after": upstream.headers.get("retry-after") as string }
-				: {},
-		});
+		return errorResponse(
+			body.message ?? "Please try again in a minute.",
+			upstream.status,
+			upstream.headers.get("retry-after"),
+		);
 	}
 	if (!upstream.ok || !upstream.body) {
-		return new Response("This download doesn't exist or has expired.", {
-			status: upstream.status === 404 ? 404 : 502,
-		});
+		return errorResponse(
+			"This download doesn't exist or has expired.",
+			upstream.status === 404 ? 404 : 502,
+		);
 	}
 	const headers = new Headers();
 	for (const name of ARCHIVE_HEADERS) {
@@ -187,6 +186,20 @@ export async function streamArchive(
 		if (value) headers.set(name, value);
 	}
 	return new Response(upstream.body, { status: 200, headers });
+}
+
+/** A plain-text error for the browser; never cached by it or by proxies. */
+export function errorResponse(
+	message: string,
+	status: number,
+	retryAfter?: string | null,
+): Response {
+	const headers: Record<string, string> = {
+		"content-type": "text/plain; charset=utf-8",
+		"cache-control": "no-store",
+	};
+	if (retryAfter) headers["retry-after"] = retryAfter;
+	return new Response(message, { status, headers });
 }
 
 /** API issue paths (`/tracks/0/url`) → form field keys (`tracks.0.url`). */

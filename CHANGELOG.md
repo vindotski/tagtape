@@ -25,6 +25,15 @@ A complete rewrite of Albumie as **TagTape** ([tagtape.app](https://tagtape.app)
 - Fixed **shell injection**: v1 passed the user's URL to `shell_exec`. Binaries now run with argument arrays, never through a shell (plugins get the same helpers), and a link is only accepted when a source's strict matcher claims it.
 - Added **SSRF protection** for cover image URLs and MP3 links: private, loopback and link-local addresses are blocked on every redirect hop, including IP-literal hosts such as `http://169.254.169.254/` (Node skips DNS lookups for those), with a fresh connection per request, a size cap and a timeout.
 - The API is internal to the container. The web app talks to it with a per-start random token.
+- **Bounded cost per job:**
+  - a time limit for the whole check
+  - at most 5 downloads per job (`MAX_DOWNLOADS_PER_JOB`); the expiry is fixed at check time
+  - a cap on jobs kept in memory (`MAX_STORED_JOBS`)
+  - ffmpeg reads only stdin, uses one thread, stops at 2 hours and has a capped output
+  - covers limited to JPEG/PNG/WebP and 40 megapixels (no decompression bombs)
+  - MP3 tags skipped instead of buffered
+- **URL rules:** fetched URLs (cover and MP3 links, every redirect) must use the standard port and no credentials. More reserved IPv6 ranges are blocked, and private and unknown hosts get the same error.
+- **No leaks:** job ids are masked in logs; child processes and plugins never see the API token; server-function errors are generic.
 
 ## 1.0.0 (2020)
 

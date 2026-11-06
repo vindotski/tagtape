@@ -38,6 +38,8 @@ export interface Job {
 	cover?: Buffer;
 	/** Aborting cancels the probe phase. Each download has its own signal. */
 	controller: AbortController;
+	/** Downloads it may still start (`maxDownloadsPerJob` at first). */
+	downloadsLeft: number;
 }
 
 /** Every track probed successfully: the album can be streamed. */
@@ -49,6 +51,7 @@ export function isProbed(job: Job): boolean {
 export function canStream(job: Job): boolean {
 	return (
 		isProbed(job) &&
+		job.downloadsLeft > 0 &&
 		(job.status === "ready" || job.status === "done" || job.status === "failed")
 	);
 }

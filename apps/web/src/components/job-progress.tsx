@@ -124,8 +124,18 @@ export function JobProgress({ jobId, onEdit, onStartOver }: JobProgressProps) {
 					onStartOver={onStartOver}
 				/>
 			)}
+			{job.status === "done" && !downloadUrl && (
+				<p className="text-sm text-muted-foreground">
+					This album can't be downloaded again. Edit it to convert it once more.
+				</p>
+			)}
 			{(job.status === "done" || streamFailed) && (
 				<ActionsRow>
+					{job.status === "done" && !downloadUrl && (
+						<Button size="lg" onPress={() => onEdit({})}>
+							Edit the album
+						</Button>
+					)}
 					{downloadUrl && (
 						<DownloadLink url={downloadUrl} size="lg">
 							{streamFailed ? "Try the download again" : "Download again"}

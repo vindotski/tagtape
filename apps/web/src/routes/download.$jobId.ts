@@ -1,6 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
-import { apiConfigFromEnv, streamArchive } from "#/lib/api.server";
+import {
+	apiConfigFromEnv,
+	errorResponse,
+	streamArchive,
+} from "#/lib/api.server";
 
 const jobId = z.uuid();
 
@@ -15,7 +19,7 @@ export const Route = createFileRoute("/download/$jobId")({
 			GET: async ({ params, request }) => {
 				const id = jobId.safeParse(params.jobId);
 				if (!id.success) {
-					return new Response("Not found", { status: 404 });
+					return errorResponse("Not found", 404);
 				}
 				return streamArchive(id.data, apiConfigFromEnv(), request.signal);
 			},
