@@ -1,8 +1,7 @@
-import { stat, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { PassThrough, type Readable } from "node:stream";
 import { YTDLP_EXTRACTORS } from "@tagtape/shared";
 import { UserFacingError } from "../lib/errors.ts";
-import { ExecError, run } from "../lib/exec.ts";
+import { ExecError, run, spawnStream } from "../lib/exec.ts";
 import type { ProbeResult } from "./types.ts";
 
 export interface YtDlpOptions {
@@ -11,6 +10,17 @@ export interface YtDlpOptions {
 	jsRuntime: string;
 	timeoutMs: number;
 }
+
+/** MP3 bitrate. Constant, because a stream can't go back to write a VBR header. */
+export const MP3_BITRATE = "256k";
+
+/**
+ * Same format choice for the probe and the stream, so the probe's checks hold.
+ * Never DASH: yt-dlp downloads DASH fragments to temporary files even when
+ * writing to stdout, and ffmpeg can't take them over (seen with Mixcloud,
+ * which also offers HLS and plain HTTP). A DASH-only track fails the check.
+ */
+export const FORMAT = "bestaudio[protocol!*=dash]/best[protocol!*=dash]";
 
 /** Flags every invocation gets: ignore user/system config files for reproducible runs. */
 function baseArgs(options: YtDlpOptions): string[] {
@@ -35,6 +45,8 @@ export function probeArgs(url: string, options: YtDlpOptions): string[] {
 	return [
 		...baseArgs(options),
 		"--no-playlist",
+		"-f",
+		FORMAT,
 		"--skip-download",
 		"--dump-single-json",
 		"--",
@@ -43,30 +55,62 @@ export function probeArgs(url: string, options: YtDlpOptions): string[] {
 }
 
 /**
- * Download from a saved info JSON, so YouTube isn't asked for the metadata
- * a second time (TagTape v1 fetched every video twice).
+ * Audio to stdout, from the probe's info JSON on stdin: no second metadata
+ * fetch (TagTape v1 fetched every video twice) and nothing written to disk.
+ * HLS goes through ffmpeg: yt-dlp's native HLS downloader crashes when writing
+ * to stdout (seen with SoundCloud, yt-dlp 2026.10.26).
+ *
+ * The info JSON path is `-`, not `/dev/stdin`: Node connects a child's stdin
+ * with a Unix socket pair, and opening `/dev/stdin` on a socket fails with
+ * ENXIO ("No such device or address"). `-` makes yt-dlp read the stream it
+ * already has.
  */
-export function downloadArgs(
-	infoPath: string,
-	outputTemplate: string,
-	options: YtDlpOptions,
-): string[] {
+export function streamArgs(options: YtDlpOptions): string[] {
 	return [
 		...baseArgs(options),
 		"--load-info-json",
-		infoPath,
-		"--no-progress",
-		"--newline",
-		"--extract-audio",
-		"--audio-format",
-		"mp3",
-		"--audio-quality",
-		"0",
+		"-",
+		"-f",
+		FORMAT,
+		"--downloader",
+		"m3u8:ffmpeg",
 		"--ffmpeg-location",
 		options.ffmpegBin,
-		"--no-mtime",
+		"--no-progress",
 		"--output",
-		outputTemplate,
+		"-",
+	];
+}
+
+/**
+ * stdin → MP3 on stdout, with no tags and no Xing header: we prepend our own
+ * ID3 tag, and a Xing header written before the end of a stream would carry
+ * wrong values. MP3 sources (e.g. Bandcamp) are copied, not re-encoded.
+ */
+export function ffmpegArgs(sourceCodec: string | null): string[] {
+	const codec =
+		sourceCodec === "mp3"
+			? ["-c:a", "copy"]
+			: ["-c:a", "libmp3lame", "-b:a", MP3_BITRATE];
+	return [
+		"-hide_banner",
+		"-loglevel",
+		"error",
+		"-i",
+		"pipe:0",
+		"-vn",
+		"-map_metadata",
+		"-1",
+		...codec,
+		"-id3v2_version",
+		"0",
+		"-write_id3v1",
+		"0",
+		"-write_xing",
+		"0",
+		"-f",
+		"mp3",
+		"pipe:1",
 	];
 }
 
@@ -96,6 +140,10 @@ const KNOWN_ERRORS: ReadonlyArray<readonly [RegExp, string]> = [
 	],
 	[/premieres in|live event will begin/i, "This track hasn't premiered yet"],
 	[
+		/requested format is not available/i,
+		"This track is only offered in a format TagTape can't stream",
+	],
+	[
 		/live stream recording is not available/i,
 		"This live stream's recording isn't available",
 	],
@@ -118,7 +166,10 @@ function toUserFacing(error: unknown, action: string): unknown {
 	if (error instanceof ExecError) {
 		if (error.timedOut) return new UserFacingError(`Timed out while ${action}`);
 		if (error.exitCode === null) return error; // couldn't even start yt-dlp: operator problem
-		return new UserFacingError(describeYtDlpFailure(error.stderr));
+		// Keep the original (with yt-dlp's stderr) as the cause, for the logs.
+		return new UserFacingError(describeYtDlpFailure(error.stderr), {
+			cause: error,
+		});
 	}
 	return error;
 }
@@ -128,6 +179,7 @@ interface YtDlpInfo {
 	duration?: unknown;
 	is_live?: unknown;
 	live_status?: unknown;
+	acodec?: unknown;
 }
 
 export function parseProbe(json: string): ProbeResult {
@@ -145,6 +197,8 @@ export function parseProbe(json: string): ProbeResult {
 			liveStatus === "is_live" ||
 			liveStatus === "is_upcoming" ||
 			liveStatus === "post_live",
+		sourceCodec: typeof info.acodec === "string" ? info.acodec : null,
+		infoJson: json,
 	};
 }
 
@@ -152,58 +206,70 @@ export function createYtDlp(options: YtDlpOptions) {
 	return {
 		async probe(input: {
 			url: string;
-			infoPath: string;
 			signal: AbortSignal;
 		}): Promise<ProbeResult> {
 			try {
 				const { stdout } = await run(
 					options.bin,
 					probeArgs(input.url, options),
-					{
-						signal: input.signal,
-						timeoutMs: options.timeoutMs,
-					},
+					{ signal: input.signal, timeoutMs: options.timeoutMs },
 				);
-				await writeFile(input.infoPath, stdout);
 				return parseProbe(stdout);
 			} catch (error) {
-				throw toUserFacing(error, "reading the video's details");
+				throw toUserFacing(error, "reading the track's details");
 			}
 		},
 
-		async downloadAudio(input: {
-			infoPath: string;
-			workDir: string;
-			baseName: string;
+		/**
+		 * `yt-dlp | ffmpeg` → MP3 bytes. The returned stream only ends once both
+		 * processes exited cleanly; otherwise it's destroyed with the reason, so a
+		 * half-downloaded track can never pass as complete. Destroying it (or
+		 * aborting `signal`) kills both process groups.
+		 */
+		streamMp3(input: {
+			infoJson: string;
+			sourceCodec: string | null;
 			signal: AbortSignal;
-			onConverting: () => void;
-		}): Promise<string> {
-			const template = join(input.workDir, `${input.baseName}.%(ext)s`);
-			const mp3Path = join(input.workDir, `${input.baseName}.mp3`);
-			let converting = false;
-			try {
-				await run(
-					options.bin,
-					downloadArgs(input.infoPath, template, options),
-					{
-						signal: input.signal,
-						timeoutMs: options.timeoutMs,
-						onLine: (line) => {
-							if (!converting && line.startsWith("[ExtractAudio]")) {
-								converting = true;
-								input.onConverting();
-							}
-						},
-					},
-				);
-			} catch (error) {
-				throw toUserFacing(error, "downloading the audio");
-			}
-			const file = await stat(mp3Path).catch(() => null);
-			if (!file?.isFile() || file.size === 0) {
-				throw new UserFacingError("Conversion to MP3 produced no file");
-			}
-			return mp3Path;
+		}): Readable {
+			const out = new PassThrough();
+			const local = new AbortController();
+			const signal = AbortSignal.any([input.signal, local.signal]);
+			out.once("close", () => local.abort());
+
+			const ytDlp = spawnStream(options.bin, streamArgs(options), {
+				stdin: input.infoJson,
+				signal,
+				timeoutMs: options.timeoutMs,
+			});
+			const ffmpeg = spawnStream(
+				options.ffmpegBin,
+				ffmpegArgs(input.sourceCodec),
+				{
+					stdin: ytDlp.stdout,
+					signal,
+					timeoutMs: options.timeoutMs,
+				},
+			);
+			ffmpeg.stdout.pipe(out, { end: false });
+
+			void Promise.allSettled([ytDlp.done, ffmpeg.done]).then(
+				([download, convert]) => {
+					if (
+						download.status === "fulfilled" &&
+						convert.status === "fulfilled"
+					) {
+						out.end();
+					} else if (download.status === "rejected") {
+						// yt-dlp's reason explains the failure; ffmpeg just saw its input end.
+						out.destroy(
+							asError(toUserFacing(download.reason, "downloading the audio")),
+						);
+					} else if (convert.status === "rejected") {
+						out.destroy(asError(convert.reason));
+					}
+				},
+			);
+			return out;
 		},
 
 		async version(): Promise<string> {
@@ -213,4 +279,8 @@ export function createYtDlp(options: YtDlpOptions) {
 			return stdout.trim();
 		},
 	};
+}
+
+function asError(value: unknown): Error {
+	return value instanceof Error ? value : new Error(String(value));
 }

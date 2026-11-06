@@ -12,9 +12,15 @@ export interface TrackState {
 	url: string;
 	status: TrackStatus;
 	error?: string;
+	/** From the probe; handed back to yt-dlp when the track streams. */
+	infoJson?: string;
+	sourceCodec?: string | null;
 }
 
-/** A job lives only in memory; restarting the API forgets every job (stateless by design). */
+/**
+ * A job lives only in memory; restarting the API forgets every job (stateless
+ * by design). It holds metadata and the cover image, never any audio.
+ */
 export interface Job {
 	id: string;
 	album: Album;
@@ -22,16 +28,25 @@ export interface Job {
 	tracks: TrackState[];
 	error?: string;
 	createdAt: Date;
-	/** When the sweeper may delete the job and its files. Refreshed when the job finishes. */
+	/** When the sweeper may forget the job. Refreshed when a phase ends. */
 	expiresAt: Date;
-	/** Working directory: TMP_DIR/<id>. */
-	dir: string;
-	/** Set once the ZIP is written. */
-	archivePath?: string;
-	/** Download name, e.g. `Rick Astley - Whenever You Need Somebody.zip`. */
-	archiveName?: string;
-	/** Aborting kills this job's yt-dlp processes and downloads. */
+	/** Squared JPEG cover, in memory. */
+	cover?: Buffer;
+	/** Aborting cancels the probe phase. Each download has its own signal. */
 	controller: AbortController;
+}
+
+/** Every track probed successfully: the album can be streamed. */
+export function isProbed(job: Job): boolean {
+	return job.tracks.every((track) => track.infoJson !== undefined);
+}
+
+/** A download can start now: probed, and no download queued or running. */
+export function canStream(job: Job): boolean {
+	return (
+		isProbed(job) &&
+		(job.status === "ready" || job.status === "done" || job.status === "failed")
+	);
 }
 
 export function toSnapshot(job: Job): JobSnapshot {
@@ -43,7 +58,7 @@ export function toSnapshot(job: Job): JobSnapshot {
 				? { number, title, status }
 				: { number, title, status, error },
 		),
-		archiveReady: job.archivePath !== undefined,
+		downloadReady: canStream(job),
 		createdAt: job.createdAt.toISOString(),
 		expiresAt: job.expiresAt.toISOString(),
 	};

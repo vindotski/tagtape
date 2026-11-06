@@ -10,11 +10,14 @@ export type JobState =
 	| { kind: "missing" }
 	| { kind: "unreachable" };
 
-const POLL_MS = 1000;
+/** Poll fast while something is happening… */
+const ACTIVE_POLL_MS = 1000;
+/** …and slowly when idle, so a "Download again" still shows live progress. */
+const IDLE_POLL_MS = 3000;
 /** Consecutive failed polls before we tell the user. */
 const MAX_FAILURES = 5;
 
-/** Polls the job every second until it's done or failed. */
+/** Polls the job while the page is open, until it expires. */
 export function useJob(jobId: string): JobState {
 	const [state, setState] = useState<JobState>({ kind: "loading" });
 
@@ -22,6 +25,7 @@ export function useJob(jobId: string): JobState {
 		let cancelled = false;
 		let timer: ReturnType<typeof setTimeout> | undefined;
 		let failures = 0;
+		let delay = ACTIVE_POLL_MS;
 
 		async function poll() {
 			try {
@@ -33,13 +37,13 @@ export function useJob(jobId: string): JobState {
 					return;
 				}
 				setState({ kind: "ready", view });
-				if (isJobFinished(view.job.status)) return;
+				delay = isJobFinished(view.job.status) ? IDLE_POLL_MS : ACTIVE_POLL_MS;
 			} catch {
 				if (cancelled) return;
 				failures++;
 				if (failures >= MAX_FAILURES) setState({ kind: "unreachable" });
 			}
-			timer = setTimeout(poll, POLL_MS);
+			timer = setTimeout(poll, delay);
 		}
 
 		void poll();

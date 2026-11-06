@@ -6,46 +6,61 @@
  *   TAGTAPE_E2E_URL=http://127.0.0.1:4100 TAGTAPE_E2E_TOKEN=$TOKEN \
  *     pnpm --filter @tagtape/api exec vitest run src/e2e.test.ts
  *
- * Downloads "Me at the zoo" (19 s, the first YouTube upload), chosen for stability; needs the network.
- * (yt-dlp's own test video BaW_jenozKc has been taken down.)
+ * Covers the three audio paths of the streaming pipeline, with short, stable
+ * tracks (needs the network):
+ *   - YouTube "Me at the zoo" (19 s, Opus → MP3 256 kbps CBR)
+ *   - SoundCloud "Flickermood" (3:33, HLS via ffmpeg → MP3 256 kbps CBR)
+ *   - Bandcamp yt-dlp test song (9 s, already MP3 → copied, 128 kbps)
  */
 import { jobSnapshotSchema } from "@tagtape/shared";
 import NodeID3 from "node-id3";
 import sharp from "sharp";
 import { describe, expect, test } from "vitest";
+import { readZip } from "./test/helpers.ts";
 
 const BASE = process.env.TAGTAPE_E2E_URL;
 const TOKEN = process.env.TAGTAPE_E2E_TOKEN ?? "";
 
-/** Reads a ZIP whose entries are stored (uncompressed), via the central directory. */
-function readStoredZip(zip: Buffer): Map<string, Buffer> {
-	const eocd = zip.lastIndexOf(Buffer.from([0x50, 0x4b, 0x05, 0x06]));
-	const count = zip.readUInt16LE(eocd + 10);
-	let offset = zip.readUInt32LE(eocd + 16);
-	const entries = new Map<string, Buffer>();
-	for (let i = 0; i < count; i++) {
-		const method = zip.readUInt16LE(offset + 10);
-		const size = zip.readUInt32LE(offset + 20);
-		const nameLength = zip.readUInt16LE(offset + 28);
-		const extraLength = zip.readUInt16LE(offset + 30);
-		const commentLength = zip.readUInt16LE(offset + 32);
-		const localOffset = zip.readUInt32LE(offset + 42);
-		const name = zip.toString("utf8", offset + 46, offset + 46 + nameLength);
-		expect(method, `${name} should be stored`).toBe(0);
-		const dataStart =
-			localOffset +
-			30 +
-			zip.readUInt16LE(localOffset + 26) +
-			zip.readUInt16LE(localOffset + 28);
-		entries.set(name, zip.subarray(dataStart, dataStart + size));
-		offset += 46 + nameLength + extraLength + commentLength;
-	}
-	return entries;
+/** MPEG-1 Layer III bitrate table (kbps) by header index. */
+const MP3_BITRATES = [
+	0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320,
+];
+
+/** Splits a file into its ID3v2 tag and the audio after it (tag size is syncsafe). */
+function splitTag(file: Buffer): { tag: Buffer; audio: Buffer } {
+	expect(file.subarray(0, 3).toString()).toBe("ID3");
+	const size =
+		((file[6] as number) << 21) |
+		((file[7] as number) << 14) |
+		((file[8] as number) << 7) |
+		(file[9] as number);
+	return { tag: file.subarray(0, 10 + size), audio: file.subarray(10 + size) };
 }
 
-describe.skipIf(!BASE)("end to end (real yt-dlp + ffmpeg)", () => {
-	test("YouTube link + cover → ZIP with a tagged MP3", {
-		timeout: 180_000,
+const tracks = [
+	{
+		title: "Тест ✓ zoo",
+		url: "https://youtu.be/jNQXAC9IVRw",
+		kbps: 256,
+		seconds: 19,
+	},
+	{
+		title: "Flickermood",
+		url: "https://soundcloud.com/forss/flickermood",
+		kbps: 256,
+		seconds: 213,
+	},
+	{
+		title: "Bandcamp test",
+		url: "https://youtube-dl.bandcamp.com/track/youtube-dl-test-song",
+		kbps: 128,
+		seconds: 10,
+	},
+];
+
+describe.skipIf(!BASE)("end to end (real yt-dlp + ffmpeg, streamed)", () => {
+	test("links + cover → streamed ZIP of tagged CBR MP3s", {
+		timeout: 300_000,
 	}, async () => {
 		const headers = {
 			authorization: `Bearer ${TOKEN}`,
@@ -56,65 +71,90 @@ describe.skipIf(!BASE)("end to end (real yt-dlp + ffmpeg)", () => {
 			headers,
 			body: JSON.stringify({
 				title: "E2E Album",
-				artist: "Jawed Karim",
+				artist: "Various",
 				year: "2005",
 				genre: "Test",
 				coverUrl:
 					"https://upload.wikimedia.org/wikipedia/commons/a/a9/Example.jpg",
-				tracks: [
-					{ title: "Тест ✓ test video", url: "https://youtu.be/jNQXAC9IVRw" },
-				],
+				tracks: tracks.map(({ title, url }) => ({ title, url })),
 			}),
 		});
 		expect(create.status).toBe(202);
 		const { jobId } = (await create.json()) as { jobId: string };
 
-		let snapshot = jobSnapshotSchema.parse(
-			await (await fetch(`${BASE}/jobs/${jobId}`, { headers })).json(),
-		);
-		const seen = new Set([snapshot.status]);
-		while (snapshot.status !== "done" && snapshot.status !== "failed") {
-			await new Promise((resolve) => setTimeout(resolve, 1000));
-			snapshot = jobSnapshotSchema.parse(
+		const snapshot = async () =>
+			jobSnapshotSchema.parse(
 				await (await fetch(`${BASE}/jobs/${jobId}`, { headers })).json(),
 			);
-			seen.add(snapshot.status);
+		let current = await snapshot();
+		while (current.status === "queued" || current.status === "probing") {
+			await new Promise((resolve) => setTimeout(resolve, 500));
+			current = await snapshot();
 		}
-		expect(snapshot, JSON.stringify(snapshot)).toMatchObject({
-			status: "done",
-			archiveReady: true,
+		expect(current, JSON.stringify(current)).toMatchObject({
+			status: "ready",
+			downloadReady: true,
 		});
 
-		// No token: the archive is public by design.
+		// The download *is* the conversion. No token: public by design.
+		const started = Date.now();
 		const archive = await fetch(`${BASE}/jobs/${jobId}/archive`);
 		expect(archive.status).toBe(200);
+		expect(archive.headers.get("content-length")).toBeNull();
 		expect(archive.headers.get("content-disposition")).toContain(
-			"filename*=UTF-8''Jawed%20Karim%20-%20E2E%20Album.zip",
+			"filename*=UTF-8''Various%20-%20E2E%20Album.zip",
 		);
-		const files = readStoredZip(Buffer.from(await archive.arrayBuffer()));
-		expect([...files.keys()]).toEqual(["01 - Тест ✓ test video.mp3"]);
+		const zip = Buffer.from(await archive.arrayBuffer());
+		const entries = readZip(zip);
+		expect(entries.map((e) => [e.name, e.method])).toEqual([
+			["01 - Тест ✓ zoo.mp3", 0],
+			["02 - Flickermood.mp3", 0],
+			["03 - Bandcamp test.mp3", 0],
+		]);
 
-		const mp3 = files.get("01 - Тест ✓ test video.mp3") as Buffer;
-		const tags = NodeID3.read(mp3);
-		expect(tags).toMatchObject({
-			title: "Тест ✓ test video",
-			artist: "Jawed Karim",
-			performerInfo: "Jawed Karim",
-			album: "E2E Album",
-			trackNumber: "1/1",
-			year: "2005",
-			genre: "Test",
+		for (const [index, entry] of entries.entries()) {
+			const expected = tracks[index] as (typeof tracks)[number];
+			const { tag, audio } = splitTag(entry.data);
+
+			const tags = NodeID3.read(tag);
+			expect(tags).toMatchObject({
+				title: expected.title,
+				artist: "Various",
+				performerInfo: "Various",
+				album: "E2E Album",
+				trackNumber: `${index + 1}/3`,
+				year: "2005",
+				genre: "Test",
+			});
+			const image = tags.image as { type: { id: number }; imageBuffer: Buffer };
+			expect(image.type.id).toBe(3);
+			expect(await sharp(image.imageBuffer).metadata()).toMatchObject({
+				format: "jpeg",
+				width: 1000,
+				height: 1000,
+			});
+
+			// Our tag is the only one: audio starts straight with an MPEG frame,
+			// with no Xing/Info header (wrong in a stream) and no second ID3 tag.
+			expect(audio[0]).toBe(0xff);
+			expect((audio[1] as number) & 0xe0).toBe(0xe0);
+			expect(audio.subarray(0, 400).includes("Xing")).toBe(false);
+			expect(audio.subarray(0, 400).includes("Info")).toBe(false);
+			// No ID3v1 tag either (it would be the last 128 bytes, starting "TAG").
+			// Searching all the audio for "ID3" would be wrong: those 3 bytes turn
+			// up by chance in megabytes of compressed audio.
+			expect(audio.subarray(-128, -125).toString("latin1")).not.toBe("TAG");
+			expect(MP3_BITRATES[(audio[2] as number) >> 4]).toBe(expected.kbps);
+			// CBR: duration follows from size and bitrate.
+			const seconds = (audio.length * 8) / (expected.kbps * 1000);
+			expect(Math.abs(seconds - expected.seconds)).toBeLessThan(2);
+		}
+
+		await new Promise((resolve) => setTimeout(resolve, 500));
+		expect(await snapshot()).toMatchObject({
+			status: "done",
+			downloadReady: true,
 		});
-		const image = tags.image as { type: { id: number }; imageBuffer: Buffer };
-		expect(image.type.id).toBe(3);
-		const cover = await sharp(image.imageBuffer).metadata();
-		expect(cover).toMatchObject({ format: "jpeg", width: 1000, height: 1000 });
-
-		// Real MPEG audio follows the tag: an MPEG frame sync (11 set bits).
-		const audio = mp3.subarray(10 + mp3.readUInt32BE(6));
-		expect(audio.length).toBeGreaterThan(10_000);
-		console.info(
-			`statuses seen: ${[...seen].join(" → ")}; mp3 ${mp3.length} bytes`,
-		);
+		console.info(`streamed ${zip.length} bytes in ${Date.now() - started} ms`);
 	});
 });

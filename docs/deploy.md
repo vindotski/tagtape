@@ -19,7 +19,7 @@ Deploys run from GitHub Actions ([`deploy.yml`](../.github/workflows/deploy.yml)
 **Any provider:**
 - **OS:** Ubuntu 24.04 LTS (recommended), Ubuntu 22.04, or Debian 12/13
 - **CPU:** amd64 or arm64; the image supports both
-- **Size:** about **2 vCPU / 4 GB**, enough for 2 parallel conversions (see `MAX_ACTIVE_JOBS`)
+- **Size:** about **2 vCPU / 4 GB**, enough for 2 downloads converting at once (see `MAX_ACTIVE_STREAMS`)
 - **Login:** an SSH key, not a password
 - **User data:** paste the whole of [`deploy/cloud-init.yaml`](../deploy/cloud-init.yaml) into the provider's **user data / cloud-init** field
 
@@ -132,4 +132,4 @@ TAG=2.0.0 bash remote-deploy.sh   # manual deploy (copy the script over first)
 ```
 
 - **Updates:** security updates install automatically. Reboot occasionally for kernel updates (as the admin account: `reboot`, or `sudo reboot`); Docker starts on boot and the containers come back by themselves (`restart: unless-stopped`).
-- **Restarts lose in-flight jobs.** Jobs are kept in memory (by design), so deploy when nobody is converting. Users just retry.
+- **Restarts stop running downloads.** Nothing is stored: tracks convert while the ZIP streams, and jobs live in memory. Deploy when nobody is downloading; users just retry.

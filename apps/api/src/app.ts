@@ -46,10 +46,11 @@ export async function buildApp({
 
 	const jobs = new JobManager({
 		pipeline,
-		tmpDir: config.TMP_DIR,
 		ttlMs: config.JOB_TTL_MIN * 60 * 1000,
-		maxActiveJobs: config.MAX_ACTIVE_JOBS,
+		maxActiveProbes: config.MAX_ACTIVE_PROBES,
 		maxQueuedJobs: config.MAX_QUEUED_JOBS,
+		maxActiveStreams: config.MAX_ACTIVE_STREAMS,
+		maxQueuedStreams: config.MAX_QUEUED_STREAMS,
 		trackConcurrency: config.TRACK_CONCURRENCY,
 		log: app.log,
 		...(now ? { now } : {}),

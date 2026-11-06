@@ -1,12 +1,10 @@
 import type { Config } from "../config.ts";
 import { run } from "../lib/exec.ts";
-import { writeArchive } from "./archive.ts";
 import { fetchCover } from "./cover.ts";
-import { writeTags } from "./tags.ts";
 import type { Pipeline } from "./types.ts";
 import { createYtDlp } from "./ytdlp.ts";
 
-/** The real pipeline: yt-dlp + ffmpeg + sharp + node-id3 + yazl. */
+/** The real pipeline: yt-dlp + ffmpeg (streamed) + sharp. */
 export function createPipeline(config: Config): Pipeline {
 	const ytDlp = createYtDlp({
 		bin: config.YTDLP_BIN,
@@ -17,10 +15,8 @@ export function createPipeline(config: Config): Pipeline {
 
 	return {
 		probe: ytDlp.probe,
-		downloadAudio: ytDlp.downloadAudio,
+		streamMp3: ytDlp.streamMp3,
 		fetchCover,
-		writeTags,
-		writeArchive,
 		async versions() {
 			const [ytDlpVersion, ffmpeg] = await Promise.all([
 				ytDlp.version(),

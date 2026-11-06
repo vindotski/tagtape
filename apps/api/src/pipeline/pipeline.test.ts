@@ -1,20 +1,21 @@
-import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo, LookupFunction } from "node:net";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { Readable } from "node:stream";
+import { buffer } from "node:stream/consumers";
 import NodeID3 from "node-id3";
 import sharp from "sharp";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { UserFacingError } from "../lib/errors.ts";
-import { writeArchive } from "./archive.ts";
+import { readZip } from "../test/helpers.ts";
+import { streamZip } from "./archive.ts";
 import { COVER_SIZE, downloadImage, processCover } from "./cover.ts";
-import { writeTags } from "./tags.ts";
+import { createTag } from "./tags.ts";
 import {
 	describeYtDlpFailure,
-	downloadArgs,
+	ffmpegArgs,
 	parseProbe,
 	probeArgs,
+	streamArgs,
 } from "./ytdlp.ts";
 
 const ytOptions = {
@@ -42,7 +43,7 @@ describe("yt-dlp arguments", () => {
 	test("every call is restricted to the supported sites' extractors", () => {
 		for (const args of [
 			probeArgs("https://soundcloud.com/a/b", ytOptions),
-			downloadArgs("/tmp/j/1.info.json", "/tmp/j/1.%(ext)s", ytOptions),
+			streamArgs(ytOptions),
 		]) {
 			expect(args[args.indexOf("--use-extractors") + 1]).toBe(
 				"youtube,soundcloud,Bandcamp,mixcloud,vimeo",
@@ -50,19 +51,41 @@ describe("yt-dlp arguments", () => {
 		}
 	});
 
-	test("download reuses the probe JSON and converts to best-quality MP3", () => {
-		const args = downloadArgs(
-			"/tmp/j/1.info.json",
-			"/tmp/j/1.%(ext)s",
-			ytOptions,
+	test("probe picks the same audio format the stream will use", () => {
+		const args = probeArgs("https://soundcloud.com/a/b", ytOptions);
+		expect(args[args.indexOf("-f") + 1]).toBe(
+			"bestaudio[protocol!*=dash]/best[protocol!*=dash]",
 		);
+	});
+
+	test("stream reads the probe from stdin and writes audio to stdout (no disk)", () => {
+		const args = streamArgs(ytOptions);
 		const after = (flag: string) => args[args.indexOf(flag) + 1];
-		expect(after("--load-info-json")).toBe("/tmp/j/1.info.json");
-		expect(after("--audio-format")).toBe("mp3");
-		expect(after("--audio-quality")).toBe("0");
+		expect(after("--load-info-json")).toBe("-");
+		expect(after("--output")).toBe("-");
+		expect(after("-f")).toBe(
+			"bestaudio[protocol!*=dash]/best[protocol!*=dash]",
+		);
+		// yt-dlp's native HLS-to-stdout crashes; ffmpeg handles HLS.
+		expect(after("--downloader")).toBe("m3u8:ffmpeg");
 		expect(after("--ffmpeg-location")).toBe("/usr/bin/ffmpeg");
-		expect(after("--output")).toBe("/tmp/j/1.%(ext)s");
-		expect(args).toContain("--extract-audio");
+	});
+
+	test("ffmpeg writes untagged CBR MP3 to stdout, copying MP3 sources", () => {
+		const encode = ffmpegArgs("opus");
+		const after = (args: string[], flag: string) =>
+			args[args.indexOf(flag) + 1];
+		expect(after(encode, "-c:a")).toBe("libmp3lame");
+		expect(after(encode, "-b:a")).toBe("256k");
+		expect(after(encode, "-id3v2_version")).toBe("0");
+		expect(after(encode, "-write_id3v1")).toBe("0");
+		expect(after(encode, "-write_xing")).toBe("0");
+		expect(after(encode, "-i")).toBe("pipe:0");
+		expect(encode.at(-1)).toBe("pipe:1");
+
+		const copy = ffmpegArgs("mp3");
+		expect(after(copy, "-c:a")).toBe("copy");
+		expect(copy).not.toContain("-b:a");
 	});
 
 	test("js runtime flag can be disabled", () => {
@@ -108,6 +131,10 @@ describe("yt-dlp arguments", () => {
 			"ERROR: Postprocessing: ffprobe and ffmpeg not found. Please install or provide the path",
 			"The site refused to provide this track",
 		],
+		[
+			"ERROR: [mixcloud] x: Requested format is not available. Use --list-formats for a list of available formats",
+			"This track is only offered in a format TagTape can't stream",
+		],
 		["ERROR: something brand new", "The site refused to provide this track"],
 	])("explains %j", (stderr, expected) => {
 		expect(describeYtDlpFailure(stderr)).toBe(expected);
@@ -120,12 +147,21 @@ describe("yt-dlp arguments", () => {
 					title: "T",
 					duration: 212.4,
 					live_status: "not_live",
+					acodec: "opus",
 				}),
 			),
 		).toEqual({
 			title: "T",
 			durationSeconds: 212,
 			isLive: false,
+			sourceCodec: "opus",
+			// Kept verbatim for the stream step (in memory, never on disk).
+			infoJson: JSON.stringify({
+				title: "T",
+				duration: 212.4,
+				live_status: "not_live",
+				acodec: "opus",
+			}),
 		});
 		expect(
 			parseProbe(JSON.stringify({ live_status: "is_upcoming" })),
@@ -239,13 +275,9 @@ describe("cover", () => {
 });
 
 describe("tags and archive", () => {
-	test("writes ID3 tags including the front cover", async () => {
-		const dir = await mkdtemp(join(tmpdir(), "tagtape-tags-"));
-		const mp3 = join(dir, "1.mp3");
-		await writeFile(mp3, Buffer.alloc(256));
+	test("builds an ID3 tag (with front cover) to put in front of the audio", () => {
 		const cover = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3]);
-
-		await writeTags(mp3, {
+		const tag = createTag({
 			title: "Never Gonna Give You Up",
 			artist: "Rick Astley",
 			album: "Whenever You Need Somebody",
@@ -255,8 +287,12 @@ describe("tags and archive", () => {
 			genre: "Pop",
 			cover,
 		});
+		expect(tag.subarray(0, 3).toString()).toBe("ID3");
+		expect(tag[3]).toBe(3); // ID3v2.3
 
-		const tags = NodeID3.read(mp3);
+		const tags = NodeID3.read(
+			Buffer.concat([tag, Buffer.from([0xff, 0xfb, 0x90, 0x64])]),
+		);
 		expect(tags).toMatchObject({
 			title: "Never Gonna Give You Up",
 			artist: "Rick Astley",
@@ -266,34 +302,56 @@ describe("tags and archive", () => {
 			year: "1987",
 			genre: "Pop",
 		});
-		const image = tags.image as {
-			mime: string;
-			type: { id: number };
-			imageBuffer: Buffer;
-		};
+		const image = tags.image as { type: { id: number }; imageBuffer: Buffer };
 		expect(image.type.id).toBe(3);
 		expect(image.imageBuffer.equals(cover)).toBe(true);
 	});
 
-	test("zips files uncompressed under their display names", async () => {
-		const dir = await mkdtemp(join(tmpdir(), "tagtape-zip-"));
-		await writeFile(join(dir, "1.mp3"), "one");
-		await writeFile(join(dir, "2.mp3"), "two");
-		const out = join(dir, "album.zip");
-
-		await writeArchive({
-			entries: [
-				{ path: join(dir, "1.mp3"), name: "01 - Ниночка.mp3" },
-				{ path: join(dir, "2.mp3"), name: "02 - Two.mp3" },
-			],
-			outPath: out,
-			signal: new AbortController().signal,
+	test("streams a stored ZIP, opening entries one after another", async () => {
+		const opened: string[] = [];
+		const entry = (name: string, body: string) => ({
+			name,
+			open: () => {
+				opened.push(name);
+				return Readable.from([Buffer.from(body)]);
+			},
 		});
+		const zip = streamZip([
+			entry("01 - Ниночка.mp3", "one"),
+			entry("02 - Two.mp3", "two"),
+		]);
+		// yazl starts the first entry right away, but never two at once.
+		expect(opened.length).toBeLessThanOrEqual(1);
 
-		const zip = await readFile(out);
-		expect(zip.readUInt32LE(0)).toBe(0x04034b50); // local file header
-		expect(zip.readUInt16LE(8)).toBe(0); // compression method 0 = stored
-		expect(zip.includes(Buffer.from("01 - Ниночка.mp3"))).toBe(true);
-		expect(zip.includes(Buffer.from("two"))).toBe(true);
+		const entries = readZip(await buffer(zip));
+		expect(entries.map((e) => [e.name, e.method, e.data.toString()])).toEqual([
+			["01 - Ниночка.mp3", 0, "one"],
+			["02 - Two.mp3", 0, "two"],
+		]);
+		expect(opened).toEqual(["01 - Ниночка.mp3", "02 - Two.mp3"]);
+	});
+
+	test("a failing entry destroys the ZIP stream and later entries never open", async () => {
+		const opened: string[] = [];
+		const zip = streamZip([
+			{
+				name: "01.mp3",
+				open: () => {
+					opened.push("01");
+					const stream = new Readable({ read() {} });
+					setImmediate(() => stream.destroy(new Error("boom")));
+					return stream;
+				},
+			},
+			{
+				name: "02.mp3",
+				open: () => {
+					opened.push("02");
+					return Readable.from(["x"]);
+				},
+			},
+		]);
+		await expect(buffer(zip)).rejects.toThrow("boom");
+		expect(opened).toEqual(["01"]);
 	});
 });

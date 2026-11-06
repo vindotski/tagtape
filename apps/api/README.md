@@ -1,24 +1,38 @@
 # @tagtape/api
 
-The Fastify service that turns YouTube links into a ZIP of tagged MP3s. It runs yt-dlp and ffmpeg as background jobs. The TagTape web app is its only client: it calls the API from server functions, sending a bearer token. Browsers only hit the ZIP download route directly.
+The Fastify service that turns track links (YouTube, SoundCloud, Bandcamp, Mixcloud, Vimeo) into a ZIP of tagged MP3s, using yt-dlp and ffmpeg. **Nothing is stored:** tracks convert *while* the ZIP streams to the browser. The TagTape web app is its only client. It calls the API from server functions with a bearer token, and proxies the download as `/download/:id`.
 
 ## Endpoints
 
 | Method | Path | Auth | |
 |---|---|---|---|
-| POST | `/jobs` | Bearer | Body: `AlbumInput` from `@tagtape/shared`. Returns `202 { jobId }`; `400` with `issues` for invalid input; `429` when the queue is full. |
-| GET | `/jobs/:id` | Bearer | `JobSnapshot`: job status, per-track status and errors, and `archiveReady`. Poll it until the status is `done` or `failed`. |
-| GET | `/jobs/:id/archive` | public | Streams the ZIP. The job ID is the download key; the link expires after `JOB_TTL_MIN`. |
-| GET | `/health` | public | Checks that yt-dlp and ffmpeg run. Returns `503` if they don't. |
+| POST | `/jobs` | Bearer | Body: `AlbumInput` from `@tagtape/shared`. Returns `202 { jobId }`; `400` with `issues` for invalid input; `429` when the check queue is full. |
+| GET | `/jobs/:id` | Bearer | `JobSnapshot`: status (`queued → probing → ready → streaming → done`, or `failed`), per-track status and errors, and `downloadReady`. Poll it. |
+| GET | `/jobs/:id/archive` | public | **The download is the conversion.** Streams the ZIP as tracks convert (no `content-length`). `404` if the job is unknown or not checked yet, `409` if this album is already downloading, `429` if downloads are full. Can be repeated (it converts again) until `JOB_TTL_MIN` after the last activity. |
+| GET | `/health` | public | Checks that yt-dlp and ffmpeg run, and reports the image `version`. Returns `503` if they don't. |
 
 ## How a job runs
 
-1. **Probe:** one `yt-dlp --dump-single-json` per track. The job fails before anything is downloaded if a track is longer than 10 minutes, live, or unavailable.
-2. **Cover:** download the cover image (5 MB cap; private-network addresses are blocked to prevent SSRF), then centre-crop it to a 1000×1000 JPEG.
-3. **Tracks:** download with `--load-info-json`, reusing the probe's data so nothing is fetched twice. Convert to MP3 (best VBR), then write ID3v2.3 tags: title, artist, album artist, album, track `n/total`, year, genre, front cover.
-4. **ZIP:** pack the tracks uncompressed, named `01 - Title.mp3`, and keep only the ZIP on disk.
+1. **Check (on `POST /jobs`):**
+   - one `yt-dlp --dump-single-json` per track; the info JSON stays **in memory**
+   - a track fails the check if it's longer than 2 hours, live, DRM-protected, unavailable, or only offered as DASH
+   - the cover is downloaded (5 MB cap, private-network addresses blocked to prevent SSRF) and centre-cropped to a 1000×1000 JPEG, also in memory
+   - the job becomes `ready`
+2. **Download (`GET /jobs/:id/archive`):** a ZIP (stored entries, data descriptors) streams to the client. For each track, **one at a time**:
+   - write our **ID3v2.3 tag** first: title, artist, album artist, album, track `n/total`, year, genre, front cover
+   - then pipe `yt-dlp --load-info-json - -o -` (the probe's JSON on stdin, so nothing is fetched twice) into `ffmpeg` → **MP3 256 kbps CBR**
+   - MP3 sources (e.g. Bandcamp) are copied, not re-encoded
+3. **The client leaving** kills that track's process groups, and the job goes back to `ready`.
+4. **A track failing** cuts the response off (the browser shows a failed download, never a complete-looking ZIP) and the job records `Track N failed: …`.
 
-Jobs live in memory, and a sweeper deletes each job and its files `JOB_TTL_MIN` minutes after it finishes. Binaries are always spawned with an argument array, never through a shell.
+**Why the flags:**
+- **CBR, and no Xing header** (`-write_xing 0`): a VBR header would have to be rewritten at the end of the file, which a stream can't do.
+- **ffmpeg writes no tags** (`-id3v2_version 0 -write_id3v1 0`): ours is the only one.
+- **HLS goes through ffmpeg** (`--downloader m3u8:ffmpeg`): yt-dlp's own HLS-to-stdout crashes.
+- **No DASH formats:** yt-dlp writes DASH fragments to temp files even when the output is stdout.
+- **yt-dlp is the onedir release** in the image: the single-file binary unpacks about 90 MB into `/tmp` on every run.
+
+Jobs live in memory (metadata and cover only), and a sweeper forgets them `JOB_TTL_MIN` minutes after their last activity. Binaries are always spawned with an argument array, never through a shell, each in its own process group so cancelling kills yt-dlp's ffmpeg too.
 
 ## Development
 
@@ -41,7 +55,7 @@ The image bundles Node 24, ffmpeg (Debian), and the official yt-dlp binary, chec
 
 ## End-to-end test
 
-`src/e2e.test.ts` runs against a running API with the real binaries, and is skipped unless `TAGTAPE_E2E_URL` is set. It converts a 19-second video, and checks the tags, the 1000×1000 front cover and the ZIP file names:
+`src/e2e.test.ts` runs against a running API with the real binaries, and is skipped unless `TAGTAPE_E2E_URL` is set. It streams a three-track album covering every audio path: YouTube (Opus → 256 kbps), SoundCloud (HLS → 256 kbps), and Bandcamp (MP3, copied). It checks that our tag is the only one, the constant bitrate, that there's no Xing header, the durations, the 1000×1000 cover and the ZIP names:
 
 ```bash
 TOKEN=$(openssl rand -hex 32)

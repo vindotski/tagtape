@@ -1,5 +1,3 @@
-import { createReadStream } from "node:fs";
-import { stat } from "node:fs/promises";
 import {
 	albumInputSchema,
 	createJobResponseSchema,
@@ -69,28 +67,44 @@ export const jobRoutes: FastifyPluginAsyncZod<{ jobs: JobManager }> = async (
 		},
 	);
 
-	// Public: the browser downloads straight from here. The job id is an
-	// unguessable UUID and stops working once the job expires.
+	// The download *is* the conversion: tracks convert while this response
+	// streams, and nothing is stored. Public by design (the web app proxies it
+	// as /download/:id); the job id is an unguessable UUID that expires.
 	app.get(
 		"/jobs/:id/archive",
 		{ config: { public: true }, schema: { params: jobParams } },
 		async (request, reply) => {
-			const job = jobs.get(request.params.id);
-			const file = job?.archivePath
-				? await stat(job.archivePath).catch(() => null)
-				: null;
-			if (!job?.archivePath || !file?.isFile()) {
-				return reply.code(404).send(notFound);
+			// The client leaving (tab closed, download cancelled) stops the work.
+			const client = new AbortController();
+			reply.raw.once("close", () => {
+				if (!reply.raw.writableFinished) client.abort();
+			});
+
+			const opened = await jobs.openStream(request.params.id, client.signal);
+			switch (opened.kind) {
+				case "ok":
+					return reply
+						.header("content-type", "application/zip")
+						.header("content-disposition", contentDisposition(opened.fileName))
+						.header("cache-control", "private, no-store")
+						.send(opened.stream);
+				case "busy":
+					return reply.code(409).send({
+						statusCode: 409,
+						error: "Conflict",
+						message: "This album is already downloading",
+					});
+				case "full":
+					return reply.code(429).header("retry-after", "30").send({
+						statusCode: 429,
+						error: "Too Many Requests",
+						message: "TagTape is busy right now. Please try again in a minute.",
+					});
+				case "aborted":
+					return reply;
+				default:
+					return reply.code(404).send(notFound);
 			}
-			return reply
-				.header("content-type", "application/zip")
-				.header("content-length", file.size)
-				.header(
-					"content-disposition",
-					contentDisposition(job.archiveName ?? "tagtape.zip"),
-				)
-				.header("cache-control", "private, no-store")
-				.send(createReadStream(job.archivePath));
 		},
 	);
 };

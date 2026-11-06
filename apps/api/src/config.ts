@@ -1,9 +1,10 @@
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { z } from "zod";
 
 const positiveInt = (fallback: number) =>
 	z.coerce.number().int().positive().default(fallback);
+/** Queue sizes: 0 means "never wait, answer 429 right away". */
+const queueSize = (fallback: number) =>
+	z.coerce.number().int().min(0).default(fallback);
 
 /**
  * All configuration comes from environment variables, validated once at startup.
@@ -20,15 +21,17 @@ export const configSchema = z.object({
 	API_TOKEN: z
 		.string()
 		.min(32, { error: "API_TOKEN must be at least 32 characters" }),
-	/** Root for per-job working directories. Wiped on startup. */
-	TMP_DIR: z.string().default(join(tmpdir(), "tagtape")),
-	/** Minutes a finished job (and its ZIP) stays available. */
+	/** Minutes a checked or finished job can still be downloaded (again). */
 	JOB_TTL_MIN: positiveInt(30),
-	/** Jobs processed at the same time. */
-	MAX_ACTIVE_JOBS: positiveInt(2),
-	/** Jobs allowed to wait for a slot before POST /jobs answers 429. */
-	MAX_QUEUED_JOBS: positiveInt(20),
-	/** Tracks downloaded in parallel within one job. */
+	/** Jobs whose tracks are checked at the same time (metadata only, light). */
+	MAX_ACTIVE_PROBES: positiveInt(4),
+	/** Jobs allowed to wait for a check before POST /jobs answers 429. */
+	MAX_QUEUED_JOBS: queueSize(20),
+	/** Downloads converting at the same time (each runs yt-dlp + ffmpeg). */
+	MAX_ACTIVE_STREAMS: positiveInt(2),
+	/** Downloads allowed to wait for a slot before the archive route answers 429. */
+	MAX_QUEUED_STREAMS: queueSize(10),
+	/** Tracks checked in parallel within one job. */
 	TRACK_CONCURRENCY: positiveInt(2),
 	/** Kill a single yt-dlp run after this many seconds. */
 	YTDLP_TIMEOUT_SEC: positiveInt(1800),

@@ -7,6 +7,8 @@
 
 Paste up to 10 links from **YouTube** (incl. YouTube Music), **SoundCloud**, **Bandcamp**, **Mixcloud** or **Vimeo** (one track each, up to 2 hours long), add the album title, artist, year, genre and a cover image, and download a ZIP of MP3s with every tag filled in and the tracks numbered in your order. The albums show up properly on any plain MP3 player.
 
+**Nothing is stored on the server:** tracks convert while the ZIP streams to your browser.
+
 Built with [TanStack Start](https://tanstack.com/start), with a Fastify service running [yt-dlp](https://github.com/yt-dlp/yt-dlp) and ffmpeg. Version 1 was a 2020 Symfony/PHP app called Albumie; its code is preserved at the [`v1.0.0`](https://github.com/vindotski/tagtape/tree/v1.0.0) tag.
 
 [tagtape.app](https://tagtape.app)
@@ -42,7 +44,7 @@ The web app and the API share **one version**, which lives in the root `package.
 | Variable | Default | |
 |---|---|---|
 | `PORT` | `3000` | Public port of the web app. |
-| `JOB_TTL_MIN`, `MAX_ACTIVE_JOBS`, `MAX_QUEUED_JOBS`, `TRACK_CONCURRENCY`, `LOG_LEVEL` | see [apps/api/.env.example](apps/api/.env.example) | API tuning. These are passed through. |
+| `JOB_TTL_MIN`, `MAX_ACTIVE_STREAMS`, `MAX_QUEUED_STREAMS`, `MAX_ACTIVE_PROBES`, `MAX_QUEUED_JOBS`, `TRACK_CONCURRENCY`, `LOG_LEVEL` | see [apps/api/.env.example](apps/api/.env.example) | API tuning. These are passed through. |
 | `API_HOST`, `API_TOKEN` | `127.0.0.1`, random | Set both only to expose the API on purpose, e.g. for the end-to-end test. |
 
 ## Development

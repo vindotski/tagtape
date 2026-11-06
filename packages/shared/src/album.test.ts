@@ -80,7 +80,7 @@ describe("jobSnapshotSchema", () => {
 	test("accepts a snapshot as the API sends it", () => {
 		const snapshot = {
 			id: "8f14e45f-ceea-4e7a-9f3b-1c2d3e4f5a6b",
-			status: "processing",
+			status: "streaming",
 			tracks: [
 				{ number: 1, title: "Track 1", status: "done" },
 				{
@@ -90,7 +90,7 @@ describe("jobSnapshotSchema", () => {
 					error: "Video unavailable",
 				},
 			],
-			archiveReady: false,
+			downloadReady: false,
 			createdAt: "2026-11-06T12:00:00.000Z",
 			expiresAt: "2026-11-06T12:30:00.000Z",
 		};

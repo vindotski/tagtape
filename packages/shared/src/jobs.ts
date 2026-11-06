@@ -1,10 +1,21 @@
 import { z } from "zod";
 
+/**
+ * Job lifecycle. Nothing is stored: the download *is* the conversion.
+ *
+ * queued → probing → ready → (download starts) → [queued →] streaming → done
+ * Any phase can end in `failed`. After `done`, or a failure while streaming,
+ * the album can be downloaded again (it's converted again) until the job expires.
+ */
 export const jobStatusSchema = z.enum([
+	/** Waiting for a free slot (to check the tracks, or to stream the download). */
 	"queued",
+	/** Reading each track's details; nothing is downloaded yet. */
 	"probing",
-	"processing",
-	"packaging",
+	/** Every track checked; the download can start. */
+	"ready",
+	/** Tracks are being converted while the ZIP streams to the browser. */
+	"streaming",
 	"done",
 	"failed",
 ]);
@@ -12,9 +23,7 @@ export type JobStatus = z.infer<typeof jobStatusSchema>;
 
 export const trackStatusSchema = z.enum([
 	"queued",
-	"downloading",
 	"converting",
-	"tagging",
 	"done",
 	"error",
 ]);
@@ -36,10 +45,13 @@ export const jobSnapshotSchema = z.object({
 	tracks: z.array(trackSnapshotSchema),
 	/** Human-readable reason when `status` is `failed`. */
 	error: z.string().optional(),
-	/** True once the ZIP can be downloaded from `GET /jobs/:id/archive`. */
-	archiveReady: z.boolean(),
+	/**
+	 * True when `GET /jobs/:id/archive` can start a (new) download: every track
+	 * passed the check and no download is running right now.
+	 */
+	downloadReady: z.boolean(),
 	createdAt: z.iso.datetime(),
-	/** After this moment the job and its files are deleted. */
+	/** After this moment the job is forgotten. */
 	expiresAt: z.iso.datetime(),
 });
 export type JobSnapshot = z.infer<typeof jobSnapshotSchema>;
@@ -47,7 +59,7 @@ export type JobSnapshot = z.infer<typeof jobSnapshotSchema>;
 export const createJobResponseSchema = z.object({ jobId: z.uuid() });
 export type CreateJobResponse = z.infer<typeof createJobResponseSchema>;
 
-/** Statuses after which a job never changes again; clients stop polling. */
+/** Statuses where nothing happens until the user acts (or the job expires). */
 export function isJobFinished(status: JobStatus): boolean {
 	return status === "done" || status === "failed";
 }

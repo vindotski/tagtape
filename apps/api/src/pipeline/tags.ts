@@ -27,12 +27,11 @@ export function toId3(tags: TrackTags): NodeID3.Tags {
 }
 
 /**
- * Replaces the file's tag with an ID3v2.3 tag (node-id3 writes v2.3, which old
- * MP3 players and car stereos read more reliably than v2.4).
+ * The complete ID3v2.3 tag as bytes, written in front of the streamed MP3
+ * frames. The tag is the only one in the file: ffmpeg is told not to write
+ * any. (node-id3 writes v2.3, which old MP3 players and car stereos read more
+ * reliably than v2.4.)
  */
-export async function writeTags(
-	mp3Path: string,
-	tags: TrackTags,
-): Promise<void> {
-	await NodeID3.Promise.write(toId3(tags), mp3Path);
+export function createTag(tags: TrackTags): Buffer {
+	return NodeID3.create(toId3(tags));
 }

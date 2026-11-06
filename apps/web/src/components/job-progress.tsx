@@ -5,20 +5,22 @@ import { type JobView, useJob } from "#/lib/use-job";
 const JOB_LABELS: Record<JobStatus, string> = {
 	queued: "Waiting for a free slot…",
 	probing: "Checking your tracks…",
-	processing: "Converting your tracks…",
-	packaging: "Creating the ZIP…",
-	done: "Your album is ready",
+	ready: "Starting your download…",
+	streaming: "Converting and downloading…",
+	done: "Your album has downloaded",
 	failed: "That didn't work",
 };
 
 const TRACK_LABELS: Record<TrackStatus, string> = {
 	queued: "Waiting",
-	downloading: "Downloading",
-	converting: "Converting to MP3",
-	tagging: "Writing tags",
+	converting: "Converting",
 	done: "Done",
 	error: "Problem",
 };
+
+/** Shown while the download runs: closing the tab stops the conversion. */
+const KEEP_OPEN =
+	"Tracks are converted while your browser downloads the ZIP. Keep this tab open until it finishes; nothing is stored on our side.";
 
 interface JobProgressProps {
 	jobId: string;
@@ -41,7 +43,7 @@ export function JobProgress({ jobId, onEdit, onStartOver }: JobProgressProps) {
 				}
 				message={
 					state.kind === "missing"
-						? "Finished albums are kept for 30 minutes. Your form is still filled in, so you can convert it again."
+						? "Albums can be downloaded for 30 minutes after they're checked. Your form is still filled in, so you can convert it again."
 						: "We can't reach TagTape right now. Check your connection and try again."
 				}
 			>
@@ -51,18 +53,36 @@ export function JobProgress({ jobId, onEdit, onStartOver }: JobProgressProps) {
 	}
 
 	const { job, downloadUrl } = state.view;
+	const streamFailed = job.status === "failed" && job.downloadReady;
+	const message =
+		job.error ??
+		(job.status === "streaming" || job.status === "queued"
+			? KEEP_OPEN
+			: undefined);
 	return (
-		<Panel title={JOB_LABELS[job.status]} message={job.error} tone={job.status}>
+		<Panel title={JOB_LABELS[job.status]} message={message} tone={job.status}>
 			<ProgressBar view={state.view} />
 			<ol className="mt-5 divide-y divide-zinc-100 dark:divide-zinc-800">
 				{job.tracks.map((track) => (
 					<TrackLine key={track.number} track={track} />
 				))}
 			</ol>
-			{job.status === "done" && downloadUrl && (
+			{/* The download *is* the conversion: start it as soon as the check passes. */}
+			{job.status === "ready" && downloadUrl && (
 				<AutoDownload url={downloadUrl} />
 			)}
-			{job.status === "failed" && (
+			{job.status === "ready" && downloadUrl && (
+				<p className="mt-6 text-sm text-zinc-600 dark:text-zinc-400">
+					Download didn't start?{" "}
+					<DownloadLink
+						url={downloadUrl}
+						className="font-medium text-emerald-700 underline underline-offset-4 dark:text-emerald-400"
+					>
+						Start it here
+					</DownloadLink>
+				</p>
+			)}
+			{job.status === "failed" && !streamFailed && (
 				<Actions
 					onEdit={() =>
 						onEdit(
@@ -76,22 +96,22 @@ export function JobProgress({ jobId, onEdit, onStartOver }: JobProgressProps) {
 					onStartOver={onStartOver}
 				/>
 			)}
-			{job.status === "done" && (
+			{(job.status === "done" || streamFailed) && (
 				<div className="mt-6 flex flex-wrap items-center gap-3">
 					{downloadUrl && (
-						<a
-							href={downloadUrl}
+						<DownloadLink
+							url={downloadUrl}
 							className="rounded-lg bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700"
 						>
-							Download ZIP
-						</a>
+							{streamFailed ? "Try the download again" : "Download again"}
+						</DownloadLink>
 					)}
 					<button
 						type="button"
-						onClick={onStartOver}
+						onClick={job.status === "done" ? onStartOver : () => onEdit({})}
 						className="rounded-lg px-4 py-2.5 text-sm font-medium text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
 					>
-						Convert another album
+						{job.status === "done" ? "Convert another album" : "Edit the album"}
 					</button>
 				</div>
 			)}
@@ -141,7 +161,11 @@ function ProgressBar({ view }: { view: JobView }) {
 	if (status === "failed") return null;
 	const done = tracks.filter((track) => track.status === "done").length;
 	const percent =
-		status === "done" ? 100 : Math.round((done / tracks.length) * 95);
+		status === "done"
+			? 100
+			: status === "streaming"
+				? Math.round((done / tracks.length) * 95)
+				: 0;
 	return (
 		<div
 			role="progressbar"
@@ -160,10 +184,7 @@ function ProgressBar({ view }: { view: JobView }) {
 }
 
 function TrackLine({ track }: { track: TrackSnapshot }) {
-	const busy =
-		track.status === "downloading" ||
-		track.status === "converting" ||
-		track.status === "tagging";
+	const busy = track.status === "converting";
 	return (
 		<li className="flex items-start gap-3 py-2.5 text-sm">
 			<span className="w-5 shrink-0 text-right tabular-nums text-zinc-400">
@@ -227,13 +248,38 @@ function Actions({
 	);
 }
 
-/** Starts the download once when the job finishes; the button stays for re-downloads. */
+/**
+ * A download link: `download` makes the browser save the response, and show a
+ * failed download (instead of navigating away) if the server refuses.
+ */
+function DownloadLink({
+	url,
+	className,
+	children,
+}: {
+	url: string;
+	className: string;
+	children: React.ReactNode;
+}) {
+	return (
+		<a href={url} download className={className}>
+			{children}
+		</a>
+	);
+}
+
+/** Starts the download once, as soon as the album is ready. */
 function AutoDownload({ url }: { url: string }) {
 	const started = useRef(false);
 	useEffect(() => {
 		if (started.current) return;
 		started.current = true;
-		window.location.assign(url);
+		const link = document.createElement("a");
+		link.href = url;
+		link.download = "";
+		document.body.append(link);
+		link.click();
+		link.remove();
 	}, [url]);
 	return null;
 }

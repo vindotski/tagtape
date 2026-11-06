@@ -114,7 +114,10 @@ Run `pnpm check`, `pnpm typecheck` and the relevant tests before calling a task 
   - Never enable yt-dlp's generic extractor or accept arbitrary URLs: that would make the server an SSRF proxy. Never try to get around DRM.
   - UI and meta copy read the site names from `SUPPORTED_SITES`, so don't hard-code them.
 - Fetch remote images with a size cap, a timeout, and private-IP blocking (SSRF).
-- Jobs are in-memory, and their temp files are cleaned up by a TTL sweeper. Don't add persistence without asking.
+- **Never write media to disk.** Downloads stream: `yt-dlp -o -` | `ffmpeg pipe:1` → ID3 tag + MP3 → streamed ZIP. Only metadata and the cover live in memory, and a TTL sweeper forgets jobs.
+  - Each flag in `pipeline/ytdlp.ts` exists for a reason documented there and in `apps/api/README.md`: no DASH, HLS via ffmpeg, `--load-info-json -` (not `/dev/stdin`), and ffmpeg with no tags, no Xing header, 256 kbps CBR.
+  - After any change, check `find /tmp -type f` inside a container *during* and after a download (the e2e test plus a real abort).
+  - Don't add persistence without asking.
 - pnpm settings live in `pnpm-workspace.yaml`. `.npmrc` is for auth only (see the `pnpm` skill).
 - Versions used by more than one package (zod, vitest, typescript) go in the pnpm **catalog**: write `"catalog:"` in package.json, or use `pnpm add --save-catalog`.
 - Code in `packages/shared` must run in both browsers and Node: web-standard APIs only (no `node:*` imports), relative imports with `.ts` extensions, and erasable TypeScript syntax only (no enums or namespaces).

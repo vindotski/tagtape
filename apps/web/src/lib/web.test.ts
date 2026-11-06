@@ -122,7 +122,7 @@ describe("API client", () => {
 			id: JOB_ID,
 			status: "done",
 			tracks: [{ number: 1, title: "One", status: "done" }],
-			archiveReady: true,
+			downloadReady: true,
 			createdAt: "2026-11-06T12:00:00.000Z",
 			expiresAt: "2026-11-06T12:30:00.000Z",
 		};
@@ -133,8 +133,8 @@ describe("API client", () => {
 
 		const pending = fakeApi(200, {
 			...snapshot,
-			status: "processing",
-			archiveReady: false,
+			status: "streaming",
+			downloadReady: false,
 		});
 		expect(await getJob(JOB_ID, pending.config)).not.toHaveProperty(
 			"downloadUrl",
@@ -221,5 +221,49 @@ describe("streamArchive (/download/:jobId)", () => {
 			}) as typeof globalThis.fetch,
 		};
 		expect((await streamArchive(JOB_ID, config)).status).toBe(502);
+	});
+
+	test("the browser leaving aborts the API request (stops the conversion)", async () => {
+		const { fetch, config } = archiveApi(
+			() =>
+				new Response("PK", {
+					status: 200,
+					headers: { "content-type": "application/zip" },
+				}),
+		);
+		const browser = new AbortController();
+		await streamArchive(JOB_ID, config, browser.signal);
+		const signal = fetch.mock.calls[0]?.[1]?.signal as AbortSignal;
+		expect(signal.aborted).toBe(false);
+		browser.abort();
+		expect(signal.aborted).toBe(true);
+	});
+
+	test("already downloading (409) and busy (429) are passed on, not hidden", async () => {
+		const busy = archiveApi(
+			() =>
+				new Response(
+					JSON.stringify({ message: "TagTape is busy right now." }),
+					{
+						status: 429,
+						headers: { "retry-after": "30" },
+					},
+				),
+		);
+		const response = await streamArchive(JOB_ID, busy.config);
+		expect(response.status).toBe(429);
+		expect(response.headers.get("retry-after")).toBe("30");
+		expect(await response.text()).toBe("TagTape is busy right now.");
+
+		const twice = archiveApi(
+			() =>
+				new Response(
+					JSON.stringify({ message: "This album is already downloading" }),
+					{
+						status: 409,
+					},
+				),
+		);
+		expect((await streamArchive(JOB_ID, twice.config)).status).toBe(409);
 	});
 });

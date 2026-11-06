@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import { createInterface } from "node:readline";
+import type { Readable } from "node:stream";
 
 export interface RunOptions {
 	signal?: AbortSignal;
@@ -140,6 +141,110 @@ export function run(
 			}
 		});
 	});
+}
+
+export interface StreamProcess {
+	/** The process's stdout, consumed by the caller (backpressure applies). */
+	stdout: Readable;
+	/**
+	 * Settles when the process exits: resolves on exit code 0, rejects with an
+	 * `ExecError` (non-zero exit, carries the stderr tail) or an `AbortError`.
+	 */
+	done: Promise<void>;
+}
+
+/**
+ * Like `run`, but streams stdout instead of collecting it, so audio can flow
+ * from one process to the next and to the client without touching disk.
+ * Same guarantees: no shell, its own process group, the whole group is killed
+ * on abort or timeout.
+ */
+export function spawnStream(
+	command: string,
+	args: readonly string[],
+	options: {
+		signal: AbortSignal;
+		stdin?: string | Readable;
+		timeoutMs?: number;
+	},
+): StreamProcess {
+	const timeout = options.timeoutMs
+		? AbortSignal.timeout(options.timeoutMs)
+		: undefined;
+	const signal = timeout
+		? AbortSignal.any([options.signal, timeout])
+		: options.signal;
+
+	const child = spawn(command, args, {
+		shell: false,
+		stdio: [options.stdin === undefined ? "ignore" : "pipe", "pipe", "pipe"],
+		detached: process.platform !== "win32",
+	});
+	const killTree = () => {
+		if (child.pid === undefined || child.exitCode !== null) return;
+		try {
+			process.kill(-child.pid, "SIGKILL");
+		} catch {
+			child.kill("SIGKILL");
+		}
+	};
+	if (signal.aborted) killTree();
+	else signal.addEventListener("abort", killTree, { once: true });
+
+	if (child.stdin) {
+		// The child may exit before reading all its input (EPIPE): that's reported
+		// through `done`, not as an unhandled stream error.
+		child.stdin.on("error", () => {});
+		if (typeof options.stdin === "string") {
+			child.stdin.end(options.stdin);
+		} else if (options.stdin) {
+			options.stdin.on("error", () => child.stdin?.destroy());
+			options.stdin.pipe(child.stdin);
+		}
+	}
+
+	// stdout and stderr are always "pipe" above.
+	const stdout = child.stdout as Readable;
+	const stderrStream = child.stderr as Readable;
+	let stderr = "";
+	stderrStream.setEncoding("utf8");
+	stderrStream.on("data", (chunk: string) => {
+		stderr = (stderr + chunk).slice(-STDERR_TAIL_BYTES);
+	});
+
+	const done = new Promise<void>((resolve, reject) => {
+		child.once("error", (error) => {
+			signal.removeEventListener("abort", killTree);
+			reject(
+				signal.aborted
+					? abortError(timeout, command)
+					: new ExecError(`Failed to start ${command}: ${error.message}`, {
+							exitCode: null,
+							stderr,
+							timedOut: false,
+						}),
+			);
+		});
+		child.once("close", (exitCode) => {
+			signal.removeEventListener("abort", killTree);
+			if (signal.aborted) reject(abortError(timeout, command));
+			else if (exitCode === 0) resolve();
+			else {
+				reject(
+					new ExecError(`${command} exited with code ${exitCode}`, {
+						exitCode,
+						stderr,
+						timedOut: false,
+					}),
+				);
+			}
+		});
+	});
+	// Callers usually await `done`, but never let an early failure become an
+	// unhandled rejection that would crash the process.
+	done.catch(() => {});
+
+	return { stdout, done };
 }
 
 function abortError(timeout: AbortSignal | undefined, command: string): Error {

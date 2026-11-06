@@ -11,10 +11,12 @@ services:
     environment:
       LOG_LEVEL: ${LOG_LEVEL:-info}
       JOB_TTL_MIN: ${JOB_TTL_MIN:-30}
-      MAX_ACTIVE_JOBS: ${MAX_ACTIVE_JOBS:-2}
+      MAX_ACTIVE_PROBES: ${MAX_ACTIVE_PROBES:-4}
       MAX_QUEUED_JOBS: ${MAX_QUEUED_JOBS:-20}
+      MAX_ACTIVE_STREAMS: ${MAX_ACTIVE_STREAMS:-2}
+      MAX_QUEUED_STREAMS: ${MAX_QUEUED_STREAMS:-10}
       TRACK_CONCURRENCY: ${TRACK_CONCURRENCY:-2}
-    # Give in-flight conversions time to finish on redeploy (SIGTERM → grace → kill).
+    # Redeploys stop running downloads (nothing is stored to resume); users retry.
     stop_grace_period: 30s
 
   caddy:

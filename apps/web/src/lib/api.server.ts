@@ -100,7 +100,7 @@ export async function getJob(
 	if (response.status === 404) return null;
 	if (!response.ok) throw new Error(`API answered ${response.status}`);
 	const job = jobSnapshotSchema.parse(await response.json());
-	return job.archiveReady
+	return job.downloadReady
 		? { job, downloadUrl: downloadPath(job.id) }
 		: { job };
 }
@@ -113,26 +113,54 @@ const ARCHIVE_HEADERS = [
 	"cache-control",
 ];
 
+/** How long to wait for the download to *start* (it may queue for a slot). */
+const DOWNLOAD_START_TIMEOUT_MS = 15 * 60_000;
+
 /**
  * Streams a job's ZIP from the internal API to the browser, so the API never
  * needs a public port. The body is piped through without buffering.
+ *
+ * The download *is* the conversion and can take a long time, so only the wait
+ * for it to start is timed. `clientSignal` is the browser's connection:
+ * when the browser leaves, the API request is aborted and the conversion stops.
  */
 export async function streamArchive(
 	id: string,
 	config: ApiConfig,
+	clientSignal?: AbortSignal,
 ): Promise<Response> {
+	const start = new AbortController();
+	const timer = setTimeout(() => start.abort(), DOWNLOAD_START_TIMEOUT_MS);
+	const signal = clientSignal
+		? AbortSignal.any([clientSignal, start.signal])
+		: start.signal;
+
 	let upstream: Response;
 	try {
 		upstream = await request(
 			config,
 			`/jobs/${encodeURIComponent(id)}/archive`,
-			{},
-			// The whole download must fit in this, so it's generous (10 s would cut off big albums).
-			10 * 60_000,
+			{
+				signal,
+			},
 		);
 	} catch {
 		return new Response("TagTape's converter isn't reachable right now.", {
 			status: 502,
+		});
+	} finally {
+		clearTimeout(timer);
+	}
+	if (upstream.status === 409 || upstream.status === 429) {
+		// Already downloading, or too busy: say so instead of a generic error.
+		const body = (await upstream.json().catch(() => ({}))) as {
+			message?: string;
+		};
+		return new Response(body.message ?? "Please try again in a minute.", {
+			status: upstream.status,
+			headers: upstream.headers.get("retry-after")
+				? { "retry-after": upstream.headers.get("retry-after") as string }
+				: {},
 		});
 	}
 	if (!upstream.ok || !upstream.body) {
@@ -160,16 +188,12 @@ export function issuesToFieldErrors(
 	return errors;
 }
 
-function request(
-	config: ApiConfig,
-	path: string,
-	init: RequestInit = {},
-	timeoutMs = 10_000,
-) {
+/** Calls the API with the token. Without a `signal`, gives up after 10 s. */
+function request(config: ApiConfig, path: string, init: RequestInit = {}) {
 	const doFetch = config.fetch ?? fetch;
 	return doFetch(`${config.apiUrl}${path}`, {
 		...init,
 		headers: { ...init.headers, authorization: `Bearer ${config.token}` },
-		signal: AbortSignal.timeout(timeoutMs),
+		signal: init.signal ?? AbortSignal.timeout(10_000),
 	});
 }
