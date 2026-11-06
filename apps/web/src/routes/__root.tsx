@@ -18,6 +18,7 @@ export const Route = createRootRoute({
 		],
 		links: [
 			{ rel: "stylesheet", href: appCss },
+			{ rel: "icon", href: "/favicon.svg", type: "image/svg+xml" },
 			{ rel: "canonical", href: "https://tagtape.app" },
 		],
 	}),

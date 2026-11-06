@@ -6,6 +6,7 @@ import {
 	createJob,
 	getJob,
 	issuesToFieldErrors,
+	streamArchive,
 } from "./api.server";
 
 const JOB_ID = "8f14e45f-ceea-4e7a-9f3b-1c2d3e4f5a6b";
@@ -18,7 +19,6 @@ function fakeApi(status: number, body: unknown) {
 	const config: ApiConfig = {
 		apiUrl: "http://api.internal:4000",
 		token: "secret-token",
-		publicUrl: "https://api.tagtape.app",
 		fetch: fetch as unknown as typeof globalThis.fetch,
 	};
 	return { fetch, config };
@@ -124,7 +124,7 @@ describe("API client", () => {
 		};
 		const { config } = fakeApi(200, snapshot);
 		expect(await getJob(JOB_ID, config)).toMatchObject({
-			downloadUrl: `https://api.tagtape.app/jobs/${JOB_ID}/archive`,
+			downloadUrl: `/download/${JOB_ID}`,
 		});
 
 		const pending = fakeApi(200, {
@@ -146,16 +146,8 @@ describe("API client", () => {
 			"API_TOKEN",
 		);
 		expect(
-			apiConfigFromEnv({
-				API_URL: "http://api:4000/",
-				API_TOKEN: "t",
-				PUBLIC_API_URL: "https://dl/",
-			}),
-		).toEqual({
-			apiUrl: "http://api:4000",
-			token: "t",
-			publicUrl: "https://dl",
-		});
+			apiConfigFromEnv({ API_URL: "http://api:4000/", API_TOKEN: "t" }),
+		).toEqual({ apiUrl: "http://api:4000", token: "t" });
 	});
 
 	test("issue paths become dotted keys, first message wins", () => {
@@ -166,5 +158,64 @@ describe("API client", () => {
 				{ path: "/tracks/2/title", message: "C" },
 			]),
 		).toEqual({ title: "A", "tracks.2.title": "C" });
+	});
+});
+
+describe("streamArchive (/download/:jobId)", () => {
+	function archiveApi(response: () => Response) {
+		const fetch = vi.fn(
+			async (_url: string | URL | Request, _init?: RequestInit) => response(),
+		);
+		const config: ApiConfig = {
+			apiUrl: "http://127.0.0.1:4000",
+			token: "secret-token",
+			fetch: fetch as unknown as typeof globalThis.fetch,
+		};
+		return { fetch, config };
+	}
+
+	test("streams the ZIP with its download headers, and nothing else", async () => {
+		const { fetch, config } = archiveApi(
+			() =>
+				new Response("PKzipbytes", {
+					status: 200,
+					headers: {
+						"content-type": "application/zip",
+						"content-length": "10",
+						"content-disposition": `attachment; filename="A - B.zip"`,
+						"cache-control": "private, no-store",
+						"x-internal": "do not leak",
+					},
+				}),
+		);
+		const response = await streamArchive(JOB_ID, config);
+
+		expect(fetch.mock.calls[0]?.[0]).toBe(
+			`http://127.0.0.1:4000/jobs/${JOB_ID}/archive`,
+		);
+		expect(response.status).toBe(200);
+		expect(Object.fromEntries(response.headers)).toEqual({
+			"content-type": "application/zip",
+			"content-length": "10",
+			"content-disposition": `attachment; filename="A - B.zip"`,
+			"cache-control": "private, no-store",
+		});
+		expect(await response.text()).toBe("PKzipbytes");
+	});
+
+	test("expired or unknown jobs are 404", async () => {
+		const { config } = archiveApi(() => new Response("{}", { status: 404 }));
+		expect((await streamArchive(JOB_ID, config)).status).toBe(404);
+	});
+
+	test("an unreachable API is 502, not a crash", async () => {
+		const config: ApiConfig = {
+			apiUrl: "http://127.0.0.1:4000",
+			token: "t",
+			fetch: (async () => {
+				throw new TypeError("fetch failed");
+			}) as typeof globalThis.fetch,
+		};
+		expect((await streamArchive(JOB_ID, config)).status).toBe(502);
 	});
 });

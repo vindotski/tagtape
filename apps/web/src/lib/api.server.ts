@@ -15,8 +15,6 @@ export interface ApiConfig {
 	apiUrl: string;
 	/** Bearer token shared with the API (API_TOKEN). */
 	token: string;
-	/** Where browsers reach the API's public ZIP route. */
-	publicUrl: string;
 	fetch?: typeof fetch;
 }
 
@@ -28,11 +26,7 @@ export function apiConfigFromEnv(
 	if (!apiUrl || !token) {
 		throw new Error("API_URL and API_TOKEN must be set for the web server");
 	}
-	return {
-		apiUrl: apiUrl.replace(/\/+$/, ""),
-		token,
-		publicUrl: (env.PUBLIC_API_URL || apiUrl).replace(/\/+$/, ""),
-	};
+	return { apiUrl: apiUrl.replace(/\/+$/, ""), token };
 }
 
 export type CreateJobResult =
@@ -90,9 +84,12 @@ export async function createJob(
 
 export interface JobView {
 	job: JobSnapshot;
-	/** Public link to the ZIP once it's ready. */
+	/** Same-origin link to the ZIP once it's ready (served by the /download route). */
 	downloadUrl?: string;
 }
+
+/** Same-origin path that streams a finished job's ZIP. */
+export const downloadPath = (id: string) => `/download/${id}`;
 
 /** `null` when the job doesn't exist (anymore). Throws when the API is unreachable. */
 export async function getJob(
@@ -104,8 +101,51 @@ export async function getJob(
 	if (!response.ok) throw new Error(`API answered ${response.status}`);
 	const job = jobSnapshotSchema.parse(await response.json());
 	return job.archiveReady
-		? { job, downloadUrl: `${config.publicUrl}/jobs/${job.id}/archive` }
+		? { job, downloadUrl: downloadPath(job.id) }
 		: { job };
+}
+
+/** Headers worth passing from the API's ZIP response to the browser. */
+const ARCHIVE_HEADERS = [
+	"content-type",
+	"content-length",
+	"content-disposition",
+	"cache-control",
+];
+
+/**
+ * Streams a job's ZIP from the internal API to the browser, so the API never
+ * needs a public port. The body is piped through without buffering.
+ */
+export async function streamArchive(
+	id: string,
+	config: ApiConfig,
+): Promise<Response> {
+	let upstream: Response;
+	try {
+		upstream = await request(
+			config,
+			`/jobs/${encodeURIComponent(id)}/archive`,
+			{},
+			// The whole download must fit in this, so it's generous (10 s would cut off big albums).
+			10 * 60_000,
+		);
+	} catch {
+		return new Response("TagTape's converter isn't reachable right now.", {
+			status: 502,
+		});
+	}
+	if (!upstream.ok || !upstream.body) {
+		return new Response("This download doesn't exist or has expired.", {
+			status: upstream.status === 404 ? 404 : 502,
+		});
+	}
+	const headers = new Headers();
+	for (const name of ARCHIVE_HEADERS) {
+		const value = upstream.headers.get(name);
+		if (value) headers.set(name, value);
+	}
+	return new Response(upstream.body, { status: 200, headers });
 }
 
 /** API issue paths (`/tracks/0/url`) → form field keys (`tracks.0.url`). */
@@ -120,11 +160,16 @@ export function issuesToFieldErrors(
 	return errors;
 }
 
-function request(config: ApiConfig, path: string, init: RequestInit = {}) {
+function request(
+	config: ApiConfig,
+	path: string,
+	init: RequestInit = {},
+	timeoutMs = 10_000,
+) {
 	const doFetch = config.fetch ?? fetch;
 	return doFetch(`${config.apiUrl}${path}`, {
 		...init,
 		headers: { ...init.headers, authorization: `Bearer ${config.token}` },
-		signal: AbortSignal.timeout(10_000),
+		signal: AbortSignal.timeout(timeoutMs),
 	});
 }

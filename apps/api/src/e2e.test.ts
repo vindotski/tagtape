@@ -1,8 +1,8 @@
 /**
  * Opt-in end-to-end test against a running API with the real yt-dlp and ffmpeg,
- * e.g. the Docker image:
+ * e.g. the TagTape image with its internal API exposed on purpose:
  *
- *   docker run -d -p 127.0.0.1:4100:4000 -e API_TOKEN=$TOKEN tagtape-api
+ *   docker run -d -p 127.0.0.1:4100:4000 -e API_HOST=0.0.0.0 -e API_TOKEN=$TOKEN tagtape
  *   TAGTAPE_E2E_URL=http://127.0.0.1:4100 TAGTAPE_E2E_TOKEN=$TOKEN \
  *     pnpm --filter @tagtape/api exec vitest run src/e2e.test.ts
  *

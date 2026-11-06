@@ -35,30 +35,9 @@ All configuration comes from environment variables; see [.env.example](.env.exam
 
 ## Docker
 
-The image bundles Node 24, ffmpeg (Debian), and the official yt-dlp binary, checked against the release's `SHA2-256SUMS`. It runs as the non-root `node` user, with `tini` as PID 1, so signals reach Node and orphaned processes are reaped. Build it from the **repo root**, because it needs the workspace files:
+The API ships inside the single TagTape image (web app + API, one version), built from the repo root's [`Dockerfile`](../../Dockerfile). There, it listens on `127.0.0.1:4000`, and only the web app reaches it. See the root [README](../../README.md#run-it) for tags and settings.
 
-```bash
-docker build -f apps/api/Dockerfile -t tagtape-api .
-docker run --rm -p 127.0.0.1:4000:4000 -e API_TOKEN=$(openssl rand -hex 32) tagtape-api
-```
-
-YouTube changes often, so update yt-dlp by bumping the `YTDLP_VERSION` build argument (or pass `--build-arg YTDLP_VERSION=…`) and rebuilding.
-
-### Prebuilt image
-
-CI publishes the image to Docker Hub as [`vindotski/tagtape`](https://hub.docker.com/r/vindotski/tagtape) for linux/amd64 and linux/arm64, with provenance and an SBOM attached. It only publishes after lint, tests and the container smoke test pass.
-
-```bash
-docker run --rm -p 127.0.0.1:4000:4000 -e API_TOKEN=$(openssl rand -hex 32) vindotski/tagtape
-```
-
-| Tag | Published from |
-|---|---|
-| `latest` | every push to `main` |
-| `1.2.3`, `1.2`, `1` | the git tag `v1.2.3` |
-| `sha-abc1234` | every publish (immutable; use it to pin a deployment) |
-
-To cut a release, run `git tag v1.0.0 && git push origin v1.0.0`.
+The image bundles Node 24, ffmpeg (Debian), and the official yt-dlp binary, checked against the release's `SHA2-256SUMS`. It runs as the non-root `node` user, with `tini` as PID 1. YouTube changes often, so update yt-dlp by bumping the `YTDLP_VERSION` build argument in the root `Dockerfile`.
 
 ## End-to-end test
 
@@ -66,7 +45,9 @@ To cut a release, run `git tag v1.0.0 && git push origin v1.0.0`.
 
 ```bash
 TOKEN=$(openssl rand -hex 32)
-docker run -d --name tagtape-e2e -p 127.0.0.1:4100:4000 -e API_TOKEN=$TOKEN tagtape-api
+docker build -t tagtape .
+# API_HOST + a known token expose the otherwise-internal API for the test
+docker run -d --name tagtape-e2e -p 127.0.0.1:4100:4000 -e API_HOST=0.0.0.0 -e API_TOKEN=$TOKEN tagtape
 TAGTAPE_E2E_URL=http://127.0.0.1:4100 TAGTAPE_E2E_TOKEN=$TOKEN \
   pnpm --filter @tagtape/api exec vitest run src/e2e.test.ts
 docker rm -f tagtape-e2e

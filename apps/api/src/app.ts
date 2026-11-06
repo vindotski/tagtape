@@ -100,7 +100,10 @@ export async function buildApp({
 		return reply.code(status).send(error);
 	});
 
-	await app.register(healthRoutes, { pipeline });
+	await app.register(healthRoutes, {
+		pipeline,
+		version: config.TAGTAPE_VERSION,
+	});
 	await app.register(jobRoutes, { jobs });
 
 	return app;

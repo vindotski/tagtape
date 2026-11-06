@@ -36,18 +36,19 @@ jobs:
       - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
-          file: apps/api/Dockerfile
-          tags: tagtape-api:e2e
+          tags: tagtape:e2e
           load: true
           push: false
-          cache-from: type=gha,scope=api
+          cache-from: type=gha,scope=image
 
-      - name: Start the API
+      # The API is internal in the image; API_HOST + a fixed token expose it for the test.
+      - name: Start the app
         run: |
           TOKEN="$(openssl rand -hex 32)"
           echo "::add-mask::$TOKEN"
           echo "TAGTAPE_E2E_TOKEN=$TOKEN" >> "$GITHUB_ENV"
-          docker run -d --name api -p 127.0.0.1:4100:4000 -e API_TOKEN="$TOKEN" tagtape-api:e2e
+          docker run -d --name api -p 127.0.0.1:4100:4000 \
+            -e API_HOST=0.0.0.0 -e API_TOKEN="$TOKEN" tagtape:e2e
           for _ in $(seq 1 30); do curl -sf http://127.0.0.1:4100/health && break; sleep 1; done
 
       - name: Convert a real video

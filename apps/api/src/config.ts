@@ -39,6 +39,8 @@ export const configSchema = z.object({
 	 */
 	YTDLP_JS_RUNTIME: z.string().default("node"),
 	FFMPEG_BIN: z.string().min(1).default("ffmpeg"),
+	/** Release of the web + API image (set at Docker build time). */
+	TAGTAPE_VERSION: z.string().min(1).default("dev"),
 });
 
 export type Config = z.infer<typeof configSchema>;

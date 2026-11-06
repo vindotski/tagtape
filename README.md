@@ -9,6 +9,31 @@ Built with [TanStack Start](https://tanstack.com/start), with a Fastify service 
 
 [tagtape.app](https://tagtape.app)
 
+## Run it
+
+The web app and the API ship together as **one image, with one version**:
+
+```bash
+docker run --rm -p 3000:3000 vindotski/tagtape
+# → http://localhost:3000
+```
+
+There's nothing to configure. Inside the container, [`docker/start.mjs`](docker/start.mjs) starts the API on `127.0.0.1:4000` (not exposed) and the web app on `:3000`, with a fresh internal token each time. If either process dies, the container stops, so your orchestrator restarts both together. The image is published for linux/amd64 and linux/arm64, with provenance and an SBOM attached.
+
+| Tag | Published from |
+|---|---|
+| `latest` | every push to `main` |
+| `1.2.3`, `1.2`, `1` | the git tag `v1.2.3` (cut a release with `git tag v1.2.3 && git push origin v1.2.3`) |
+| `sha-abc1234` | every publish (immutable; use it to pin a deployment) |
+
+`GET /health` on the internal API reports the image's `version`. To build the image yourself, run `docker build -t tagtape .`
+
+| Variable | Default | |
+|---|---|---|
+| `PORT` | `3000` | Public port of the web app. |
+| `JOB_TTL_MIN`, `MAX_ACTIVE_JOBS`, `MAX_QUEUED_JOBS`, `TRACK_CONCURRENCY`, `LOG_LEVEL` | see [apps/api/.env.example](apps/api/.env.example) | API tuning. These are passed through. |
+| `API_HOST`, `API_TOKEN` | `127.0.0.1`, random | Set both only to expose the API on purpose, e.g. for the end-to-end test. |
+
 ## Development
 
 pnpm monorepo. Requires Node 24+ and pnpm 12.
@@ -22,23 +47,23 @@ pnpm monorepo. Requires Node 24+ and pnpm 12.
 
 ### Running it locally
 
-The API needs yt-dlp and ffmpeg. The easiest way to get them is the API's Docker image.
+The API needs yt-dlp and ffmpeg. You can install them, or borrow them from the image.
 
 ```bash
 pnpm install
 TOKEN=$(openssl rand -hex 32)
 
-# 1. API (Docker, with yt-dlp + ffmpeg) on :4000, using the published image
-docker run --rm -p 127.0.0.1:4000:4000 -e API_TOKEN=$TOKEN vindotski/tagtape
-#    or build it from source:
-#    docker build -f apps/api/Dockerfile -t tagtape-api . && docker run … tagtape-api
+# Option A: install the binaries and run both apps with hot reload
+brew install yt-dlp ffmpeg
+printf 'API_TOKEN=%s\n' "$TOKEN" > apps/api/.env
+printf 'API_URL=http://127.0.0.1:4000\nAPI_TOKEN=%s\n' "$TOKEN" > apps/web/.env
+pnpm dev                                   # web :3000, API :4000
 
-# 2. Web app on :3000 (in another terminal)
+# Option B: API from the image (exposed on purpose), web app with hot reload
+docker run --rm -p 127.0.0.1:4000:4000 -e API_HOST=0.0.0.0 -e API_TOKEN=$TOKEN vindotski/tagtape
 printf 'API_URL=http://127.0.0.1:4000\nAPI_TOKEN=%s\n' "$TOKEN" > apps/web/.env
 pnpm --filter @tagtape/web dev
 ```
-
-Without Docker: `brew install yt-dlp ffmpeg`, put the same token in `apps/api/.env` (see its `.env.example`), and run `pnpm dev` to start both apps.
 
 ```bash
 pnpm build

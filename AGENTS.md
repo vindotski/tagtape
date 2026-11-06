@@ -73,7 +73,16 @@ TagTape turns 1–10 YouTube links plus album details (title, artist, genre, yea
 | `apps/api/` | `@tagtape/api`: a Fastify 5 service that runs yt-dlp and ffmpeg, writes the tags, and builds the ZIP as background jobs. It runs on Node's native type stripping (`node src/server.ts`), with no build step. See `apps/api/README.md`. |
 | `packages/shared/` | `@tagtape/shared`: zod schemas (`albumInputSchema`, `jobSnapshotSchema`), `parseYouTubeUrl`, limits. Exports TS source directly: no build step. Vite bundles it, and Node runs it with native type stripping. |
 
-How the parts talk to each other: the browser calls TanStack Start **server functions**, and those call the API over a private network with a bearer token. The only route the browser hits directly is the ZIP download, `GET /jobs/:id/archive`.
+How the parts talk to each other: the browser only ever talks to the web app. Server functions call the API with a bearer token, and the ZIP download goes through the web route `GET /download/:jobId`, which streams it from the API's `/jobs/:id/archive`.
+
+**Shipping:** web and API ship as **one Docker image with one version**, built from the root `Dockerfile` and published as `vindotski/tagtape`.
+- [`docker/start.mjs`](docker/start.mjs), under tini, runs:
+  - the API on `127.0.0.1:4000` (internal), with a random `API_TOKEN` per start
+  - the web app via `srvx` on `:$PORT` (3000)
+- If either app exits, the container stops.
+- `API_HOST` and `API_TOKEN` exist only to expose the API on purpose (the e2e test).
+- `TAGTAPE_VERSION` is a build arg, reported by the API's `/health`.
+- Keep web and API changes that depend on each other in the same release.
 
 ## Commands (pnpm only)
 
@@ -105,7 +114,9 @@ Run `pnpm check`, `pnpm typecheck` and the relevant tests before calling a task 
 - **Web:**
   - Calls to the API go through server functions in `src/lib/jobs.functions.ts`. The token-bearing client is `src/lib/api.server.ts`, and its `.server.ts` suffix keeps it out of the browser bundle.
   - Server functions are public endpoints, so they re-validate input with the shared schema.
-  - Server env vars (`API_URL`, `API_TOKEN`, `PUBLIC_API_URL`) never get a `VITE_` prefix. Dev loads `apps/web/.env`.
+  - Server env vars (`API_URL`, `API_TOKEN`) never get a `VITE_` prefix. Dev loads `apps/web/.env`; in the image, `docker/start.mjs` sets them.
+  - Production serving: `pnpm --filter @tagtape/web start` (srvx). srvx resolves `--static` relative to the entry file, hence `--static ../client`.
+  - Tailwind scans `src/` only (`@import "tailwindcss" source(".")`). Don't rely on `.gitignore`-based auto-detection: it mismatched the client and server CSS hashes in Docker.
   - Styling is Tailwind v4 utilities, with emerald as the accent, zinc neutrals, and automatic dark mode. Keep inputs accessible: every field has a label (`sr-only` when visually hidden) and `aria-invalid` plus `aria-describedby` for errors.
   - Form state is a client-side `AlbumDraft` (`src/lib/album-draft.ts`), validated with `albumInputSchema` before submit. Errors are keyed like `tracks.0.url`.
   - Unit tests live in `src/**/*.test.ts` and use `vitest.config.ts`, without the Start plugin. For real UI checks, drive the dev server with a browser (Playwright) against the API container.
@@ -115,16 +126,21 @@ Run `pnpm check`, `pnpm typecheck` and the relevant tests before calling a task 
   - Errors shown to users must be `UserFacingError`. Anything else is logged and replaced with a generic message.
   - New routes require the bearer token unless they set `config: { public: true }`.
   - Spawn external processes only through `lib/exec.ts`. It never uses a shell, and it kills the whole process group on timeout or cancel; yt-dlp starts ffmpeg as a child.
-  - Docker: build from the repo root with `docker build -f apps/api/Dockerfile .`. When yt-dlp breaks against YouTube, the fix is usually bumping `YTDLP_VERSION`.
+  - Docker: the API is part of the root `Dockerfile` (`docker build -t tagtape .`). When yt-dlp breaks against YouTube, the fix is usually bumping `YTDLP_VERSION` there.
   - The real-binary check is `src/e2e.test.ts`, run against a container (see `apps/api/README.md`). Run it after changing the pipeline or the yt-dlp version.
 
 ## CI (`.github/workflows/`)
 
 - **`ci.yml`** runs on pushes to `main`/`dev` and on every PR:
   - `biome ci`, `pnpm typecheck`, `pnpm test` and `pnpm build`, with a frozen lockfile.
-  - It also builds the API image and smoke-tests it: health ok, 401 without a token, non-root user, tini as PID 1.
-- **`publish`** (a job in `ci.yml`) pushes the multi-arch API image (amd64 + arm64, built under QEMU) to Docker Hub as `vindotski/tagtape`:
-  - It runs only on pushes to `main` and tags `v*.*.*`, and only after `checks` and `api-image` pass.
+  - The `image` job builds the root `Dockerfile` and smoke-tests the container:
+    - the page renders and its CSS loads
+    - `/download/<unknown>` returns 404
+    - port 4000 is not reachable from outside
+    - inside the container, the API is healthy and returns 401 without a token
+    - the user isn't root, and PID 1 is tini
+- **`publish`** (a job in `ci.yml`) pushes the multi-arch image (amd64 + arm64, built under QEMU) to Docker Hub as `vindotski/tagtape`, with `TAGTAPE_VERSION` set from the tag:
+  - It runs only on pushes to `main` and tags `v*.*.*`, and only after `checks` and `image` pass.
   - Tags: `latest` (main), `X.Y.Z`, `X.Y` and `X` (version tags), plus `sha-<short>`.
   - It uses the repo variable `DOCKERHUB_USERNAME` and the secret `DOCKERHUB_TOKEN` (a Docker Hub personal access token with Read & Write scope).
   - Never publish from `dev` or from PRs.

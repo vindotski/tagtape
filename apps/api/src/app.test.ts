@@ -49,7 +49,11 @@ describe("auth", () => {
 		({ app } = await testApp());
 		const health = await app.inject("/health");
 		expect(health.statusCode).toBe(200);
-		expect(health.json()).toMatchObject({ status: "ok", ytDlp: "2026.10.01" });
+		expect(health.json()).toMatchObject({
+			status: "ok",
+			version: "dev",
+			ytDlp: "2026.10.01",
+		});
 
 		const archive = await app.inject(
 			"/jobs/8f14e45f-ceea-4e7a-9f3b-1c2d3e4f5a6b/archive",

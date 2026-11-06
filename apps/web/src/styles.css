@@ -1,4 +1,7 @@
-@import "tailwindcss";
+/* Scan only src/ for class names. Automatic detection relies on .gitignore,
+   which the Docker build doesn't have, so it also scanned dist/ and the
+   server build's CSS hash stopped matching the client's (unstyled page). */
+@import "tailwindcss" source(".");
 
 @theme {
 	--font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;

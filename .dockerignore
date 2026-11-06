@@ -1,5 +1,5 @@
-# Build context is the repo root; the API image only needs its own sources,
-# packages/shared and the workspace manifests.
+# Build context is the repo root. The image needs the workspace manifests,
+# apps/web (built inside), apps/api/src, packages/shared and docker/.
 **/node_modules
 **/dist
 **/.output
@@ -8,8 +8,8 @@
 **/.env.*
 !**/.env.example
 .git
+.github
 .claude
 legacy
-apps/web
 **/*.test.ts
 apps/api/src/test
