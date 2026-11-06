@@ -85,6 +85,7 @@ How the parts talk to each other: the browser only ever talks to the web app. Se
   - CI computes `TAGTAPE_VERSION`: `X.Y.Z` on a `vX.Y.Z` tag (it must match `package.json`, or the publish fails), or `X.Y.Z+main.<sha>` on main. It's passed to the Docker build.
   - The web footer shows it (`__APP_VERSION__`, via `define` in `vite.config.ts`), and the API's `/health` reports it.
   - Release: bump `package.json`, add an entry to `CHANGELOG.md`, commit, then the user tags `vX.Y.Z` on main.
+  - **2.0.0 is still unreleased.** All work goes into the `2.0.0 (unreleased)` CHANGELOG section with no version bump, until the user says 2.0.0 is done. Pushing to `main` or tagging publishes to Docker Hub, so work stays on `dev`.
 - Keep web and API changes that depend on each other in the same release.
 
 ## Commands (pnpm only)

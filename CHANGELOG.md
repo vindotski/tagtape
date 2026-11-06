@@ -2,7 +2,7 @@
 
 TagTape has one version for the web app and the API, kept in the root `package.json`. Each release is a git tag `vX.Y.Z`, published as the Docker image `vindotski/tagtape:X.Y.Z`.
 
-## 2.0.0
+## 2.0.0 (unreleased)
 
 A complete rewrite of Albumie as **TagTape** ([tagtape.app](https://tagtape.app)).
 
