@@ -23,10 +23,17 @@ There's nothing to configure. Inside the container, [`docker/start.mjs`](docker/
 | Tag | Published from |
 |---|---|
 | `latest` | every push to `main` |
-| `1.2.3`, `1.2`, `1` | the git tag `v1.2.3` (cut a release with `git tag v1.2.3 && git push origin v1.2.3`) |
+| `2.0.0`, `2.0`, `2` | the git tag `v2.0.0` |
 | `sha-abc1234` | every publish (immutable; use it to pin a deployment) |
 
-`GET /health` on the internal API reports the image's `version`. To build the image yourself, run `docker build -t tagtape .`
+The running version shows in the web app's footer, and the internal API reports it on `/health`. Builds from `main` carry build metadata, e.g. `2.0.0+main.abc1234`. To build the image yourself, run `docker build -t tagtape .`
+
+### Releasing
+
+The web app and the API share **one version**, which lives in the root `package.json`. See [CHANGELOG.md](CHANGELOG.md).
+
+1. Bump `"version"` in the root `package.json` and add a `CHANGELOG.md` entry, then commit.
+2. Once that commit is on `main`, run `git tag vX.Y.Z && git push origin vX.Y.Z`. CI refuses a tag that doesn't match `package.json`, and then publishes `X.Y.Z`, `X.Y`, `X` and `latest`.
 
 | Variable | Default | |
 |---|---|---|

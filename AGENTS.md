@@ -80,7 +80,11 @@ How the parts talk to each other: the browser only ever talks to the web app. Se
   - the web app via `srvx` on `:$PORT` (3000)
 - If either app exits, the container stops.
 - `API_HOST` and `API_TOKEN` exist only to expose the API on purpose (the e2e test).
-- `TAGTAPE_VERSION` is a build arg, reported by the API's `/health`.
+- **Versioning:**
+  - **One version** for web + API: the root `package.json` `"version"` (currently 2.0.0; 1.0.0 was the PHP app).
+  - CI computes `TAGTAPE_VERSION`: `X.Y.Z` on a `vX.Y.Z` tag (it must match `package.json`, or the publish fails), or `X.Y.Z+main.<sha>` on main. It's passed to the Docker build.
+  - The web footer shows it (`__APP_VERSION__`, via `define` in `vite.config.ts`), and the API's `/health` reports it.
+  - Release: bump `package.json`, add an entry to `CHANGELOG.md`, commit, then the user tags `vX.Y.Z` on main.
 - Keep web and API changes that depend on each other in the same release.
 
 ## Commands (pnpm only)
@@ -138,7 +142,7 @@ Run `pnpm check`, `pnpm typecheck` and the relevant tests before calling a task 
     - port 4000 is not reachable from outside
     - inside the container, the API is healthy and returns 401 without a token
     - the user isn't root, and PID 1 is tini
-- **`publish`** (a job in `ci.yml`) pushes the multi-arch image (amd64 + arm64, built under QEMU) to Docker Hub as `vindotski/tagtape`, with `TAGTAPE_VERSION` set from the tag:
+- **`publish`** (a job in `ci.yml`) pushes the multi-arch image (amd64 + arm64, built under QEMU) to Docker Hub as `vindotski/tagtape`, with `TAGTAPE_VERSION` from its "Compute version" step:
   - It runs only on pushes to `main` and tags `v*.*.*`, and only after `checks` and `image` pass.
   - Tags: `latest` (main), `X.Y.Z`, `X.Y` and `X` (version tags), plus `sha-<short>`.
   - It uses the repo variable `DOCKERHUB_USERNAME` and the secret `DOCKERHUB_TOKEN` (a Docker Hub personal access token with Read & Write scope).

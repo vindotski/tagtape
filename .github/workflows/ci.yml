@@ -115,6 +115,31 @@ jobs:
         with:
           persist-credentials: false
 
+      # One version for web + API, from the root package.json. A release tag
+      # must match it (bump package.json first); main gets build metadata.
+      - name: Compute version
+        id: version
+        env:
+          REF: ${{ github.ref }}
+          SHA: ${{ github.sha }}
+        run: |
+          pkg="$(jq -r .version package.json)"
+          case "$REF" in
+            refs/tags/v*)
+              tag="${REF#refs/tags/v}"
+              if [ "$tag" != "$pkg" ]; then
+                echo "::error::Tag v$tag doesn't match package.json version $pkg"
+                exit 1
+              fi
+              version="$tag"
+              ;;
+            *)
+              version="$pkg+main.${SHA:0:7}"
+              ;;
+          esac
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Publishing TagTape $version"
+
       # arm64 is built under QEMU emulation on the amd64 runner.
       - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
 
@@ -150,7 +175,7 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           # One version for web + API: shown by /health and in the image label.
-          build-args: TAGTAPE_VERSION=${{ steps.meta.outputs.version }}
+          build-args: TAGTAPE_VERSION=${{ steps.version.outputs.version }}
           provenance: mode=max
           sbom: true
           cache-from: |

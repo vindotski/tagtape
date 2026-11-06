@@ -41,6 +41,9 @@ COPY packages/shared/package.json packages/shared/
 
 # --- build the web app (needs dev dependencies: vite, tailwind, …)
 FROM pnpm AS build
+# The web footer shows this version (vite.config.ts reads it at build time).
+ARG TAGTAPE_VERSION
+ENV TAGTAPE_VERSION=${TAGTAPE_VERSION}
 RUN --mount=type=cache,id=pnpm-store,target=/var/cache/pnpm \
 	pnpm install --frozen-lockfile --filter "@tagtape/web..." \
 		--store-dir /var/cache/pnpm

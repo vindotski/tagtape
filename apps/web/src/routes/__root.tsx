@@ -54,6 +54,12 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 						>
 							Source on GitHub
 						</a>
+						<a
+							href="https://github.com/vindotski/tagtape/blob/main/CHANGELOG.md"
+							className="ml-auto tabular-nums underline-offset-4 hover:underline"
+						>
+							v{__APP_VERSION__}
+						</a>
 					</footer>
 				</div>
 				<Scripts />
