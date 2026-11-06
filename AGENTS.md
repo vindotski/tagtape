@@ -71,7 +71,7 @@ TagTape turns 1–10 YouTube links plus album details (title, artist, genre, yea
 | `legacy/` | Original Symfony/PHP app. **Read-only reference**: never edit, build, or lint it. |
 | `apps/web/` | TanStack Start web app (`@tagtape/web`). |
 | `apps/api/` *(planned)* | Fastify 5 service that runs yt-dlp + ffmpeg, tags, zips, as background jobs. |
-| `packages/shared/` *(planned)* | zod schemas and types shared by web and API (`@tagtape/shared`). |
+| `packages/shared/` | `@tagtape/shared`: zod schemas (`albumInputSchema`, `jobSnapshotSchema`), `parseYouTubeUrl`, limits. Exports TS source directly: no build step. Vite bundles it, and Node runs it with native type stripping. |
 
 How the parts talk to each other: the browser calls TanStack Start **server functions**, and those call the API over a private network with a bearer token. The only route the browser hits directly is the ZIP download, `GET /jobs/:id/archive`.
 
@@ -99,6 +99,9 @@ Run `pnpm check`, `pnpm typecheck` and the relevant tests before calling a task 
 - Only accept YouTube URLs, normalised by the shared parser. Fetch remote images with a size cap, a timeout, and private-IP blocking (SSRF).
 - Jobs are in-memory, and their temp files are cleaned up by a TTL sweeper. Don't add persistence without asking.
 - pnpm settings live in `pnpm-workspace.yaml`. `.npmrc` is for auth only (see the `pnpm` skill).
+- Versions used by more than one package (zod, vitest, typescript) go in the pnpm **catalog**: write `"catalog:"` in package.json, or use `pnpm add --save-catalog`.
+- Code in `packages/shared` must run in both browsers and Node: web-standard APIs only (no `node:*` imports), relative imports with `.ts` extensions, and erasable TypeScript syntax only (no enums or namespaces).
+- Tests are Vitest, written as `*.test.ts` files next to the code they test.
 
 ## Git
 
