@@ -74,10 +74,14 @@ const KNOWN_ERRORS: ReadonlyArray<readonly [RegExp, string]> = [
 	],
 	[/copyright/i, "This video was removed for copyright reasons"],
 	[
-		/video unavailable|has been removed|does not exist/i,
+		/video (?:is )?unavailable|no longer available|has been removed|does not exist/i,
 		"This video is unavailable",
 	],
 	[/premieres in|live event will begin/i, "This video hasn't premiered yet"],
+	[
+		/live stream recording is not available/i,
+		"This live stream's recording isn't available",
+	],
 ];
 
 /** Turns yt-dlp's stderr into a short message that's safe to show users. */

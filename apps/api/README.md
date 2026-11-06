@@ -32,3 +32,26 @@ pnpm --filter @tagtape/api test
 ```
 
 All configuration comes from environment variables; see [.env.example](.env.example).
+
+## Docker
+
+The image bundles Node 24, ffmpeg (Debian), and the official yt-dlp binary, checked against the release's `SHA2-256SUMS`. It runs as the non-root `node` user, with `tini` as PID 1, so signals reach Node and orphaned processes are reaped. Build it from the **repo root**, because it needs the workspace files:
+
+```bash
+docker build -f apps/api/Dockerfile -t tagtape-api .
+docker run --rm -p 127.0.0.1:4000:4000 -e API_TOKEN=$(openssl rand -hex 32) tagtape-api
+```
+
+YouTube changes often, so update yt-dlp by bumping the `YTDLP_VERSION` build argument (or pass `--build-arg YTDLP_VERSION=…`) and rebuilding.
+
+## End-to-end test
+
+`src/e2e.test.ts` runs against a running API with the real binaries, and is skipped unless `TAGTAPE_E2E_URL` is set. It converts a 19-second video, and checks the tags, the 1000×1000 front cover and the ZIP file names:
+
+```bash
+TOKEN=$(openssl rand -hex 32)
+docker run -d --name tagtape-e2e -p 127.0.0.1:4100:4000 -e API_TOKEN=$TOKEN tagtape-api
+TAGTAPE_E2E_URL=http://127.0.0.1:4100 TAGTAPE_E2E_TOKEN=$TOKEN \
+  pnpm --filter @tagtape/api exec vitest run src/e2e.test.ts
+docker rm -f tagtape-e2e
+```

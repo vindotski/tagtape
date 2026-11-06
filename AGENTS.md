@@ -107,6 +107,9 @@ Run `pnpm check`, `pnpm typecheck` and the relevant tests before calling a task 
   - Config comes from environment variables only, validated in `config.ts`. Don't use config files or branch on `NODE_ENV`.
   - Errors shown to users must be `UserFacingError`. Anything else is logged and replaced with a generic message.
   - New routes require the bearer token unless they set `config: { public: true }`.
+  - Spawn external processes only through `lib/exec.ts`. It never uses a shell, and it kills the whole process group on timeout or cancel; yt-dlp starts ffmpeg as a child.
+  - Docker: build from the repo root with `docker build -f apps/api/Dockerfile .`. When yt-dlp breaks against YouTube, the fix is usually bumping `YTDLP_VERSION`.
+  - The real-binary check is `src/e2e.test.ts`, run against a container (see `apps/api/README.md`). Run it after changing the pipeline or the yt-dlp version.
 
 ## Git
 

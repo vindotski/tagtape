@@ -66,9 +66,22 @@ describe("yt-dlp arguments", () => {
 			"This video is private",
 		],
 		["ERROR: [youtube] abc: Video unavailable", "This video is unavailable"],
+		// Real yt-dlp 2026.10.26 wording, seen in the e2e run:
+		[
+			"ERROR: [youtube] BaW_jenozKc: This video is unavailable",
+			"This video is unavailable",
+		],
+		[
+			"ERROR: [youtube] abc: This video is no longer available",
+			"This video is unavailable",
+		],
 		[
 			"WARNING: x\nERROR: [youtube] abc: Sign in to confirm your age",
 			"This video is age-restricted",
+		],
+		[
+			"ERROR: [youtube] jfKfPfyJRdk: This live stream recording is not available.",
+			"This live stream's recording isn't available",
 		],
 		["ERROR: something brand new", "YouTube refused to provide this video"],
 	])("explains %j", (stderr, expected) => {

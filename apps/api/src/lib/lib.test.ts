@@ -132,6 +132,37 @@ describe("run", () => {
 		await expect(pending).rejects.toMatchObject({ name: "AbortError" });
 	});
 
+	test("cancelling kills grandchildren too (yt-dlp → ffmpeg)", async () => {
+		const controller = new AbortController();
+		let grandchildPid = 0;
+		const parent = `
+			const { spawn } = require("node:child_process");
+			const child = spawn(process.execPath, ["-e", "setTimeout(() => {}, 60000)"], { stdio: "ignore" });
+			console.log(child.pid);
+			setTimeout(() => {}, 60000);
+		`;
+		const pending = run(node, ["-e", parent], {
+			signal: controller.signal,
+			onLine: (line) => {
+				grandchildPid = Number(line);
+				controller.abort();
+			},
+		});
+		await expect(pending).rejects.toMatchObject({ name: "AbortError" });
+
+		const isAlive = (pid: number) => {
+			try {
+				process.kill(pid, 0);
+				return true;
+			} catch {
+				return false;
+			}
+		};
+		await expect
+			.poll(() => isAlive(grandchildPid), { timeout: 3_000 })
+			.toBe(false);
+	});
+
 	test("missing binary is an ExecError without exit code", async () => {
 		await expect(
 			run("definitely-not-a-binary-tagtape", []),

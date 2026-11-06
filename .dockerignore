@@ -1,0 +1,15 @@
+# Build context is the repo root; the API image only needs its own sources,
+# packages/shared and the workspace manifests.
+**/node_modules
+**/dist
+**/.output
+**/.tanstack
+**/.env
+**/.env.*
+!**/.env.example
+.git
+.claude
+legacy
+apps/web
+**/*.test.ts
+apps/api/src/test

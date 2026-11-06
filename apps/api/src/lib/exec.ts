@@ -63,12 +63,23 @@ export function run(
 			return;
 		}
 
+		// `detached` puts the child in its own process group, so cancelling kills
+		// the whole tree: yt-dlp spawns ffmpeg, and killing only yt-dlp would
+		// leave ffmpeg running as an orphan.
 		const child = spawn(command, args, {
 			shell: false,
 			stdio: ["ignore", "pipe", "pipe"],
-			signal: combined,
-			killSignal: "SIGKILL",
+			detached: process.platform !== "win32",
 		});
+		const killTree = () => {
+			if (child.pid === undefined || child.exitCode !== null) return;
+			try {
+				process.kill(-child.pid, "SIGKILL");
+			} catch {
+				child.kill("SIGKILL");
+			}
+		};
+		combined?.addEventListener("abort", killTree, { once: true });
 
 		let stdout = "";
 		let stdoutBytes = 0;
@@ -101,6 +112,7 @@ export function run(
 		});
 
 		child.once("close", (exitCode) => {
+			combined?.removeEventListener("abort", killTree);
 			lines.close();
 			if (combined?.aborted) {
 				reject(abortError(timeout, command));

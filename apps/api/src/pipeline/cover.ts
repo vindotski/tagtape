@@ -9,6 +9,7 @@ import { publicOnlyLookup } from "../lib/net.ts";
 export const COVER_SIZE = 1000;
 const MAX_REDIRECTS = 3;
 const TIMEOUT_MS = 15_000;
+const USER_AGENT = "TagTape/1.0 (+https://tagtape.app)";
 
 export interface DownloadOptions {
 	signal: AbortSignal;
@@ -74,7 +75,13 @@ function get(
 	return new Promise((resolve, reject) => {
 		const req = request(
 			url,
-			{ method: "GET", lookup, signal, headers: { accept: "image/*" } },
+			{
+				method: "GET",
+				lookup,
+				signal,
+				// Many image hosts (Wikimedia, some CDNs) answer 403 without a User-Agent.
+				headers: { accept: "image/*", "user-agent": USER_AGENT },
+			},
 			resolve,
 		);
 		req.once("error", (error) => {
