@@ -2,7 +2,7 @@
 
 export const MAX_TRACKS = 10;
 
-/** Longest track we accept, in seconds (10 minutes, same as legacy). */
+/** Longest track we accept, in seconds (10 minutes, same as TagTape v1). */
 export const MAX_TRACK_SECONDS = 600;
 
 /** Largest cover image we download before re-encoding, in bytes. */

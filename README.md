@@ -5,7 +5,7 @@
 
 Paste up to 10 YouTube links, add the album title, artist, year, genre and a cover image, and download a ZIP of MP3s with every tag filled in and the tracks numbered in your order. The albums show up properly on any plain MP3 player.
 
-Built with [TanStack Start](https://tanstack.com/start), with a Fastify service running [yt-dlp](https://github.com/yt-dlp/yt-dlp) and ffmpeg. The original 2020 Symfony/PHP version lives in [legacy/](legacy/README.md).
+Built with [TanStack Start](https://tanstack.com/start), with a Fastify service running [yt-dlp](https://github.com/yt-dlp/yt-dlp) and ffmpeg. Version 1 was a 2020 Symfony/PHP app called Albumie; its code is preserved at the [`v1.0.0`](https://github.com/vindotski/tagtape/tree/v1.0.0) tag.
 
 [tagtape.app](https://tagtape.app)
 
@@ -43,7 +43,6 @@ pnpm monorepo. Requires Node 24+ and pnpm 12.
 | `apps/web` | TanStack Start web app |
 | `apps/api` | Fastify service: yt-dlp, ffmpeg, tagging, zipping ([README](apps/api/README.md)) |
 | `packages/shared` | zod schemas and types shared by web and API |
-| `legacy/` | Original Symfony app, kept for reference |
 
 ### Running it locally
 
@@ -80,6 +79,6 @@ Web routes live in `apps/web/src/routes`. TanStack Router regenerates `routeTree
 
 Released into the public domain under the [Unlicense](LICENSE): do whatever you like with it.
 
-That covers TagTape's own code. Third-party parts keep their own licenses: the Docker image bundles ffmpeg (LGPL/GPL), yt-dlp (Unlicense) and Node.js (MIT), and `legacy/` contains two MIT-licensed snippets by Chris Ferdinandi (the form `serialize` helper and the gulp boilerplate).
+That covers TagTape's own code. Third-party software keeps its own license: the Docker image bundles ffmpeg (LGPL/GPL), yt-dlp (Unlicense) and Node.js (MIT).
 
 [https://github.com/vindotski/tagtape](https://github.com/vindotski/tagtape)

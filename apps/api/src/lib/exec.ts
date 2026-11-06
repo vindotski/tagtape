@@ -38,7 +38,7 @@ export class ExecError extends Error {
 /**
  * Runs a binary with an argument array. There is **never a shell**, so arguments
  * are passed to the program verbatim and can't inject commands (unlike the
- * legacy app's `shell_exec("youtube-dl $value")`).
+ * v1 app's `shell_exec("youtube-dl $value")`).
  */
 export function run(
 	command: string,

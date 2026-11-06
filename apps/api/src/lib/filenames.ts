@@ -1,6 +1,6 @@
 // Characters that are illegal in file names on Windows, macOS or Linux, plus
 // control characters. Everything else, including non-Latin scripts and emoji,
-// is kept (legacy replaced anything outside [A-Za-z0-9] with "-").
+// is kept (TagTape v1 replaced anything outside [A-Za-z0-9] with "-").
 // biome-ignore lint/suspicious/noControlCharactersInRegex: stripping control characters is the point
 const ILLEGAL = /[<>:"/\\|?*\u0000-\u001f\u007f]/g;
 const MAX_BASENAME_LENGTH = 120;

@@ -68,7 +68,6 @@ TagTape turns 1–10 YouTube links plus album details (title, artist, genre, yea
 
 | Path | What |
 |---|---|
-| `legacy/` | Original Symfony/PHP app. **Read-only reference**: never edit, build, or lint it. |
 | `apps/web/` | TanStack Start web app (`@tagtape/web`). |
 | `apps/api/` | `@tagtape/api`: a Fastify 5 service that runs yt-dlp and ffmpeg, writes the tags, and builds the ZIP as background jobs. It runs on Node's native type stripping (`node src/server.ts`), with no build step. See `apps/api/README.md`. |
 | `packages/shared/` | `@tagtape/shared`: zod schemas (`albumInputSchema`, `jobSnapshotSchema`), `parseYouTubeUrl`, limits. Exports TS source directly: no build step. Vite bundles it, and Node runs it with native type stripping. |
@@ -104,7 +103,7 @@ Run `pnpm check`, `pnpm typecheck` and the relevant tests before calling a task 
 
 - **Biome** is the only linter and formatter. Don't add ESLint or Prettier.
 - **TypeScript strict.** Validate input with **zod** schemas from `@tagtape/shared`, and use the same schema on the client and the server.
-- **External binaries** (yt-dlp, ffmpeg) are spawned with an **argument array, never a shell string**. The legacy app had a shell injection bug from building a command string.
+- **External binaries** (yt-dlp, ffmpeg) are spawned with an **argument array, never a shell string**. TagTape v1 (the 2020 PHP app, at tag `v1.0.0`) had a shell injection bug from building a command string.
 - Only accept YouTube URLs, normalised by the shared parser. Fetch remote images with a size cap, a timeout, and private-IP blocking (SSRF).
 - Jobs are in-memory, and their temp files are cleaned up by a TTL sweeper. Don't add persistence without asking.
 - pnpm settings live in `pnpm-workspace.yaml`. `.npmrc` is for auth only (see the `pnpm` skill).

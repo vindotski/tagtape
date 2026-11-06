@@ -35,7 +35,7 @@ export function probeArgs(url: string, options: YtDlpOptions): string[] {
 
 /**
  * Download from a saved info JSON, so YouTube isn't asked for the metadata
- * a second time (legacy fetched every video twice).
+ * a second time (TagTape v1 fetched every video twice).
  */
 export function downloadArgs(
 	infoPath: string,

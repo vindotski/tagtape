@@ -1,7 +1,7 @@
 /**
  * Everything the job runner needs from the outside world (yt-dlp, the network,
  * the file system), behind one interface so the runner can be tested with
- * fakes. Same idea as the legacy app's Downloader / TagWriter interfaces.
+ * fakes. Same idea as TagTape v1's Downloader / TagWriter interfaces.
  */
 export interface Pipeline {
 	/** Fetch metadata for one video and save it as `infoPath` for the download step. */

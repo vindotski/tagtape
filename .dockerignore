@@ -10,6 +10,5 @@
 .git
 .github
 .claude
-legacy
 **/*.test.ts
 apps/api/src/test

@@ -123,7 +123,7 @@ function tooLarge(maxBytes: number): UserFacingError {
 }
 
 /**
- * Square 1000×1000 JPEG, centre-cropped (legacy stretched non-square images).
+ * Square 1000×1000 JPEG, centre-cropped (TagTape v1 stretched non-square images).
  * EXIF orientation is applied first so phone photos aren't sideways.
  */
 export async function processCover(input: Buffer): Promise<Buffer> {
