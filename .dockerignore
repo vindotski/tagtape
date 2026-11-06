@@ -12,3 +12,5 @@
 .claude
 **/*.test.ts
 apps/api/src/test
+deploy
+docs

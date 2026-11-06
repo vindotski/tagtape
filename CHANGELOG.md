@@ -14,6 +14,7 @@ A complete rewrite of Albumie as **TagTape** ([tagtape.app](https://tagtape.app)
 - ID3v2.3 tags for wide player support: title, artist, album artist, album, `n/total` track number, year, genre and front cover.
 - **Unicode filenames** (`01 - Тест ✓.mp3`) instead of ASCII-only.
 - **One Docker image** (`vindotski/tagtape`, amd64 + arm64) containing the web app and the API, with provenance and an SBOM.
+- Reusable, provider-neutral **deploy config** for a single server (any cloud-init host: DigitalOcean, Hetzner, Vultr, Linode, AWS, …; Ubuntu or Debian, amd64 or arm64): cloud-init bootstrap, Docker Compose with Caddy for automatic HTTPS, and a manual GitHub Actions deploy with a pinned SSH host key, health-gated rollout and an outside check. See [docs/deploy.md](docs/deploy.md).
 
 ### Changed
 - youtube-dl (unmaintained since 2020) is replaced by **yt-dlp**. Each video is fetched once instead of twice.

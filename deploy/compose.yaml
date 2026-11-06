@@ -1,0 +1,47 @@
+# TagTape on a single server: the app image behind Caddy (automatic HTTPS).
+# Lives in /opt/tagtape on the server, next to Caddyfile and .env.
+# The deploy workflow copies this file over on every deploy, so edit it here.
+name: tagtape
+
+services:
+  app:
+    image: ${TAGTAPE_IMAGE:-vindotski/tagtape}:${TAGTAPE_TAG:?set TAGTAPE_TAG in .env}
+    restart: unless-stopped
+    # No published ports: only Caddy reaches the app, on the internal network.
+    environment:
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      JOB_TTL_MIN: ${JOB_TTL_MIN:-30}
+      MAX_ACTIVE_JOBS: ${MAX_ACTIVE_JOBS:-2}
+      MAX_QUEUED_JOBS: ${MAX_QUEUED_JOBS:-20}
+      TRACK_CONCURRENCY: ${TRACK_CONCURRENCY:-2}
+    # Give in-flight conversions time to finish on redeploy (SIGTERM → grace → kill).
+    stop_grace_period: 30s
+
+  caddy:
+    image: caddy:2.11.7
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp" # HTTP/3
+    environment:
+      TAGTAPE_DOMAIN: ${TAGTAPE_DOMAIN:?set TAGTAPE_DOMAIN in .env}
+    # Without a healthcheck, `docker compose up --wait` treats a crash-looping
+    # Caddy as "running"; the admin API only answers once the config loaded.
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:2019/config/"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data # certificates: keep across redeploys
+      - caddy_config:/config
+
+volumes:
+  caddy_data:
+  caddy_config:

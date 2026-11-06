@@ -13,6 +13,8 @@ Built with [TanStack Start](https://tanstack.com/start), with a Fastify service 
 
 ## Run it
 
+**Hosting it for real?** See [docs/deploy.md](docs/deploy.md): one Linux server on any cloud-init provider (DigitalOcean, Hetzner, Vultr, Linode, AWS, …), Caddy for HTTPS, and one-click deploys from GitHub Actions.
+
 The web app and the API ship together as **one image, with one version**:
 
 ```bash

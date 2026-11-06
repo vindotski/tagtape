@@ -1,0 +1,81 @@
+#cloud-config
+# TagTape server bootstrap. Works on any provider with cloud-init user data
+# (DigitalOcean, Hetzner, Vultr, Linode, AWS, ...) on Ubuntu 22.04/24.04 or
+# Debian 12/13, amd64 or arm64. Paste it into the provider's "user data" field
+# when creating the server. Installs Docker, a firewall, automatic security
+# updates, and a `deploy` user for the GitHub deploy workflow. See docs/deploy.md.
+
+package_update: true
+package_upgrade: true
+packages:
+  - ca-certificates
+  - curl
+  - ufw
+  - unattended-upgrades
+
+users:
+  - default
+  - name: deploy
+    shell: /bin/bash
+    lock_passwd: true
+
+write_files:
+  # Keep container logs from filling the disk.
+  - path: /etc/docker/daemon.json
+    content: |
+      {
+        "log-driver": "json-file",
+        "log-opts": { "max-size": "10m", "max-file": "3" }
+      }
+  # Key-only SSH. Root keeps key login for admin work (reboots, upgrades):
+  # `deploy` has no sudo, and disabling root too would lock everyone out.
+  - path: /etc/ssh/sshd_config.d/60-tagtape.conf
+    content: |
+      PasswordAuthentication no
+      KbdInteractiveAuthentication no
+      PermitRootLogin prohibit-password
+  - path: /etc/apt/apt.conf.d/20auto-upgrades
+    content: |
+      APT::Periodic::Update-Package-Lists "1";
+      APT::Periodic::Unattended-Upgrade "1";
+
+runcmd:
+  # Docker Engine + compose plugin from Docker's official apt repository
+  # (the repo path follows the distribution: linux/ubuntu or linux/debian).
+  - install -m 0755 -d /etc/apt/keyrings
+  - curl -fsSL "https://download.docker.com/linux/$(. /etc/os-release && echo "$ID")/gpg" -o /etc/apt/keyrings/docker.asc
+  - chmod a+r /etc/apt/keyrings/docker.asc
+  - >-
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc]
+    https://download.docker.com/linux/$(. /etc/os-release && echo "$ID") $(. /etc/os-release && echo "$VERSION_CODENAME") stable"
+    > /etc/apt/sources.list.d/docker.list
+  - apt-get update
+  - apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+  - systemctl enable --now docker
+
+  # deploy user: Docker access + the SSH keys you picked when creating the server.
+  # Providers put those keys in different places (root on most, the image's
+  # default user such as `ubuntu` on AWS), so collect them from every account.
+  # Only the bare key is copied: AWS prefixes root's keys with a forced
+  # "Please login as ubuntu" command that would otherwise break `deploy` logins.
+  - usermod -aG docker deploy
+  - install -d -m 0700 -o deploy -g deploy /home/deploy/.ssh
+  - |
+    cat /root/.ssh/authorized_keys /home/*/.ssh/authorized_keys 2>/dev/null \
+      | grep -ohE '(ssh-(ed25519|rsa|dss)|ecdsa-sha2-nistp[0-9]+|sk-(ssh-ed25519|ecdsa-sha2-nistp256)@openssh\.com) [A-Za-z0-9+/=]+' \
+      | sort -u > /home/deploy/.ssh/authorized_keys
+    chown deploy:deploy /home/deploy/.ssh/authorized_keys
+    chmod 0600 /home/deploy/.ssh/authorized_keys
+    [ -s /home/deploy/.ssh/authorized_keys ] || echo "WARNING: no SSH keys found for the deploy user; add one to /home/deploy/.ssh/authorized_keys" >&2
+  - install -d -m 0755 -o deploy -g deploy /opt/tagtape
+
+  # Firewall: SSH + HTTP(S) only (443/udp is HTTP/3).
+  - ufw default deny incoming
+  - ufw default allow outgoing
+  - ufw allow OpenSSH
+  - ufw allow 80/tcp
+  - ufw allow 443/tcp
+  - ufw allow 443/udp
+  - ufw --force enable
+
+  - systemctl restart ssh

@@ -1,0 +1,84 @@
+name: Deploy
+
+# Deploys a published image tag to the server described in docs/deploy.md.
+# Manual on purpose: pick the tag (a release like 2.0.0, or sha-abc1234 to
+# roll back), and optionally require approval on the `production` environment.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Image tag of vindotski/tagtape to deploy (e.g. 2.0.0 or sha-abc1234)"
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment:
+      name: production
+      url: https://${{ vars.TAGTAPE_DOMAIN }}
+    env:
+      TAG: ${{ inputs.tag }}
+      HOST: ${{ vars.DEPLOY_HOST }}
+      USER_NAME: ${{ vars.DEPLOY_USER || 'deploy' }}
+      DOMAIN: ${{ vars.TAGTAPE_DOMAIN }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Check inputs
+        run: |
+          # Tags are only ever letters, digits, dots, dashes, underscores (and + is not a valid Docker tag).
+          if [[ ! "$TAG" =~ ^[A-Za-z0-9_][A-Za-z0-9._-]{0,127}$ ]]; then
+            echo "::error::Invalid image tag: $TAG"
+            exit 1
+          fi
+          if [ -z "$HOST" ] || [ -z "$DOMAIN" ]; then
+            echo "::error::Set the DEPLOY_HOST and TAGTAPE_DOMAIN variables"
+            exit 1
+          fi
+          # Fail fast if the tag was never published.
+          docker manifest inspect "vindotski/tagtape:$TAG" > /dev/null
+
+      # Plain ssh/scp, no third-party action. The host key is pinned via a secret,
+      # so a man-in-the-middle can't impersonate the server.
+      - name: Set up SSH
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          printf 'Host tagtape\n  HostName %s\n  User %s\n  IdentityFile ~/.ssh/id_deploy\n  StrictHostKeyChecking yes\n' \
+            "$HOST" "$USER_NAME" > ~/.ssh/config
+
+      - name: Upload compose files
+        run: scp deploy/compose.yaml deploy/Caddyfile tagtape:/opt/tagtape/
+
+      - name: Roll out
+        # The script runs on the server; TAG is passed as a safely quoted assignment.
+        run: |
+          { printf 'TAG=%q\n' "$TAG"; cat deploy/remote-deploy.sh; } | ssh tagtape bash -s
+
+      - name: Check the site from outside
+        run: |
+          for _ in $(seq 1 30); do curl -sf -o /dev/null "https://$DOMAIN/" && break; sleep 2; done
+          page="$(curl -sf "https://$DOMAIN/")"
+          grep -q '<title>TagTape' <<<"$page"
+          css="$(grep -o '/assets/[^"]*\.css' <<<"$page" | head -1)"
+          test "$(curl -s -o /dev/null -w '%{http_code}' "https://$DOMAIN$css")" = 200
+          echo "Deployed vindotski/tagtape:$TAG to https://$DOMAIN"
+
+      - name: Remove SSH key
+        if: always()
+        run: rm -f ~/.ssh/id_deploy

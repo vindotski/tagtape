@@ -133,6 +133,24 @@ Run `pnpm check`, `pnpm typecheck` and the relevant tests before calling a task 
   - Docker: the API is part of the root `Dockerfile` (`docker build -t tagtape .`). When yt-dlp breaks against YouTube, the fix is usually bumping `YTDLP_VERSION` there.
   - The real-binary check is `src/e2e.test.ts`, run against a container (see `apps/api/README.md`). Run it after changing the pipeline or the yt-dlp version.
 
+## Deploy (`deploy/`, `docs/deploy.md`)
+
+- **Target:** one Linux server on any provider with cloud-init (DigitalOcean, Hetzner, Vultr, Linode, AWS, …; Ubuntu 22.04/24.04 or Debian 12/13, amd64/arm64), running `deploy/compose.yaml`: the app image plus Caddy (automatic HTTPS, `www` redirect, security headers).
+  - Only Caddy publishes ports.
+  - Both services have health checks, so `docker compose up --wait` really waits. Without Caddy's health check, a crash-looping Caddy counted as "running".
+- **`deploy/cloud-init.yaml`** bootstraps a new server: Docker (repo per distro), the `deploy` user, ufw, key-only SSH (root keeps key login), unattended upgrades and log rotation.
+  - It must stay provider-neutral. SSH keys are collected from every account and stripped of options, because AWS wraps root's keys in a forced "login as ubuntu" command.
+  - Validate it with `cloud-init schema`, and run its steps in `ubuntu:22.04`, `ubuntu:24.04`, `debian:12` and `debian:13` containers.
+- **`.github/workflows/deploy.yml`** is manual (`workflow_dispatch` with an image `tag`) and runs in the `production` environment:
+  - plain ssh/scp, with the host key pinned in `DEPLOY_KNOWN_HOSTS`
+  - runs `deploy/remote-deploy.sh` on the server, then checks the site from outside
+  - secrets: `DEPLOY_SSH_KEY`, `DEPLOY_KNOWN_HOSTS`; variables: `DEPLOY_HOST`, `TAGTAPE_DOMAIN`, `DEPLOY_USER`
+- **Rehearse changes to the deploy files locally** before relying on them:
+  - push the image to a local `registry:2`
+  - use a temp dir as `/opt/tagtape`, with `TAGTAPE_DOMAIN=localhost`
+  - run `remote-deploy.sh`, then run the browser flow against `https://localhost`
+- **Never deploy before 2.0.0 is released.** Deploys need a published image, and the user decides when that happens.
+
 ## CI (`.github/workflows/`)
 
 - **`ci.yml`** runs on pushes to `main`/`dev` and on every PR:
