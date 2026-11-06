@@ -22,8 +22,10 @@ import type { Source, TrackProbe } from "../plugins/api.ts";
 import { HEADER_WINDOW, id3v2Size, readMp3Info } from "./mp3.ts";
 
 const LABEL = "Track link";
-/** How long a server may take to start answering. */
+/** How long a server may take to start answering (headers). */
 const CONNECT_TIMEOUT_MS = 30_000;
+/** How long the body may stall (no bytes at all) before the track fails. */
+const IDLE_TIMEOUT_MS = 60_000;
 /** Embedded artwork can make tags big; anything beyond this isn't worth reading. */
 const MAX_TAG_BYTES = 16 * 1024 * 1024;
 /** Re-encoding bitrate for VBR files (same as the site sources). */
@@ -51,6 +53,9 @@ export interface DirectSourceOptions {
 	lookup?: LookupFunction;
 	/** For tests: replaces ffmpeg. */
 	spawnStream?: typeof realSpawnStream;
+	/** For tests: shorter timeouts. */
+	connectTimeoutMs?: number;
+	idleTimeoutMs?: number;
 }
 
 interface DirectState {
@@ -62,21 +67,36 @@ export function createDirectSource(options: DirectSourceOptions): Source {
 	const spawnStream = options.spawnStream ?? realSpawnStream;
 
 	async function open(url: string, signal: AbortSignal) {
-		const connect = AbortSignal.timeout(CONNECT_TIMEOUT_MS);
+		// The connect timeout covers only the wait for the response headers. It
+		// must not stay attached to the request: its signal would also abort the
+		// body, killing every transfer that takes longer than the timeout.
+		const connect = new AbortController();
+		const timer = setTimeout(
+			() => connect.abort(),
+			options.connectTimeoutMs ?? CONNECT_TIMEOUT_MS,
+		);
 		let response: IncomingMessage;
 		try {
 			response = await openPublicUrl(url, {
-				signal: AbortSignal.any([signal, connect]),
+				signal: AbortSignal.any([signal, connect.signal]),
 				accept: "audio/mpeg, */*;q=0.5",
 				label: LABEL,
 				...(options.lookup ? { lookup: options.lookup } : {}),
 			});
 		} catch (error) {
-			if (connect.aborted && !signal.aborted) {
+			if (connect.signal.aborted && !signal.aborted) {
 				throw new UserFacingError("The track link didn't answer in time");
 			}
 			throw error;
+		} finally {
+			clearTimeout(timer);
 		}
+		// From here on, only a body that stops moving fails the track.
+		response.setTimeout(options.idleTimeoutMs ?? IDLE_TIMEOUT_MS, () => {
+			response.destroy(
+				new UserFacingError("The track link stopped sending data"),
+			);
+		});
 		const type = (response.headers["content-type"] ?? "")
 			.split(";")[0]
 			?.trim()

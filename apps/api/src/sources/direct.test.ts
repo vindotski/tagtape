@@ -135,6 +135,25 @@ beforeAll(async () => {
 				});
 				res.write(CBR.subarray(0, CBR.length / 2));
 				return setTimeout(() => res.socket?.destroy(), 20);
+			case "/slow.mp3": {
+				// The whole file, in 8 pieces over ~400 ms: slower than the
+				// connect timeout the test uses, but never idle for long.
+				res.writeHead(200, {
+					"content-type": "audio/mpeg",
+					"content-length": CBR.length,
+				});
+				const step = Math.ceil(CBR.length / 8);
+				let sent = 0;
+				const timer = setInterval(() => {
+					res.write(CBR.subarray(sent, sent + step));
+					sent += step;
+					if (sent >= CBR.length) {
+						clearInterval(timer);
+						res.end();
+					}
+				}, 50);
+				return;
+			}
 			case "/endless.mp3":
 				res.writeHead(200, { "content-type": "audio/mpeg" });
 				res.write(CBR);
@@ -180,13 +199,24 @@ const fakeFfmpeg = ((_cmd, _args, { stdin, signal }) => {
 }) as typeof spawnStream;
 
 const source = (
-	overrides: { maxBytes?: number; lookup?: LookupFunction | null } = {},
+	overrides: {
+		maxBytes?: number;
+		lookup?: LookupFunction | null;
+		connectTimeoutMs?: number;
+		idleTimeoutMs?: number;
+	} = {},
 ) =>
 	createDirectSource({
 		ffmpegBin: "ffmpeg",
 		maxBytes: overrides.maxBytes ?? 1024 * 1024,
 		timeoutMs: 10_000,
 		spawnStream: fakeFfmpeg,
+		...(overrides.connectTimeoutMs
+			? { connectTimeoutMs: overrides.connectTimeoutMs }
+			: {}),
+		...(overrides.idleTimeoutMs
+			? { idleTimeoutMs: overrides.idleTimeoutMs }
+			: {}),
 		...(overrides.lookup === null
 			? {}
 			: { lookup: overrides.lookup ?? anyAddress }),
@@ -272,6 +302,24 @@ describe("direct MP3 source", () => {
 			signal: signal(),
 		});
 		await expect(buffer(stream)).rejects.toThrow("larger than");
+	});
+
+	test("a transfer slower than the connect timeout still completes", async () => {
+		const s = source({ connectTimeoutMs: 100 });
+		const stream = s.stream({
+			state: { url: `${base}/slow.mp3`, vbr: false },
+			signal: signal(),
+		});
+		expect(await buffer(stream)).toEqual(CBR);
+	});
+
+	test("a body that stops moving fails the track", async () => {
+		const s = source({ idleTimeoutMs: 200 });
+		const stream = s.stream({
+			state: { url: `${base}/endless.mp3`, vbr: false },
+			signal: signal(),
+		});
+		await expect(buffer(stream)).rejects.toThrow("stopped sending data");
 	});
 
 	test("aborting stops the download and the conversion", async () => {
