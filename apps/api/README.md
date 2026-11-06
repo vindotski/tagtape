@@ -40,6 +40,11 @@ One source is built in and always tried last: **direct links to MP3 files** ([`s
 
 Jobs live in memory (metadata and cover only), and a sweeper forgets them `JOB_TTL_MIN` minutes after their check; downloading doesn't extend that.
 
+**Per client** (the `x-tagtape-client` header from the web app: the browser's address, IPv6 per /64; missing = one shared "local" client), each with a `429` and a clear message:
+- `MAX_JOBS_PER_CLIENT_HOUR` albums started per hour
+- `MAX_CHECKING_JOBS_PER_CLIENT` being checked at once
+- `MAX_DOWNLOADS_PER_CLIENT` downloads running or waiting
+
 **What one job can cost** is bounded:
 - **Check:** `CHECK_TIMEOUT_SEC` for the whole check. Direct links read only the tag header and a few KB; the tag is skipped, not buffered, up to 8 MB.
 - **Downloads:** at most `MAX_DOWNLOADS_PER_JOB` of them; ffmpeg runs one thread, reads only stdin (`-protocol_whitelist pipe`), stops at 2 hours (`-t`), and its output is capped.

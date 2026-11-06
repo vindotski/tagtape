@@ -37,7 +37,7 @@ function isBlockedV4(address: string): boolean {
 }
 
 /** The 8 groups of an IPv6 address (handles `::` and a dotted IPv4 tail). */
-function v6Groups(address: string): number[] {
+export function v6Groups(address: string): number[] {
 	let text = address.toLowerCase();
 	const v4 = text.match(/(\d+)\.(\d+)\.(\d+)\.(\d+)$/);
 	if (v4) {

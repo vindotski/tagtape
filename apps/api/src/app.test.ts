@@ -471,3 +471,100 @@ describe("limits per job and per server", () => {
 		await app.jobs.settled();
 	});
 });
+
+describe("per-client limits", () => {
+	const as = (ip: string) => ({ ...auth, "x-tagtape-client": ip });
+	const create = (target: App, ip: string) =>
+		target.inject({
+			method: "POST",
+			url: "/jobs",
+			headers: as(ip),
+			payload: album(),
+		});
+
+	test("albums per hour, per client", async () => {
+		let clock = new Date("2026-11-06T12:00:00Z");
+		({ app } = await testApp({
+			config: { MAX_JOBS_PER_CLIENT_HOUR: 2 },
+			now: () => clock,
+		}));
+		expect((await create(app, "203.0.113.7")).statusCode).toBe(202);
+		clock = new Date("2026-11-06T12:10:00Z");
+		expect((await create(app, "203.0.113.7")).statusCode).toBe(202);
+		const third = await create(app, "203.0.113.7");
+		expect(third.statusCode).toBe(429);
+		expect(third.json().message).toContain("in the last hour");
+		// Until the first one is an hour old: 50 minutes from now.
+		expect(third.headers["retry-after"]).toBe("3000");
+		// Someone else isn't affected.
+		expect((await create(app, "198.51.100.1")).statusCode).toBe(202);
+		clock = new Date("2026-11-06T13:00:01Z");
+		expect((await create(app, "203.0.113.7")).statusCode).toBe(202);
+		await app.jobs.settled();
+	});
+
+	test("IPv6 clients are grouped per /64", async () => {
+		({ app } = await testApp({ config: { MAX_JOBS_PER_CLIENT_HOUR: 1 } }));
+		expect((await create(app, "2001:4860:4860:1::1")).statusCode).toBe(202);
+		expect((await create(app, "2001:4860:4860:1::abcd")).statusCode).toBe(429);
+		expect((await create(app, "2001:4860:4860:2::1")).statusCode).toBe(202);
+		await app.jobs.settled();
+	});
+
+	test("albums being checked at once, per client", async () => {
+		const pipeline = fakePipeline();
+		let open = () => {};
+		pipeline.gate = new Promise((resolve) => {
+			open = resolve;
+		});
+		({ app } = await testApp({
+			pipeline,
+			config: { MAX_CHECKING_JOBS_PER_CLIENT: 1 },
+		}));
+		expect((await create(app, "203.0.113.7")).statusCode).toBe(202);
+		const second = await create(app, "203.0.113.7");
+		expect(second.statusCode).toBe(429);
+		expect(second.json().message).toContain("still being checked");
+		open();
+		await app.jobs.settled();
+		expect((await create(app, "203.0.113.7")).statusCode).toBe(202);
+		await app.jobs.settled();
+	});
+
+	test("downloads at once, per client", async () => {
+		const pipeline = fakePipeline();
+		pipeline.holdStreams = true;
+		({ app } = await testApp({
+			pipeline,
+			config: { MAX_DOWNLOADS_PER_CLIENT: 1 },
+		}));
+		const first = (await create(app, "203.0.113.7")).json().jobId;
+		const second = (await create(app, "203.0.113.7")).json().jobId;
+		await app.jobs.settled();
+		const server = app;
+		const address = await server.listen({ port: 0, host: "127.0.0.1" });
+		const holder = new AbortController();
+		const running = await fetch(`${address}/jobs/${first}/archive`, {
+			signal: holder.signal,
+			headers: { "x-tagtape-client": "203.0.113.7" },
+		});
+		expect(running.status).toBe(200);
+
+		const mine = await server.inject({
+			url: `/jobs/${second}/archive`,
+			headers: { "x-tagtape-client": "203.0.113.7" },
+		});
+		expect(mine.statusCode).toBe(429);
+		expect(mine.json().message).toContain("downloads running");
+
+		holder.abort();
+		await server.jobs.settled();
+		// Once it's over, the client can download again.
+		const after = await fetch(`${address}/jobs/${second}/archive`, {
+			headers: { "x-tagtape-client": "203.0.113.7" },
+		}).catch(() => null);
+		expect(after?.status).toBe(200);
+		await after?.body?.cancel();
+		await server.jobs.settled();
+	});
+});

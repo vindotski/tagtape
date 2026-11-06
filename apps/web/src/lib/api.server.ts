@@ -38,20 +38,27 @@ export type CreateJobResult =
 			message: string;
 			/** Field errors keyed like the form: `title`, `tracks.0.url`, … */
 			fieldErrors?: Record<string, string>;
+			/** The proof-of-work wasn't accepted: solve a fresh one and retry. */
+			retryProof?: boolean;
 	  };
 
 const UNAVAILABLE =
 	"TagTape's converter isn't reachable right now. Please try again in a minute.";
 
+/** Tells the API who the browser is, for its per-client limits. */
+const clientHeader = (client: string | undefined): Record<string, string> =>
+	client ? { "x-tagtape-client": client } : {};
+
 export async function createJob(
 	album: AlbumInput,
 	config: ApiConfig,
+	client?: string,
 ): Promise<CreateJobResult> {
 	let response: Response;
 	try {
 		response = await request(config, "/jobs", {
 			method: "POST",
-			headers: { "content-type": "application/json" },
+			headers: { "content-type": "application/json", ...clientHeader(client) },
 			body: JSON.stringify(album),
 		});
 	} catch {
@@ -141,6 +148,7 @@ export async function streamArchive(
 	id: string,
 	config: ApiConfig,
 	clientSignal?: AbortSignal,
+	client?: string,
 ): Promise<Response> {
 	const start = new AbortController();
 	const timer = setTimeout(() => start.abort(), DOWNLOAD_START_TIMEOUT_MS);
@@ -153,9 +161,7 @@ export async function streamArchive(
 		upstream = await request(
 			config,
 			`/jobs/${encodeURIComponent(id)}/archive`,
-			{
-				signal,
-			},
+			{ signal, headers: clientHeader(client) },
 		);
 	} catch {
 		return errorResponse("TagTape's converter isn't reachable right now.", 502);
@@ -215,7 +221,11 @@ export function issuesToFieldErrors(
 }
 
 /** Calls the API with the token. Without a `signal`, gives up after 10 s. */
-function request(config: ApiConfig, path: string, init: RequestInit = {}) {
+function request(
+	config: ApiConfig,
+	path: string,
+	init: RequestInit & { headers?: Record<string, string> } = {},
+) {
 	const doFetch = config.fetch ?? fetch;
 	return doFetch(`${config.apiUrl}${path}`, {
 		...init,

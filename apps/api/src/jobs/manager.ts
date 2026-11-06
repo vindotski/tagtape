@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { Readable } from "node:stream";
 import type { Album } from "@tagtape/shared";
+import { LOCAL_CLIENT } from "../lib/client.ts";
 import { UserFacingError } from "../lib/errors.ts";
 import { archiveFileName } from "../lib/filenames.ts";
 import type { Pipeline, ResolvedLink } from "../pipeline/types.ts";
@@ -23,6 +24,12 @@ export interface JobManagerOptions {
 	maxStoredJobs: number;
 	/** A job's whole check (every track + the cover) must finish within this. */
 	checkTimeoutMs: number;
+	/** Per client (see lib/client.ts): jobs created per hour… */
+	maxJobsPerClientHour: number;
+	/** …jobs being checked (or waiting for that) at once… */
+	maxCheckingJobsPerClient: number;
+	/** …and downloads running or waiting at once. */
+	maxDownloadsPerClient: number;
 	trackConcurrency: number;
 	log: {
 		info: (obj: object, msg: string) => void;
@@ -31,6 +38,15 @@ export interface JobManagerOptions {
 	};
 	now?: () => Date;
 }
+
+export type CreateJobResult =
+	| { kind: "ok"; job: Job }
+	/** The check queue, or the job store, is full for everyone. */
+	| { kind: "busy" }
+	/** This client created `maxJobsPerClientHour` jobs in the last hour. */
+	| { kind: "client-hourly"; retryAfterSec: number }
+	/** This client already has `maxCheckingJobsPerClient` jobs being checked. */
+	| { kind: "client-checking" };
 
 export type OpenStreamResult =
 	| { kind: "ok"; stream: Readable; fileName: string }
@@ -43,10 +59,13 @@ export type OpenStreamResult =
 	| { kind: "full" }
 	/** This job was downloaded `maxDownloadsPerJob` times already. */
 	| { kind: "exhausted" }
+	/** This client already has `maxDownloadsPerClient` downloads going. */
+	| { kind: "client-downloads" }
 	/** The client left while waiting for a slot. */
 	| { kind: "aborted" };
 
 const SWEEP_INTERVAL_MS = 5 * 60 * 1000;
+const HOUR_MS = 60 * 60 * 1000;
 
 /**
  * Owns every job: creation, concurrency limits, the two phases (check, then
@@ -60,6 +79,10 @@ export class JobManager {
 	readonly #streamSlots: Semaphore;
 	readonly #running = new Set<Promise<void>>();
 	readonly #shutdown = new AbortController();
+	/** Per client: when it created its recent jobs (last hour). */
+	readonly #created = new Map<string, number[]>();
+	/** Per client: downloads running or waiting for a slot. */
+	readonly #downloads = new Map<string, number>();
 	#sweeper: NodeJS.Timeout | undefined;
 
 	constructor(options: JobManagerOptions) {
@@ -78,19 +101,48 @@ export class JobManager {
 	 * Queues a new job for checking, or returns `undefined` when the queue is
 	 * full. `links` holds each track's source and canonical URL, in order.
 	 */
-	create(album: Album, links: ResolvedLink[]): Job | undefined {
-		const { maxActiveProbes, maxQueuedJobs, maxStoredJobs, ttlMs } =
-			this.#options;
+	create(
+		album: Album,
+		links: ResolvedLink[],
+		client: string = LOCAL_CLIENT,
+	): CreateJobResult {
+		const {
+			maxActiveProbes,
+			maxQueuedJobs,
+			maxStoredJobs,
+			ttlMs,
+			maxJobsPerClientHour,
+			maxCheckingJobsPerClient,
+		} = this.#options;
+		const now = this.#now().getTime();
+
+		// Per client first, so one client can't use up the shared limits.
+		const recent = this.#recentlyCreated(client, now);
+		if (recent.length >= maxJobsPerClientHour) {
+			const oldest = recent[0] ?? now;
+			return {
+				kind: "client-hourly",
+				retryAfterSec: Math.max(1, Math.ceil((oldest + HOUR_MS - now) / 1000)),
+			};
+		}
+		let checking = 0;
+		for (const job of this.#jobs.values()) {
+			if (job.client === client && isChecking(job)) checking++;
+		}
+		if (checking >= maxCheckingJobsPerClient) {
+			return { kind: "client-checking" };
+		}
+
 		if (
 			this.#probeSlots.active + this.#probeSlots.waiting >=
 			maxActiveProbes + maxQueuedJobs
 		) {
-			return undefined;
+			return { kind: "busy" };
 		}
 		// Every job (even a finished one) holds metadata and a cover in memory
 		// until it expires: cap how many exist at once.
 		if (this.#jobs.size >= maxStoredJobs && this.sweep() === 0) {
-			return undefined;
+			return { kind: "busy" };
 		}
 		const createdAt = this.#now();
 		const job: Job = {
@@ -113,10 +165,13 @@ export class JobManager {
 			expiresAt: new Date(createdAt.getTime() + ttlMs),
 			controller: new AbortController(),
 			downloadsLeft: this.#options.maxDownloadsPerJob,
+			client,
 		};
 		this.#jobs.set(job.id, job);
+		recent.push(now);
+		this.#created.set(client, recent);
 		this.#track(this.#probe(job));
-		return job;
+		return { kind: "ok", job };
 	}
 
 	get(id: string): Job | undefined {
@@ -128,19 +183,29 @@ export class JobManager {
 	 * then returns the album's ZIP stream. `signal` is the client's connection;
 	 * aborting it kills the running conversion.
 	 */
-	async openStream(id: string, signal: AbortSignal): Promise<OpenStreamResult> {
+	async openStream(
+		id: string,
+		signal: AbortSignal,
+		client: string = LOCAL_CLIENT,
+	): Promise<OpenStreamResult> {
 		const job = this.#jobs.get(id);
 		if (!job) return { kind: "not-found" };
 		if (!isProbed(job)) return { kind: "not-ready" };
 		if (job.downloadsLeft <= 0) return { kind: "exhausted" };
 		if (!canStream(job)) return { kind: "busy" };
-		const { maxActiveStreams, maxQueuedStreams } = this.#options;
+		const { maxActiveStreams, maxQueuedStreams, maxDownloadsPerClient } =
+			this.#options;
+		if ((this.#downloads.get(client) ?? 0) >= maxDownloadsPerClient) {
+			return { kind: "client-downloads" };
+		}
 		if (
 			this.#streamSlots.active + this.#streamSlots.waiting >=
 			maxActiveStreams + maxQueuedStreams
 		) {
 			return { kind: "full" };
 		}
+		// Counts from here (waiting included) until the download ends.
+		this.#adjustDownloads(client, 1);
 
 		const previous = job.status;
 		job.status = "queued";
@@ -151,6 +216,7 @@ export class JobManager {
 			release = await this.#streamSlots.acquire(streamSignal);
 		} catch {
 			job.status = previous;
+			this.#adjustDownloads(client, -1);
 			return { kind: "aborted" };
 		}
 		job.downloadsLeft--;
@@ -164,6 +230,7 @@ export class JobManager {
 				});
 				stream.once("close", () => {
 					this.#settleStream(job, ended, streamSignal.aborted);
+					this.#adjustDownloads(client, -1);
 					release();
 					resolve();
 				});
@@ -186,6 +253,11 @@ export class JobManager {
 
 	/** Forgets jobs whose TTL has passed, unless they're working right now. */
 	sweep(now: Date = this.#now()): number {
+		for (const client of this.#created.keys()) {
+			if (this.#recentlyCreated(client, now.getTime()).length === 0) {
+				this.#created.delete(client);
+			}
+		}
 		let removed = 0;
 		for (const job of this.#jobs.values()) {
 			const busy =
@@ -273,6 +345,21 @@ export class JobManager {
 		);
 	}
 
+	/** This client's creation times within the last hour (pruned in place). */
+	#recentlyCreated(client: string, now: number): number[] {
+		const recent = (this.#created.get(client) ?? []).filter(
+			(time) => now - time < HOUR_MS,
+		);
+		this.#created.set(client, recent);
+		return recent;
+	}
+
+	#adjustDownloads(client: string, delta: number): void {
+		const next = (this.#downloads.get(client) ?? 0) + delta;
+		if (next <= 0) this.#downloads.delete(client);
+		else this.#downloads.set(client, next);
+	}
+
 	#runnerContext() {
 		return {
 			pipeline: this.#options.pipeline,
@@ -291,4 +378,11 @@ export class JobManager {
 		const tracked = promise.finally(() => this.#running.delete(tracked));
 		this.#running.add(tracked);
 	}
+}
+
+/** Created and not checked yet (waiting for a check slot, or being checked). */
+function isChecking(job: Job): boolean {
+	return (
+		!isProbed(job) && (job.status === "queued" || job.status === "probing")
+	);
 }

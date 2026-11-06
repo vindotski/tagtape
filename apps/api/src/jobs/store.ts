@@ -40,6 +40,8 @@ export interface Job {
 	controller: AbortController;
 	/** Downloads it may still start (`maxDownloadsPerJob` at first). */
 	downloadsLeft: number;
+	/** Who created it (lib/client.ts), for per-client limits. */
+	client: string;
 }
 
 /** Every track probed successfully: the album can be streamed. */

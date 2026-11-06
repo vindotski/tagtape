@@ -1,4 +1,5 @@
 import { describe, expect, test } from "vitest";
+import { clientKey } from "./client.ts";
 import { childEnv, ExecError, run } from "./exec.ts";
 import {
 	archiveFileName,
@@ -59,6 +60,18 @@ test("child processes get a minimal environment, never the API token", () => {
 			FOO: "x",
 		}),
 	).toEqual({ PATH: "/bin", HOME: "/home/node", LANG: "C.UTF-8" });
+});
+
+test.each([
+	["203.0.113.7", "203.0.113.7"],
+	["2001:db8:1:2:3:4:5:6", "2001:db8:1:2::/64"],
+	["2001:DB8:1:2::9", "2001:db8:1:2::/64"],
+	["::ffff:203.0.113.7", "203.0.113.7"],
+	[undefined, "local"],
+	["", "local"],
+	["not an ip", "local"],
+])("client key for %s is %s", (value, key) => {
+	expect(clientKey(value)).toBe(key);
 });
 
 describe("isPrivateAddress", () => {

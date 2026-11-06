@@ -5,8 +5,12 @@
  */
 import { albumInputSchema } from "@tagtape/shared";
 import { createServerFn } from "@tanstack/react-start";
+import { getRequest, getRequestIP } from "@tanstack/react-start/server";
 import { z } from "zod";
 import { apiConfigFromEnv, createJob, getJob, getSources } from "./api.server";
+import { clientAddress } from "./client-ip.server";
+import { proofSchema } from "./pow";
+import { createPowChallenge, verifyPow } from "./pow.server";
 
 /**
  * Errors thrown by a server function reach the browser as they are, so
@@ -14,11 +18,26 @@ import { apiConfigFromEnv, createJob, getJob, getSources } from "./api.server";
  */
 const UNREACHABLE = "TagTape's converter isn't reachable right now.";
 
+/** A fresh proof-of-work puzzle for the form to solve before submitting. */
+export const getChallenge = createServerFn({ method: "GET" }).handler(() =>
+	createPowChallenge(),
+);
+
 export const startJob = createServerFn({ method: "POST" })
-	.validator(albumInputSchema)
+	.validator(z.object({ album: albumInputSchema, proof: proofSchema }))
 	.handler(async ({ data }) => {
+		const pow = await verifyPow(data.proof);
+		if (pow !== "ok") {
+			return {
+				ok: false as const,
+				message:
+					"Something went wrong starting the conversion. Please try again.",
+				retryProof: true,
+			};
+		}
 		try {
-			return await createJob(data, apiConfigFromEnv());
+			const client = clientAddress(getRequest().headers, getRequestIP());
+			return await createJob(data.album, apiConfigFromEnv(), client);
 		} catch {
 			return { ok: false as const, message: UNREACHABLE };
 		}

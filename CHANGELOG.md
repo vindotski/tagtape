@@ -32,6 +32,9 @@ A complete rewrite of Albumie as **TagTape** ([tagtape.app](https://tagtape.app)
   - ffmpeg reads only stdin, uses one thread, stops at 2 hours and has a capped output
   - covers limited to JPEG/PNG/WebP and 40 megapixels (no decompression bombs)
   - MP3 tags skipped instead of buffered
+- **Per-client limits** (the browser's address; IPv6 per /64): albums per hour, albums being checked at once, downloads at once. They're set in the API, and the web app passes the address (from `X-Forwarded-For` only with `TRUST_PROXY=1`, set by the deploy kit).
+- **An invisible proof-of-work** before an album starts. The browser solves a small puzzle (about a second) while the form is being filled in, so scripted bulk use gets expensive. It's self-hosted (ALTCHA protocol), with no cookies and no third party.
+- **CSRF protection** for server functions: requests from other sites are refused.
 - **URL rules:** fetched URLs (cover and MP3 links, every redirect) must use the standard port and no credentials. More reserved IPv6 ranges are blocked, and private and unknown hosts get the same error.
 - **No leaks:** job ids are masked in logs; child processes and plugins never see the API token; server-function errors are generic.
 

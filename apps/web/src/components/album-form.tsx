@@ -21,6 +21,7 @@ import {
 	validateDraft,
 } from "#/lib/album-draft";
 import { startJob } from "#/lib/jobs.functions";
+import { usePow } from "#/lib/use-pow";
 import { TextField } from "./text-field";
 import { TrackList } from "./track-list";
 
@@ -41,6 +42,7 @@ export function AlbumForm({
 	const [errors, setErrors] = useState<FieldErrors>(initialErrors ?? {});
 	const [formError, setFormError] = useState<string>();
 	const [submitting, setSubmitting] = useState(false);
+	const takeProof = usePow();
 
 	const update = (patch: Partial<AlbumDraft>, clear: string[] = []) => {
 		onDraftChange({ ...draft, ...patch });
@@ -76,7 +78,17 @@ export function AlbumForm({
 		}
 		setSubmitting(true);
 		try {
-			const response = await startJob({ data: result.input });
+			// A proof-of-work keeps scripts from starting albums in bulk; it's
+			// usually solved already, in the background, while the form was filled in.
+			let response = await startJob({
+				data: { album: result.input, proof: await takeProof() },
+			});
+			if (!response.ok && response.retryProof) {
+				// Expired or used up (e.g. the server restarted): one fresh try.
+				response = await startJob({
+					data: { album: result.input, proof: await takeProof() },
+				});
+			}
 			if (response.ok) {
 				onStarted(response.jobId);
 				return;

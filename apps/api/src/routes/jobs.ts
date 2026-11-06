@@ -7,6 +7,7 @@ import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import type { JobManager } from "../jobs/manager.ts";
 import { toSnapshot } from "../jobs/store.ts";
+import { clientKey } from "../lib/client.ts";
 import { contentDisposition } from "../lib/filenames.ts";
 import type { Pipeline, ResolvedLink } from "../pipeline/types.ts";
 
@@ -20,6 +21,22 @@ const issueSchema = z.object({ path: z.string(), message: z.string() });
 const badRequestSchema = errorSchema.extend({ issues: z.array(issueSchema) });
 
 const jobParams = z.object({ id: z.uuid() });
+
+/**
+ * The browser's address, set by the web app (the API is internal, so only the
+ * web app can send it). Missing means "local": direct API use and tests.
+ */
+const CLIENT_HEADER = "x-tagtape-client";
+const clientOf = (headers: Record<string, string | string[] | undefined>) => {
+	const value = headers[CLIENT_HEADER];
+	return clientKey(Array.isArray(value) ? value[0] : value);
+};
+
+const tooMany = (message: string) => ({
+	statusCode: 429,
+	error: "Too Many Requests",
+	message,
+});
 
 const sourcesResponseSchema = z.object({
 	sources: z.array(z.object({ id: z.string(), name: z.string() })),
@@ -80,14 +97,41 @@ export const jobRoutes: FastifyPluginAsyncZod<{
 				});
 			}
 
-			const job = jobs.create(request.body, links);
-			if (!job) {
-				return reply.code(429).header("retry-after", "60").send({
-					statusCode: 429,
-					error: "Too Many Requests",
-					message: "TagTape is busy right now. Please try again in a minute.",
-				});
+			const created = jobs.create(
+				request.body,
+				links,
+				clientOf(request.headers),
+			);
+			switch (created.kind) {
+				case "client-hourly":
+					return reply
+						.code(429)
+						.header("retry-after", String(created.retryAfterSec))
+						.send(
+							tooMany(
+								"You've started a lot of albums in the last hour. Please try again later.",
+							),
+						);
+				case "client-checking":
+					return reply
+						.code(429)
+						.header("retry-after", "15")
+						.send(
+							tooMany(
+								"Your other albums are still being checked. Try again when they're done.",
+							),
+						);
+				case "busy":
+					return reply
+						.code(429)
+						.header("retry-after", "60")
+						.send(
+							tooMany(
+								"TagTape is busy right now. Please try again in a minute.",
+							),
+						);
 			}
+			const { job } = created;
 			request.log.info(
 				{ jobId: job.id, tracks: job.tracks.length },
 				"Job created",
@@ -124,7 +168,11 @@ export const jobRoutes: FastifyPluginAsyncZod<{
 				if (!reply.raw.writableFinished) client.abort();
 			});
 
-			const opened = await jobs.openStream(request.params.id, client.signal);
+			const opened = await jobs.openStream(
+				request.params.id,
+				client.signal,
+				clientOf(request.headers),
+			);
 			switch (opened.kind) {
 				case "ok":
 					return reply
@@ -145,6 +193,15 @@ export const jobRoutes: FastifyPluginAsyncZod<{
 						message:
 							"This album was downloaded too many times. Convert it again to download it.",
 					});
+				case "client-downloads":
+					return reply
+						.code(429)
+						.header("retry-after", "30")
+						.send(
+							tooMany(
+								"You already have downloads running. Wait for one to finish, then try again.",
+							),
+						);
 				case "full":
 					return reply.code(429).header("retry-after", "30").send({
 						statusCode: 429,

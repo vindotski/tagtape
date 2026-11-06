@@ -127,6 +127,11 @@ Run `pnpm check`, `pnpm typecheck` and the relevant tests (or `pnpm docker:test`
   - The plugin contract (`plugins/api.ts`) depends only on Node's types, so plugins elsewhere can copy it verbatim. Bump `PLUGIN_API_VERSION` for incompatible changes.
   - The built-in `direct` source (`sources/direct.ts`) is always tried last: http(s) links whose path ends in `.mp3`. It reads only the head of the file to check it (`sources/mp3.ts`).
   - UI copy reads the source names from the API (`GET /sources`, via the root route's loader), so don't hard-code them.
+- **Abuse limits:**
+  - **Per-client limits live in the API** (`jobs/manager.ts`), keyed by the `x-tagtape-client` header the web app sets (`lib/client.ts`: IPv4 as is, IPv6 per /64, missing = `local`).
+  - The web app takes the address from `X-Forwarded-For` (its last entry) **only with `TRUST_PROXY=1`** (`client-ip.server.ts`). The deploy kit sets it because only Caddy reaches the app. Never enable it without a proxy in front.
+  - Starting an album needs a **proof-of-work** (`lib/pow*.ts`, altcha-lib, PBKDF2): a challenge from `getChallenge`, solved in a Web Worker while the form is filled in, and verified once in `startJob` (replays refused).
+  - Server functions are protected by the CSRF middleware in `src/start.ts`.
 - Fetch user-supplied URLs only through `lib/http.ts` (`openPublicUrl`): private addresses blocked on every hop, IP literals included, a fresh connection per request. Add a size cap and a timeout (SSRF).
 - **Never write media to disk.** Downloads stream: source → `ffmpeg pipe:1` → ID3 tag + MP3 → streamed ZIP. Only metadata and the cover live in memory, and a TTL sweeper forgets jobs.
   - ffmpeg writes no tags and no Xing header (we write the only tag; a header written before the end of a stream would be wrong), and CBR (VBR is re-encoded to 256 kbps).

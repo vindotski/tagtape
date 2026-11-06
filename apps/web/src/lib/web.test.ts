@@ -70,6 +70,17 @@ describe("album draft", () => {
 });
 
 describe("API client", () => {
+	test("tells the API who the browser is", async () => {
+		const { fetch, config } = fakeApi(202, { jobId: JOB_ID });
+		await createJob(album, config, "203.0.113.7");
+		expect(fetch).toHaveBeenCalledWith(
+			"http://api.internal:4000/jobs",
+			expect.objectContaining({
+				headers: expect.objectContaining({ "x-tagtape-client": "203.0.113.7" }),
+			}),
+		);
+	});
+
 	test("lists the API's sources", async () => {
 		const { fetch, config } = fakeApi(200, {
 			sources: [{ id: "example", name: "Example Music" }],

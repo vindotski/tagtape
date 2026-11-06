@@ -11,6 +11,11 @@ export function testConfig(overrides: Partial<Config> = {}): Config {
 	return configSchema.parse({
 		API_TOKEN: TOKEN,
 		LOG_LEVEL: "silent",
+		// Per-client limits are tested on their own; elsewhere every request
+		// comes from the same "local" client, so keep them out of the way.
+		MAX_JOBS_PER_CLIENT_HOUR: 1000,
+		MAX_CHECKING_JOBS_PER_CLIENT: 1000,
+		MAX_DOWNLOADS_PER_CLIENT: 1000,
 		...overrides,
 	});
 }

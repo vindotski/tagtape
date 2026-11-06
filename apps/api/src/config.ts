@@ -37,6 +37,12 @@ export const configSchema = z.object({
 	MAX_STORED_JOBS: positiveInt(500),
 	/** Seconds a job's whole check (every track and the cover) may take. */
 	CHECK_TIMEOUT_SEC: positiveInt(180),
+	/** Per client (the browser's IP, IPv6 per /64): albums started per hour… */
+	MAX_JOBS_PER_CLIENT_HOUR: positiveInt(30),
+	/** …albums being checked at once… */
+	MAX_CHECKING_JOBS_PER_CLIENT: positiveInt(2),
+	/** …and downloads running or waiting at once. */
+	MAX_DOWNLOADS_PER_CLIENT: positiveInt(2),
 	/** Tracks checked in parallel within one job. */
 	TRACK_CONCURRENCY: positiveInt(2),
 	/** Largest MP3 file a direct link may point to, in MB (300 MB ≈ 2 hours at 320 kbps). */

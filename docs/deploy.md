@@ -69,6 +69,8 @@ nano .env     # paste deploy/.env.example and set TAGTAPE_DOMAIN
 
 The deploy workflow copies `compose.yaml` and `Caddyfile` on every deploy and only changes `TAGTAPE_TAG` in `.env`.
 
+**Abuse limits.** Per-client limits use the browser's address, which the app takes from Caddy's `X-Forwarded-For` header (`TRUST_PROXY=1` is set in `compose.yaml`: only Caddy can reach the app). If you put another proxy or CDN in front of Caddy, make Caddy trust it (`trusted_proxies`), or every visitor will look like that proxy and share one set of limits. The defaults, all overridable in `.env`: 30 albums per hour, 2 being checked and 2 downloads at once per address, 5 downloads per album, and an invisible proof-of-work of about a second per album (`POW_COST`).
+
 ## 4. GitHub setup (once)
 
 In the repository, go to **Settings → Environments → New environment** `production` and, optionally, add yourself as a required reviewer. Then, in that environment (or under repository settings), add:

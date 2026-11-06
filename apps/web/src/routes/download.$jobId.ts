@@ -1,10 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { getRequestIP } from "@tanstack/react-start/server";
 import { z } from "zod";
 import {
 	apiConfigFromEnv,
 	errorResponse,
 	streamArchive,
 } from "#/lib/api.server";
+import { clientAddress } from "#/lib/client-ip.server";
 
 const jobId = z.uuid();
 
@@ -21,7 +23,12 @@ export const Route = createFileRoute("/download/$jobId")({
 				if (!id.success) {
 					return errorResponse("Not found", 404);
 				}
-				return streamArchive(id.data, apiConfigFromEnv(), request.signal);
+				return streamArchive(
+					id.data,
+					apiConfigFromEnv(),
+					request.signal,
+					clientAddress(request.headers, getRequestIP()),
+				);
 			},
 		},
 	},
