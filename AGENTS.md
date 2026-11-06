@@ -70,7 +70,7 @@ TagTape turns 1–10 YouTube links plus album details (title, artist, genre, yea
 |---|---|
 | `legacy/` | Original Symfony/PHP app. **Read-only reference**: never edit, build, or lint it. |
 | `apps/web/` | TanStack Start web app (`@tagtape/web`). |
-| `apps/api/` *(planned)* | Fastify 5 service that runs yt-dlp + ffmpeg, tags, zips, as background jobs. |
+| `apps/api/` | `@tagtape/api`: a Fastify 5 service that runs yt-dlp and ffmpeg, writes the tags, and builds the ZIP as background jobs. It runs on Node's native type stripping (`node src/server.ts`), with no build step. See `apps/api/README.md`. |
 | `packages/shared/` | `@tagtape/shared`: zod schemas (`albumInputSchema`, `jobSnapshotSchema`), `parseYouTubeUrl`, limits. Exports TS source directly: no build step. Vite bundles it, and Node runs it with native type stripping. |
 
 How the parts talk to each other: the browser calls TanStack Start **server functions**, and those call the API over a private network with a bearer token. The only route the browser hits directly is the ZIP download, `GET /jobs/:id/archive`.
@@ -102,6 +102,11 @@ Run `pnpm check`, `pnpm typecheck` and the relevant tests before calling a task 
 - Versions used by more than one package (zod, vitest, typescript) go in the pnpm **catalog**: write `"catalog:"` in package.json, or use `pnpm add --save-catalog`.
 - Code in `packages/shared` must run in both browsers and Node: web-standard APIs only (no `node:*` imports), relative imports with `.ts` extensions, and erasable TypeScript syntax only (no enums or namespaces).
 - Tests are Vitest, written as `*.test.ts` files next to the code they test.
+- **API:**
+  - Build the app with `buildApp({ config, pipeline })` and test routes with `app.inject()`, using the fake pipeline in `apps/api/src/test/helpers.ts`. Tests never need yt-dlp, ffmpeg or the network.
+  - Config comes from environment variables only, validated in `config.ts`. Don't use config files or branch on `NODE_ENV`.
+  - Errors shown to users must be `UserFacingError`. Anything else is logged and replaced with a generic message.
+  - New routes require the bearer token unless they set `config: { public: true }`.
 
 ## Git
 

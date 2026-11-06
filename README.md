@@ -12,7 +12,7 @@ pnpm monorepo. Requires Node 24+ and pnpm 12.
 | Path | What |
 |---|---|
 | `apps/web` | TanStack Start web app |
-| `apps/api` | Fastify service: yt-dlp, ffmpeg, tagging, zipping *(in progress)* |
+| `apps/api` | Fastify service: yt-dlp, ffmpeg, tagging, zipping ([README](apps/api/README.md)) |
 | `packages/shared` | zod schemas and types shared by web and API |
 | `legacy/` | Original Symfony app, kept for reference |
 
