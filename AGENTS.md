@@ -209,6 +209,12 @@ Run `pnpm check`, `pnpm typecheck` and the relevant tests (or `pnpm docker:test`
   - It uses the repo variable `DOCKERHUB_USERNAME` and the secret `DOCKERHUB_TOKEN` (a Docker Hub personal access token with Read & Write scope).
   - Never publish from `dev` or from PRs.
 - **`e2e.yml`** runs weekly (and on demand): real public MP3 links converted through the image.
+- **Image scan:** the `image` job runs Trivy (the `aquasec/trivy` CLI image, pinned by digest, not an action). Fixable HIGH/CRITICAL vulnerabilities fail the build. The runtime image has no npm/npx/corepack/yarn (removed in the `Dockerfile`), so their bundled dependencies can't be flagged or abused.
+- **Base images** (`node`, `ghcr.io/pnpm/pnpm`, `caddy`) are pinned by digest, with the tag kept for readability, in the `Dockerfile`, `docker/dev.Dockerfile` and `deploy/compose.yaml`. Don't use a build `ARG` or `COPY --from=<image>` for them: Dependabot can't update those.
+- **Dependabot** (`.github/dependabot.yml`) opens weekly grouped PRs against `dev` for actions, npm, the Docker bases and compose, with a 7-day cooldown.
+- **pnpm supply chain** (`pnpm-workspace.yaml`): `minimumReleaseAge`, `trustPolicy: no-downgrade`, `blockExoticSubdeps` and `strictDepBuilds` are written out explicitly.
+  - The root `@types/node` (catalog) exists so vitest's optional peer resolves to Node 24 types. Without it, pnpm auto-installs an old `@types/node` for `packages/shared`, which trips `trustPolicy`.
+  - If `trustPolicy` flags a package, find out why before adding an exception.
 - Actions are pinned to commit SHAs, with the version in a comment. To update one, resolve the new tag's SHA with `git ls-remote`, and prefer releases that are at least a few days old.
 - Lint workflows locally with `docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.7`.
 

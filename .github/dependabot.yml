@@ -1,0 +1,50 @@
+# Weekly update PRs, against `dev` (pushes to `main` publish the image).
+# A release must be a week old before it's proposed: time for a compromised
+# version to be noticed and pulled (pnpm adds its own 1-day minimum on top).
+version: 2
+updates:
+  # Actions are pinned to commit SHAs; Dependabot moves the SHA and the
+  # version comment together.
+  - package-ecosystem: github-actions
+    directory: /
+    target-branch: dev
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      actions:
+        patterns: ["*"]
+
+  - package-ecosystem: npm # pnpm workspace (pnpm-lock.yaml)
+    directory: /
+    target-branch: dev
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+    open-pull-requests-limit: 5
+
+  # Base images pinned by digest: the production and dev Dockerfiles.
+  - package-ecosystem: docker
+    directories: [/, /docker]
+    target-branch: dev
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      base-images:
+        patterns: ["*"]
+
+  # Caddy in the deploy kit.
+  - package-ecosystem: docker-compose
+    directory: /deploy
+    target-branch: dev
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7

@@ -8,11 +8,13 @@
 # it reads direct MP3 links; images built FROM this one can add source plugins
 # (TAGTAPE_PLUGINS).
 
-ARG NODE_VERSION=24
+# Base images are pinned by digest (the tag is kept for readability);
+# Dependabot opens a PR when a new digest is published.
+FROM ghcr.io/pnpm/pnpm:12@sha256:41c39d1c734b0a810669c07587888aa7dbe9ef9b4c8e98b346b3654f7b269b6d AS pnpm-bin
 
 # --- shared base with pnpm (its own image, not Corepack: see the pnpm skill)
-FROM node:${NODE_VERSION}-bookworm-slim AS pnpm
-COPY --from=ghcr.io/pnpm/pnpm:12 /opt/pnpm /opt/pnpm
+FROM node:24-bookworm-slim@sha256:01d566e8d94d8c619591d78652babfccd3c6992a3dffa9ed5ab39e11cf6c70e9 AS pnpm
+COPY --from=pnpm-bin /opt/pnpm /opt/pnpm
 RUN for bin in pnpm pnpx; do ln -s "/opt/pnpm/$bin" "/usr/local/bin/$bin"; done
 WORKDIR /app
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
@@ -41,7 +43,7 @@ RUN --mount=type=cache,id=pnpm-store,target=/var/cache/pnpm \
 		--store-dir /var/cache/pnpm --package-import-method copy
 
 # --- runtime
-FROM node:${NODE_VERSION}-bookworm-slim
+FROM node:24-bookworm-slim@sha256:01d566e8d94d8c619591d78652babfccd3c6992a3dffa9ed5ab39e11cf6c70e9
 ARG TAGTAPE_VERSION=dev
 LABEL org.opencontainers.image.title="TagTape" \
 	org.opencontainers.image.version="${TAGTAPE_VERSION}"
@@ -49,6 +51,11 @@ LABEL org.opencontainers.image.title="TagTape" \
 RUN apt-get update \
 	&& apt-get install -y --no-install-recommends ffmpeg tini ca-certificates \
 	&& rm -rf /var/lib/apt/lists/*
+# The base image's package managers (npm, npx, corepack, yarn) are never used
+# at runtime: remove them, and the vulnerabilities in their own dependencies.
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack \
+	/usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack \
+	/usr/local/bin/yarn /usr/local/bin/yarnpkg /opt/yarn-*
 
 WORKDIR /app
 # Keep the monorepo layout: @tagtape/shared is linked from packages/shared

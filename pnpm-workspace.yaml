@@ -2,6 +2,19 @@ packages:
   - apps/*
   - packages/*
 
+# Supply chain, written out explicitly (most are pnpm's defaults) so a change
+# of defaults can't quietly weaken them:
+# - new releases are installed only once they're a day old (time for a
+#   compromised version to be noticed and pulled)
+# - a package that used to be published with provenance can't suddenly
+#   arrive without it
+# - transitive dependencies can't come from git or tarball URLs
+# - only the packages below may run install scripts
+minimumReleaseAge: 1440
+trustPolicy: no-downgrade
+blockExoticSubdeps: true
+strictDepBuilds: true
+
 allowBuilds:
   esbuild: true
   lightningcss: true

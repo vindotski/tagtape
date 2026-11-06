@@ -62,6 +62,17 @@ jobs:
           cache-from: type=gha,scope=image
           cache-to: type=gha,scope=image,mode=max
 
+      # Known vulnerabilities with a fix available (OS packages and npm
+      # dependencies) fail the build. The Trivy CLI image is pinned by digest
+      # rather than using a third-party action.
+      - name: Scan the image
+        run: |
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock:ro \
+            aquasec/trivy:0.76.1@sha256:790fd66d1697395d8693d1acaa1ea702406a20f109b6fc7bac8db623eca6c06c \
+            image --exit-code 1 --severity HIGH,CRITICAL --ignore-unfixed \
+            --scanners vuln --no-progress tagtape:ci
+
       - name: Smoke test the container
         run: |
           # Same restrictions as deploy/compose.yaml: anything that starts

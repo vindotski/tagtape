@@ -41,6 +41,11 @@ A complete rewrite of Albumie as **TagTape** ([tagtape.app](https://tagtape.app)
   - a strict Content-Security-Policy with a per-page nonce, plus frame, permissions and opener headers
   - request bodies capped at 64 KB, and slow-client timeouts in Caddy
   - the server bootstrap now really disables SSH passwords (the old drop-in sorted after Ubuntu's own), rate-limits SSH, reboots for kernel updates at 04:00, auto-updates Docker and adds swap
+- **Supply chain:**
+  - CI scans the image and fails on fixable HIGH/CRITICAL vulnerabilities; npm, npx, corepack and yarn are removed from the runtime image (unused, and the only source of findings)
+  - base images pinned by digest
+  - weekly Dependabot PRs with a 7-day cooldown
+  - pnpm's release-age, provenance (`trustPolicy: no-downgrade`) and install-script policies written out explicitly
 - **No leaks:** job ids are masked in logs; child processes and plugins never see the API token; server-function errors are generic.
 
 ## 1.0.0 (2020)
