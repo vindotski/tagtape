@@ -118,6 +118,17 @@ Run `pnpm check`, `pnpm typecheck` and the relevant tests before calling a task 
   - Docker: build from the repo root with `docker build -f apps/api/Dockerfile .`. When yt-dlp breaks against YouTube, the fix is usually bumping `YTDLP_VERSION`.
   - The real-binary check is `src/e2e.test.ts`, run against a container (see `apps/api/README.md`). Run it after changing the pipeline or the yt-dlp version.
 
+## CI (`.github/workflows/`)
+
+- **`ci.yml`** runs on pushes to `main`/`dev` and on every PR:
+  - `biome ci`, `pnpm typecheck`, `pnpm test` and `pnpm build`, with a frozen lockfile.
+  - It also builds the API image and smoke-tests it: health ok, 401 without a token, non-root user, tini as PID 1.
+- **`e2e.yml`** runs weekly (and on demand): a real YouTube conversion through the API image.
+  - A failure saying "confirm you're not a bot" means YouTube blocked GitHub's IP; it isn't a code bug.
+  - Other failures usually mean `YTDLP_VERSION` needs bumping.
+- Actions are pinned to commit SHAs, with the version in a comment. To update one, resolve the new tag's SHA with `git ls-remote`, and prefer releases that are at least a few days old.
+- Lint workflows locally with `docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.7`.
+
 ## Git
 
 - **The user makes all commits.** Never run `git commit` or `git push`. When a step is done, suggest a commit message with the `commit-message` skill.
