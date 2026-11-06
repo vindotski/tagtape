@@ -90,7 +90,7 @@ Web routes live in `apps/web/src/routes`. TanStack Router regenerates `routeTree
 
 [Ivan Vinski](https://www.vin.ski) – ivan@vin.ski
 
-Released into the public domain under the [Unlicense](LICENSE): do whatever you like with it.
+Released under the [MIT License](LICENSE).
 
 That covers TagTape's own code. Third-party software keeps its own license: the Docker image bundles ffmpeg (LGPL/GPL), yt-dlp (Unlicense) and Node.js (MIT).
 

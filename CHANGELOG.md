@@ -19,7 +19,7 @@ A complete rewrite of Albumie as **TagTape** ([tagtape.app](https://tagtape.app)
 
 ### Changed
 - youtube-dl (unmaintained since 2020) is replaced by **yt-dlp**. Each track is fetched once instead of twice.
-- Relicensed from GPL-2.0 to the **Unlicense** (public domain).
+- Relicensed from GPL-2.0 to **MIT**.
 
 ### Security
 - Fixed **shell injection**: v1 passed the user's URL to `shell_exec`. Binaries now run with argument arrays, never through a shell, and only canonical single-track URLs from the five supported sites are accepted. yt-dlp is additionally restricted to those sites' extractors (`--use-extractors`), so it can never fetch arbitrary pages.
