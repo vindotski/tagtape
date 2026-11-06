@@ -53,11 +53,12 @@ RUN apt-get update \
 WORKDIR /app
 # Keep the monorepo layout: @tagtape/shared is linked from packages/shared
 # (outside node_modules), which is what lets Node type-strip its .ts source.
-COPY --from=prod-deps --chown=node:node /app ./
-COPY --chown=node:node packages/shared/src packages/shared/src
-COPY --chown=node:node apps/api/src apps/api/src
-COPY --from=build --chown=node:node /app/apps/web/dist apps/web/dist
-COPY --chown=node:node docker/start.mjs docker/start.mjs
+# Owned by root: the app (user `node`) can read its code but never change it.
+COPY --from=prod-deps /app ./
+COPY packages/shared/src packages/shared/src
+COPY apps/api/src apps/api/src
+COPY --from=build /app/apps/web/dist apps/web/dist
+COPY docker/start.mjs docker/start.mjs
 
 ENV PORT=3000 \
 	TAGTAPE_VERSION=${TAGTAPE_VERSION} \

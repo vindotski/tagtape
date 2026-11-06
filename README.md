@@ -49,6 +49,7 @@ The web app and the API share **one version**, which lives in the root `package.
 | `JOB_TTL_MIN`, `MAX_ACTIVE_STREAMS`, `MAX_QUEUED_STREAMS`, `MAX_ACTIVE_PROBES`, `MAX_QUEUED_JOBS`, `TRACK_CONCURRENCY`, `MAX_DIRECT_MB`, `MAX_DOWNLOADS_PER_JOB`, `MAX_STORED_JOBS`, `CHECK_TIMEOUT_SEC`, `MAX_JOBS_PER_CLIENT_HOUR`, `MAX_CHECKING_JOBS_PER_CLIENT`, `MAX_DOWNLOADS_PER_CLIENT`, `LOG_LEVEL` | see [apps/api/.env.example](apps/api/.env.example) | API tuning. These are passed through. |
 | `TRUST_PROXY` | off | Set to `1` **only** behind a reverse proxy that sets `X-Forwarded-For` (the deploy kit does): per-client limits then use the browser's address. Without a proxy, leave it off, or anyone could pick their address. |
 | `POW_COST` | `2000` | Difficulty of the invisible proof-of-work a browser solves before starting an album. |
+| `APP_MEMORY`, `APP_CPUS`, `APP_NODE_HEAP_MB` | `1g`, `2`, `384` | Resource limits for the app container in `deploy/compose.yaml`. |
 | `API_HOST`, `API_TOKEN` | `127.0.0.1`, random | Set both only to expose the API on purpose, e.g. for the end-to-end test. |
 
 ## Development

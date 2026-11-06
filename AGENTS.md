@@ -133,6 +133,10 @@ Run `pnpm check`, `pnpm typecheck` and the relevant tests (or `pnpm docker:test`
   - Starting an album needs a **proof-of-work** (`lib/pow*.ts`, altcha-lib, PBKDF2): a challenge from `getChallenge`, solved in a Web Worker while the form is filled in, and verified once in `startJob` (replays refused).
   - Server functions are protected by the CSRF middleware in `src/start.ts`.
 - Fetch user-supplied URLs only through `lib/http.ts` (`openPublicUrl`): private addresses blocked on every hop, IP literals included, a fresh connection per request. Add a size cap and a timeout (SSRF).
+- **Hardened runtime** (`deploy/compose.yaml`):
+  - The app container is **read-only**, with a 16 MB `/tmp` tmpfs. Its code is root-owned in the image, and it runs with no capabilities, `no-new-privileges`, and memory/CPU/PID limits. Anything that needs to write to disk will fail there, which is intended.
+  - Caddy keeps only `NET_BIND_SERVICE`.
+- **CSP:** the web app sets it per page with a fresh nonce for the router's inline scripts (`src/lib/csp.server.ts`, production builds only). Caddy adds the other security headers. A new third-party script, style, font, image host or connection needs the policy changed on purpose; prefer self-hosting.
 - **Never write media to disk.** Downloads stream: source → `ffmpeg pipe:1` → ID3 tag + MP3 → streamed ZIP. Only metadata and the cover live in memory, and a TTL sweeper forgets jobs.
   - ffmpeg writes no tags and no Xing header (we write the only tag; a header written before the end of a stream would be wrong), and CBR (VBR is re-encoded to 256 kbps).
   - After any change, check `find /tmp -type f` inside a container *during* and after a download (the e2e test plus a real abort).
@@ -169,7 +173,14 @@ Run `pnpm check`, `pnpm typecheck` and the relevant tests (or `pnpm docker:test`
 - **Target:** one Linux server on any provider with cloud-init (DigitalOcean, Hetzner, Vultr, Linode, AWS, …; Ubuntu 22.04/24.04 or Debian 12/13, amd64/arm64), running `deploy/compose.yaml`: the app image plus Caddy (automatic HTTPS, `www` redirect, security headers).
   - Only Caddy publishes ports.
   - Both services have health checks, so `docker compose up --wait` really waits. Without Caddy's health check, a crash-looping Caddy counted as "running".
-- **`deploy/cloud-init.yaml`** bootstraps a new server: Docker (repo per distro), the `deploy` user, ufw, key-only SSH (root keeps key login), unattended upgrades and log rotation.
+- **`deploy/cloud-init.yaml`** bootstraps a new server:
+  - Docker (repo per distro) with `live-restore`, `no-new-privileges` and no userland proxy
+  - the `deploy` user
+  - ufw, with SSH rate-limited
+  - key-only SSH (root keeps key login) via `sshd_config.d/00-tagtape.conf`, which must sort **before** Ubuntu's `50-cloud-init.conf` because sshd takes the first value it reads; plus `ssh_pwauth: false`
+  - unattended upgrades, including Docker's repo, with an automatic reboot at 04:00 when needed
+  - a 1 GB swapfile and log rotation
+  - Don't add `AllowUsers`: on AWS the admin logs in as the image's default user.
   - It must stay provider-neutral. SSH keys are collected from every account and stripped of options, because AWS wraps root's keys in a forced "login as ubuntu" command.
   - Validate it with `cloud-init schema`, and run its steps in `ubuntu:22.04`, `ubuntu:24.04`, `debian:12` and `debian:13` containers.
 - **`.github/workflows/deploy.yml`** is manual (`workflow_dispatch` with an image `tag`) and runs in the `production` environment:

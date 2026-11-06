@@ -64,7 +64,12 @@ jobs:
 
       - name: Smoke test the container
         run: |
-          docker run -d --name app -p 127.0.0.1:3000:3000 tagtape:ci
+          # Same restrictions as deploy/compose.yaml: anything that starts
+          # writing to disk, or needs a capability, fails here first.
+          docker run -d --name app -p 127.0.0.1:3000:3000 \
+            --read-only --tmpfs /tmp:size=16m,noexec,nosuid,nodev \
+            --cap-drop ALL --security-opt no-new-privileges:true \
+            --memory 1g --pids-limit 256 tagtape:ci
           for _ in $(seq 1 30); do
             curl -sf -o /dev/null http://127.0.0.1:3000/ && break
             sleep 1

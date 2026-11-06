@@ -69,6 +69,15 @@ nano .env     # paste deploy/.env.example and set TAGTAPE_DOMAIN
 
 The deploy workflow copies `compose.yaml` and `Caddyfile` on every deploy and only changes `TAGTAPE_TAG` in `.env`.
 
+**Hardening (built in).**
+- **App container:** read-only, root-owned code, no capabilities, and limits set by `APP_MEMORY` (1 GB), `APP_CPUS` (2) and `APP_NODE_HEAP_MB`. On a 2 GB server the defaults leave room for Caddy and the system.
+- **Caddy:** HSTS, the frame, permissions and opener headers, a 64 KB body limit and slow-client timeouts; the app adds a nonce-based CSP to every page.
+- **The server:**
+  - SSH is key-only, with root key login kept for admin work.
+  - SSH is rate-limited by ufw.
+  - Security updates (including Docker) install automatically, and the server reboots at 04:00 when one needs it.
+  - There's 1 GB of swap.
+
 **Abuse limits.** Per-client limits use the browser's address, which the app takes from Caddy's `X-Forwarded-For` header (`TRUST_PROXY=1` is set in `compose.yaml`: only Caddy can reach the app). If you put another proxy or CDN in front of Caddy, make Caddy trust it (`trusted_proxies`), or every visitor will look like that proxy and share one set of limits. The defaults, all overridable in `.env`: 30 albums per hour, 2 being checked and 2 downloads at once per address, 5 downloads per album, and an invisible proof-of-work of about a second per album (`POW_COST`).
 
 ## 4. GitHub setup (once)

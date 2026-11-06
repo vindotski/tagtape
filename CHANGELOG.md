@@ -36,6 +36,11 @@ A complete rewrite of Albumie as **TagTape** ([tagtape.app](https://tagtape.app)
 - **An invisible proof-of-work** before an album starts. The browser solves a small puzzle (about a second) while the form is being filled in, so scripted bulk use gets expensive. It's self-hosted (ALTCHA protocol), with no cookies and no third party.
 - **CSRF protection** for server functions: requests from other sites are refused.
 - **URL rules:** fetched URLs (cover and MP3 links, every redirect) must use the standard port and no credentials. More reserved IPv6 ranges are blocked, and private and unknown hosts get the same error.
+- **Hardened deployment:**
+  - the app container runs read-only (code owned by root, a small in-memory `/tmp`), with no Linux capabilities and with memory, CPU and process limits
+  - a strict Content-Security-Policy with a per-page nonce, plus frame, permissions and opener headers
+  - request bodies capped at 64 KB, and slow-client timeouts in Caddy
+  - the server bootstrap now really disables SSH passwords (the old drop-in sorted after Ubuntu's own), rate-limits SSH, reboots for kernel updates at 04:00, auto-updates Docker and adds swap
 - **No leaks:** job ids are masked in logs; child processes and plugins never see the API token; server-function errors are generic.
 
 ## 1.0.0 (2020)

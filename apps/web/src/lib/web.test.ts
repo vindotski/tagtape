@@ -9,6 +9,7 @@ import {
 	issuesToFieldErrors,
 	streamArchive,
 } from "./api.server";
+import { cspPolicy } from "./csp.server";
 
 const JOB_ID = "8f14e45f-ceea-4e7a-9f3b-1c2d3e4f5a6b";
 
@@ -67,6 +68,17 @@ describe("album draft", () => {
 		expect(moveTrack(tracks, 0, -1)).toBe(tracks);
 		expect(tracks.map((t) => t.key)).toEqual(["a", "b", "c"]);
 	});
+});
+
+test("the page CSP allows scripts only from us and with the page's nonce", () => {
+	const policy = cspPolicy("abc123==");
+	const scripts = policy
+		.split("; ")
+		.find((part) => part.startsWith("script-src"));
+	expect(scripts).toBe("script-src 'self' 'nonce-abc123=='");
+	expect(policy).toContain("frame-ancestors 'none'");
+	expect(policy).toContain("object-src 'none'");
+	expect(policy).toContain("connect-src 'self'");
 });
 
 describe("API client", () => {
