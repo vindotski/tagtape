@@ -1,7 +1,9 @@
 # TagTape
 > Convert YouTube to MP3 with metadata for standard MP3 players.
 
-TagTape is being rewritten with [TanStack Start](https://tanstack.com/start). The original Symfony/PHP app lives in [legacy/](legacy/README.md) for reference.
+Paste up to 10 YouTube links, add the album title, artist, year, genre and a cover image, and download a ZIP of MP3s with every tag filled in and the tracks numbered in your order. The albums show up properly on any plain MP3 player.
+
+Built with [TanStack Start](https://tanstack.com/start), with a Fastify service running [yt-dlp](https://github.com/yt-dlp/yt-dlp) and ffmpeg. The original 2020 Symfony/PHP version lives in [legacy/](legacy/README.md).
 
 [tagtape.app](https://tagtape.app)
 
@@ -16,11 +18,29 @@ pnpm monorepo. Requires Node 24+ and pnpm 12.
 | `packages/shared` | zod schemas and types shared by web and API |
 | `legacy/` | Original Symfony app, kept for reference |
 
+### Running it locally
+
+The API needs yt-dlp and ffmpeg. The easiest way to get them is the API's Docker image.
+
 ```bash
 pnpm install
-pnpm dev        # all apps; web on http://localhost:3000
+TOKEN=$(openssl rand -hex 32)
+
+# 1. API (Docker, with yt-dlp + ffmpeg) on :4000
+docker build -f apps/api/Dockerfile -t tagtape-api .
+docker run --rm -p 127.0.0.1:4000:4000 -e API_TOKEN=$TOKEN tagtape-api
+
+# 2. Web app on :3000 (in another terminal)
+printf 'API_URL=http://127.0.0.1:4000\nAPI_TOKEN=%s\n' "$TOKEN" > apps/web/.env
+pnpm --filter @tagtape/web dev
+```
+
+Without Docker: `brew install yt-dlp ffmpeg`, put the same token in `apps/api/.env` (see its `.env.example`), and run `pnpm dev` to start both apps.
+
+```bash
 pnpm build
 pnpm typecheck
+pnpm test
 pnpm check      # Biome lint + format (pnpm fix to apply)
 ```
 

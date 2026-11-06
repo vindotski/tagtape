@@ -1,16 +1,9 @@
+@import "tailwindcss";
 
-
-* {
-  box-sizing: border-box;
+@theme {
+	--font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 
-body {
-  margin: 0;
-  font-family: system-ui, sans-serif;
+:root {
+	color-scheme: light dark;
 }
-
-main {
-  width: min(42rem, calc(100% - 2rem));
-  margin: 4rem auto;
-}
-

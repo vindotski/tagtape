@@ -102,6 +102,13 @@ Run `pnpm check`, `pnpm typecheck` and the relevant tests before calling a task 
 - Versions used by more than one package (zod, vitest, typescript) go in the pnpm **catalog**: write `"catalog:"` in package.json, or use `pnpm add --save-catalog`.
 - Code in `packages/shared` must run in both browsers and Node: web-standard APIs only (no `node:*` imports), relative imports with `.ts` extensions, and erasable TypeScript syntax only (no enums or namespaces).
 - Tests are Vitest, written as `*.test.ts` files next to the code they test.
+- **Web:**
+  - Calls to the API go through server functions in `src/lib/jobs.functions.ts`. The token-bearing client is `src/lib/api.server.ts`, and its `.server.ts` suffix keeps it out of the browser bundle.
+  - Server functions are public endpoints, so they re-validate input with the shared schema.
+  - Server env vars (`API_URL`, `API_TOKEN`, `PUBLIC_API_URL`) never get a `VITE_` prefix. Dev loads `apps/web/.env`.
+  - Styling is Tailwind v4 utilities, with emerald as the accent, zinc neutrals, and automatic dark mode. Keep inputs accessible: every field has a label (`sr-only` when visually hidden) and `aria-invalid` plus `aria-describedby` for errors.
+  - Form state is a client-side `AlbumDraft` (`src/lib/album-draft.ts`), validated with `albumInputSchema` before submit. Errors are keyed like `tracks.0.url`.
+  - Unit tests live in `src/**/*.test.ts` and use `vitest.config.ts`, without the Start plugin. For real UI checks, drive the dev server with a browser (Playwright) against the API container.
 - **API:**
   - Build the app with `buildApp({ config, pipeline })` and test routes with `app.inject()`, using the fake pipeline in `apps/api/src/test/helpers.ts`. Tests never need yt-dlp, ffmpeg or the network.
   - Config comes from environment variables only, validated in `config.ts`. Don't use config files or branch on `NODE_ENV`.
