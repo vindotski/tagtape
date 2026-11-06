@@ -11,7 +11,8 @@ export const Route = createRootRoute({
 			{ name: "viewport", content: "width=device-width, initial-scale=1" },
 			{ title: "TagTape: links to tagged MP3 albums" },
 			{ name: "description", content: DESCRIPTION },
-			{ name: "theme-color", content: "#059669" },
+			// The preset's primary, oklch(0.527 0.154 150.069), is Tailwind's green-700.
+			{ name: "theme-color", content: "#15803d" },
 			{ property: "og:title", content: "TagTape" },
 			{ property: "og:description", content: DESCRIPTION },
 			{ property: "og:url", content: "https://tagtape.app" },
@@ -31,14 +32,14 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 			<head>
 				<HeadContent />
 			</head>
-			<body className="min-h-dvh bg-zinc-50 text-zinc-900 antialiased dark:bg-zinc-950 dark:text-zinc-100">
+			<body className="min-h-dvh bg-muted antialiased dark:bg-background">
 				<div className="mx-auto flex min-h-dvh max-w-5xl flex-col px-4 sm:px-6">
 					<header className="flex items-center gap-2.5 py-6">
 						<Logo />
 						<span className="text-lg font-bold tracking-tight">TagTape</span>
 					</header>
 					<main className="flex-1 pb-16">{children}</main>
-					<footer className="flex flex-wrap gap-x-6 gap-y-2 border-t border-zinc-200 py-6 text-sm text-zinc-500 dark:border-zinc-800">
+					<footer className="flex flex-wrap gap-x-6 gap-y-2 border-t py-6 text-sm text-muted-foreground">
 						<span>
 							Made by{" "}
 							<a
@@ -71,11 +72,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 /** A cassette tape: two reels and a label. */
 function Logo() {
 	return (
-		<svg
-			viewBox="0 0 32 32"
-			className="size-8 text-emerald-600"
-			aria-hidden="true"
-		>
+		<svg viewBox="0 0 32 32" className="size-8 text-primary" aria-hidden="true">
 			<rect x="2" y="7" width="28" height="18" rx="3" fill="currentColor" />
 			<rect
 				x="6"

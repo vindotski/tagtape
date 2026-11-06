@@ -1,4 +1,17 @@
+import { CircleAlert } from "lucide-react";
 import { useState } from "react";
+import { Alert, AlertDescription } from "#/components/ui/alert";
+import { Button } from "#/components/ui/button";
+import {
+	Card,
+	CardContent,
+	CardDescription,
+	CardFooter,
+	CardHeader,
+	CardTitle,
+} from "#/components/ui/card";
+import { FieldDescription, FieldGroup } from "#/components/ui/field";
+import { Spinner } from "#/components/ui/spinner";
 import {
 	type AlbumDraft,
 	type FieldErrors,
@@ -81,77 +94,81 @@ export function AlbumForm({
 		<form
 			noValidate
 			onSubmit={handleSubmit}
-			className="grid gap-8 lg:grid-cols-[20rem_1fr]"
+			className="grid items-start gap-6 lg:grid-cols-[22rem_1fr]"
 		>
-			<section aria-labelledby="album-heading" className="space-y-4">
-				<h2
-					id="album-heading"
-					className="text-sm font-semibold text-zinc-900 dark:text-zinc-100"
-				>
-					Album
-				</h2>
-				<TextField
-					id="title"
-					label="Album title"
-					value={draft.title}
-					onChange={(title) => update({ title }, ["title"])}
-					error={errors.title}
-					disabled={submitting}
-					maxLength={60}
-					autoComplete="off"
-				/>
-				<TextField
-					id="artist"
-					label="Artist"
-					value={draft.artist}
-					onChange={(artist) => update({ artist }, ["artist"])}
-					error={errors.artist}
-					disabled={submitting}
-					maxLength={60}
-					autoComplete="off"
-				/>
-				<div className="grid grid-cols-[1fr_6rem] gap-3">
-					<TextField
-						id="genre"
-						label="Genre"
-						optional
-						value={draft.genre}
-						onChange={(genre) => update({ genre }, ["genre"])}
-						error={errors.genre}
-						disabled={submitting}
-						maxLength={30}
-					/>
-					<TextField
-						id="year"
-						label="Year"
-						optional
-						inputMode="numeric"
-						placeholder="1987"
-						value={draft.year}
-						onChange={(year) => update({ year }, ["year"])}
-						error={errors.year}
-						disabled={submitting}
-						maxLength={4}
-					/>
-				</div>
-				<TextField
-					id="coverUrl"
-					label="Cover image URL"
-					optional
-					type="url"
-					inputMode="url"
-					placeholder="https://…"
-					value={draft.coverUrl}
-					onChange={(coverUrl) => update({ coverUrl }, ["coverUrl"])}
-					error={errors.coverUrl}
-					disabled={submitting}
-				/>
-				<p className="text-xs text-zinc-500">
-					Covers are cropped to a 1000×1000 square. Up to 5 MB.
-				</p>
-			</section>
+			<Card role="region" aria-labelledby="album-heading">
+				<CardHeader>
+					<CardTitle>
+						<h2 id="album-heading">Album</h2>
+					</CardTitle>
+					<CardDescription>Written into every track's tags.</CardDescription>
+				</CardHeader>
+				<CardContent>
+					<FieldGroup className="gap-5">
+						<TextField
+							id="title"
+							label="Album title"
+							value={draft.title}
+							onChange={(title) => update({ title }, ["title"])}
+							error={errors.title}
+							disabled={submitting}
+							maxLength={60}
+							autoComplete="off"
+						/>
+						<TextField
+							id="artist"
+							label="Artist"
+							value={draft.artist}
+							onChange={(artist) => update({ artist }, ["artist"])}
+							error={errors.artist}
+							disabled={submitting}
+							maxLength={60}
+							autoComplete="off"
+						/>
+						<div className="grid grid-cols-[1fr_6rem] gap-3">
+							<TextField
+								id="genre"
+								label="Genre"
+								optional
+								value={draft.genre}
+								onChange={(genre) => update({ genre }, ["genre"])}
+								error={errors.genre}
+								disabled={submitting}
+								maxLength={30}
+							/>
+							<TextField
+								id="year"
+								label="Year"
+								optional
+								inputMode="numeric"
+								placeholder="1987"
+								value={draft.year}
+								onChange={(year) => update({ year }, ["year"])}
+								error={errors.year}
+								disabled={submitting}
+								maxLength={4}
+							/>
+						</div>
+						<TextField
+							id="coverUrl"
+							label="Cover image URL"
+							optional
+							type="url"
+							inputMode="url"
+							placeholder="https://…"
+							value={draft.coverUrl}
+							onChange={(coverUrl) => update({ coverUrl }, ["coverUrl"])}
+							error={errors.coverUrl}
+							disabled={submitting}
+						/>
+						<FieldDescription className="-mt-3">
+							Covers are cropped to a 1000×1000 square. Up to 5 MB.
+						</FieldDescription>
+					</FieldGroup>
+				</CardContent>
+			</Card>
 
-			<div>
+			<Card role="region" aria-labelledby="tracks-heading">
 				<TrackList
 					tracks={draft.tracks}
 					errors={errors}
@@ -175,21 +192,19 @@ export function AlbumForm({
 					}
 				/>
 
-				<div className="mt-6 flex flex-col-reverse items-stretch gap-3 sm:flex-row sm:items-center sm:justify-end">
+				<CardFooter className="flex-col items-stretch gap-3 border-t sm:flex-row sm:items-center sm:justify-end">
 					{formError && (
-						<p role="alert" className="text-sm text-red-600 dark:text-red-400">
-							{formError}
-						</p>
+						<Alert variant="destructive" role="alert" className="sm:mr-auto">
+							<CircleAlert aria-hidden="true" />
+							<AlertDescription>{formError}</AlertDescription>
+						</Alert>
 					)}
-					<button
-						type="submit"
-						disabled={submitting}
-						className="rounded-lg bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 disabled:opacity-60"
-					>
+					<Button type="submit" size="lg" isPending={submitting}>
+						{submitting && <Spinner aria-hidden="true" />}
 						{submitting ? "Starting…" : "Convert & download"}
-					</button>
-				</div>
-			</div>
+					</Button>
+				</CardFooter>
+			</Card>
 		</form>
 	);
 }

@@ -1,8 +1,14 @@
-import type { InputHTMLAttributes } from "react";
+import type { ComponentProps } from "react";
+import { Field, FieldLabel } from "#/components/ui/field";
+import { Input } from "#/components/ui/input";
 
 interface TextFieldProps
-	extends Omit<InputHTMLAttributes<HTMLInputElement>, "onChange" | "value"> {
+	extends Omit<
+		ComponentProps<typeof Input>,
+		"onChange" | "value" | "id" | "className"
+	> {
 	id: string;
+	className?: string;
 	label: string;
 	value: string;
 	onChange: (value: string) => void;
@@ -12,6 +18,7 @@ interface TextFieldProps
 	hideLabel?: boolean;
 }
 
+/** A labelled input with its error wired up through aria-invalid/aria-describedby. */
 export function TextField({
 	id,
 	label,
@@ -20,44 +27,34 @@ export function TextField({
 	error,
 	optional,
 	hideLabel,
-	className = "",
+	className,
 	...input
 }: TextFieldProps) {
 	const errorId = `${id}-error`;
 	return (
-		<div className={className}>
-			<label
-				htmlFor={id}
-				className={
-					hideLabel
-						? "sr-only"
-						: "mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300"
-				}
-			>
+		<Field data-invalid={error ? true : undefined} className={className}>
+			<FieldLabel htmlFor={id} className={hideLabel ? "sr-only" : undefined}>
 				{label}
 				{optional && (
-					<span className="ml-1 font-normal text-zinc-400">(optional)</span>
+					<span className="font-normal text-muted-foreground">(optional)</span>
 				)}
-			</label>
-			<input
+			</FieldLabel>
+			<Input
 				id={id}
 				name={id}
 				value={value}
 				onChange={(event) => onChange(event.target.value)}
 				aria-invalid={error ? true : undefined}
 				aria-describedby={error ? errorId : undefined}
-				className={`block w-full rounded-lg border bg-white px-3 py-2 text-sm text-zinc-900 shadow-xs outline-none transition placeholder:text-zinc-400 focus:ring-2 dark:bg-zinc-900 dark:text-zinc-100 ${
-					error
-						? "border-red-400 focus:border-red-500 focus:ring-red-500/20 dark:border-red-500/70"
-						: "border-zinc-300 focus:border-emerald-500 focus:ring-emerald-500/20 dark:border-zinc-700"
-				}`}
 				{...input}
 			/>
+			{/* Not role="alert": after a submit, focus moves to the first invalid
+			    field, which already announces this through aria-describedby. */}
 			{error && (
-				<p id={errorId} className="mt-1 text-xs text-red-600 dark:text-red-400">
+				<p id={errorId} className="text-sm text-destructive">
 					{error}
 				</p>
 			)}
-		</div>
+		</Field>
 	);
 }

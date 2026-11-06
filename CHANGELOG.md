@@ -7,7 +7,7 @@ TagTape has one version for the web app and the API, kept in the root `package.j
 A complete rewrite of Albumie as **TagTape** ([tagtape.app](https://tagtape.app)).
 
 ### Added
-- Web app built with TanStack Start and Tailwind, with dark mode and a mobile layout. You can reorder tracks by dragging or with buttons.
+- Web app built with TanStack Start and **shadcn/ui** (React Aria base), with automatic dark mode and a mobile layout. You can reorder tracks by dragging (mouse, touch or keyboard) or with buttons.
 - **Nothing is stored on the server:** after a quick check of every track, the download *is* the conversion. Tracks convert one after another while the ZIP streams to your browser (per-track progress on the page), and closing the tab stops the work. "Download again" converts again.
 - **Five sources:** links from YouTube (incl. YouTube Music), SoundCloud, Bandcamp, Mixcloud and Vimeo, mixed freely in one album. Tracks can be up to **2 hours** long (v1: 10 minutes, YouTube only), so DJ mixes fit.
 - Every track is checked **before** anything downloads. Tracks longer than 2 hours, live streams, and private, unavailable or DRM-protected tracks are rejected with a reason per track, and the form keeps everything you typed.

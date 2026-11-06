@@ -1,6 +1,29 @@
 import type { JobStatus, TrackSnapshot, TrackStatus } from "@tagtape/shared";
+import { CircleAlert } from "lucide-react";
 import { useEffect, useRef } from "react";
+import { Alert, AlertDescription } from "#/components/ui/alert";
+import { Badge } from "#/components/ui/badge";
+import { Button, LinkButton } from "#/components/ui/button";
+import {
+	Card,
+	CardContent,
+	CardDescription,
+	CardHeader,
+	CardTitle,
+} from "#/components/ui/card";
+import {
+	Item,
+	ItemActions,
+	ItemContent,
+	ItemDescription,
+	ItemGroup,
+	ItemMedia,
+	ItemTitle,
+} from "#/components/ui/item";
+import { Progress } from "#/components/ui/progress";
+import { Spinner } from "#/components/ui/spinner";
 import { type JobView, useJob } from "#/lib/use-job";
+import { cn } from "#/lib/utils";
 
 const JOB_LABELS: Record<JobStatus, string> = {
 	queued: "Waiting for a free slot…",
@@ -55,28 +78,33 @@ export function JobProgress({ jobId, onEdit, onStartOver }: JobProgressProps) {
 	const { job, downloadUrl } = state.view;
 	const streamFailed = job.status === "failed" && job.downloadReady;
 	const message =
-		job.error ??
-		(job.status === "streaming" || job.status === "queued"
+		job.status === "streaming" || job.status === "queued"
 			? KEEP_OPEN
-			: undefined);
+			: undefined;
 	return (
-		<Panel title={JOB_LABELS[job.status]} message={message} tone={job.status}>
+		<Panel
+			title={JOB_LABELS[job.status]}
+			message={message}
+			tone={job.status}
+			error={job.error}
+		>
 			<ProgressBar view={state.view} />
-			<ol className="mt-5 divide-y divide-zinc-100 dark:divide-zinc-800">
+			<ItemGroup role="list" className="gap-1">
 				{job.tracks.map((track) => (
 					<TrackLine key={track.number} track={track} />
 				))}
-			</ol>
+			</ItemGroup>
 			{/* The download *is* the conversion: start it as soon as the check passes. */}
 			{job.status === "ready" && downloadUrl && (
 				<AutoDownload url={downloadUrl} />
 			)}
 			{job.status === "ready" && downloadUrl && (
-				<p className="mt-6 text-sm text-zinc-600 dark:text-zinc-400">
+				<p className="text-sm text-muted-foreground">
 					Download didn't start?{" "}
 					<DownloadLink
 						url={downloadUrl}
-						className="font-medium text-emerald-700 underline underline-offset-4 dark:text-emerald-400"
+						variant="link"
+						className="h-auto p-0 align-baseline"
 					>
 						Start it here
 					</DownloadLink>
@@ -97,23 +125,20 @@ export function JobProgress({ jobId, onEdit, onStartOver }: JobProgressProps) {
 				/>
 			)}
 			{(job.status === "done" || streamFailed) && (
-				<div className="mt-6 flex flex-wrap items-center gap-3">
+				<ActionsRow>
 					{downloadUrl && (
-						<DownloadLink
-							url={downloadUrl}
-							className="rounded-lg bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700"
-						>
+						<DownloadLink url={downloadUrl} size="lg">
 							{streamFailed ? "Try the download again" : "Download again"}
 						</DownloadLink>
 					)}
-					<button
-						type="button"
-						onClick={job.status === "done" ? onStartOver : () => onEdit({})}
-						className="rounded-lg px-4 py-2.5 text-sm font-medium text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+					<Button
+						variant="ghost"
+						size="lg"
+						onPress={job.status === "done" ? onStartOver : () => onEdit({})}
 					>
 						{job.status === "done" ? "Convert another album" : "Edit the album"}
-					</button>
-				</div>
+					</Button>
+				</ActionsRow>
 			)}
 		</Panel>
 	);
@@ -123,36 +148,46 @@ function Panel({
 	title,
 	message,
 	tone,
+	error,
 	children,
 }: {
 	title: string;
 	message?: string | undefined;
 	tone?: JobStatus;
+	error?: string | undefined;
 	children?: React.ReactNode;
 }) {
 	return (
-		<section
-			aria-live="polite"
-			className="mx-auto max-w-2xl rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900"
+		<Card
+			role="region"
+			aria-labelledby="job-heading"
+			className="mx-auto w-full max-w-2xl"
 		>
-			<h2
-				className={`text-lg font-semibold ${
-					tone === "failed"
-						? "text-red-700 dark:text-red-400"
-						: tone === "done"
-							? "text-emerald-700 dark:text-emerald-400"
-							: "text-zinc-900 dark:text-zinc-100"
-				}`}
-			>
-				{title}
-			</h2>
-			{message && (
-				<p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-					{message}
-				</p>
-			)}
-			{children}
-		</section>
+			{/* Only the status is announced, not every badge change. */}
+			<CardHeader aria-live="polite">
+				<CardTitle className="text-base">
+					<h2
+						id="job-heading"
+						className={cn(
+							tone === "failed" && "text-destructive",
+							tone === "done" && "text-primary",
+						)}
+					>
+						{title}
+					</h2>
+				</CardTitle>
+				{message && <CardDescription>{message}</CardDescription>}
+			</CardHeader>
+			<CardContent className="flex flex-col gap-4 empty:hidden">
+				{error && (
+					<Alert variant="destructive">
+						<CircleAlert aria-hidden="true" />
+						<AlertDescription>{error}</AlertDescription>
+					</Alert>
+				)}
+				{children}
+			</CardContent>
+		</Card>
 	);
 }
 
@@ -167,58 +202,48 @@ function ProgressBar({ view }: { view: JobView }) {
 				? Math.round((done / tracks.length) * 95)
 				: 0;
 	return (
-		<div
-			role="progressbar"
-			aria-valuemin={0}
-			aria-valuemax={100}
-			aria-valuenow={percent}
+		<Progress
 			aria-label="Overall progress"
-			className="mt-4 h-1.5 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800"
-		>
-			<div
-				className="h-full rounded-full bg-emerald-500 transition-[width] duration-500"
-				style={{ width: `${Math.max(percent, 4)}%` }}
-			/>
-		</div>
+			value={percent}
+			// A sliver of bar shows that something is happening before the first track is done.
+			className="[&_[data-slot=progress-indicator]]:min-w-[4%]"
+		/>
 	);
 }
 
+const BADGE_VARIANTS = {
+	queued: "outline",
+	converting: "secondary",
+	done: "default",
+	error: "destructive",
+} as const satisfies Record<TrackStatus, string>;
+
 function TrackLine({ track }: { track: TrackSnapshot }) {
-	const busy = track.status === "converting";
 	return (
-		<li className="flex items-start gap-3 py-2.5 text-sm">
-			<span className="w-5 shrink-0 text-right tabular-nums text-zinc-400">
+		<Item size="xs" role="listitem" className="items-start">
+			<ItemMedia className="w-5 justify-end text-xs tabular-nums text-muted-foreground">
 				{track.number}
-			</span>
-			<div className="min-w-0 flex-1">
-				<p className="truncate font-medium text-zinc-900 dark:text-zinc-100">
-					{track.title}
-				</p>
+			</ItemMedia>
+			<ItemContent className="min-w-0">
+				<ItemTitle className="block truncate">{track.title}</ItemTitle>
 				{track.error && (
-					<p className="text-xs text-red-600 dark:text-red-400">
+					<ItemDescription className="text-destructive">
 						{track.error}
-					</p>
+					</ItemDescription>
 				)}
-			</div>
-			<span
-				className={`flex shrink-0 items-center gap-1.5 text-xs ${
-					track.status === "done"
-						? "text-emerald-700 dark:text-emerald-400"
-						: track.status === "error"
-							? "text-red-600 dark:text-red-400"
-							: "text-zinc-500"
-				}`}
-			>
-				{busy && (
-					<span
-						className="size-2 animate-pulse rounded-full bg-emerald-500"
-						aria-hidden="true"
-					/>
-				)}
-				{TRACK_LABELS[track.status]}
-			</span>
-		</li>
+			</ItemContent>
+			<ItemActions>
+				<Badge variant={BADGE_VARIANTS[track.status]}>
+					{track.status === "converting" && <Spinner aria-hidden="true" />}
+					{TRACK_LABELS[track.status]}
+				</Badge>
+			</ItemActions>
+		</Item>
 	);
+}
+
+function ActionsRow({ children }: { children: React.ReactNode }) {
+	return <div className="flex flex-wrap items-center gap-3">{children}</div>;
 }
 
 function Actions({
@@ -229,22 +254,14 @@ function Actions({
 	onStartOver: () => void;
 }) {
 	return (
-		<div className="mt-6 flex flex-wrap gap-3">
-			<button
-				type="button"
-				onClick={onEdit}
-				className="rounded-lg bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700"
-			>
+		<ActionsRow>
+			<Button size="lg" onPress={onEdit}>
 				Edit and try again
-			</button>
-			<button
-				type="button"
-				onClick={onStartOver}
-				className="rounded-lg px-4 py-2.5 text-sm font-medium text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
-			>
+			</Button>
+			<Button variant="ghost" size="lg" onPress={onStartOver}>
 				Start over
-			</button>
-		</div>
+			</Button>
+		</ActionsRow>
 	);
 }
 
@@ -254,18 +271,12 @@ function Actions({
  */
 function DownloadLink({
 	url,
-	className,
-	children,
-}: {
-	url: string;
-	className: string;
-	children: React.ReactNode;
-}) {
-	return (
-		<a href={url} download className={className}>
-			{children}
-		</a>
-	);
+	...props
+}: { url: string } & Omit<
+	React.ComponentProps<typeof LinkButton>,
+	"href" | "download"
+>) {
+	return <LinkButton href={url} download {...props} />;
 }
 
 /** Starts the download once, as soon as the album is ready. */

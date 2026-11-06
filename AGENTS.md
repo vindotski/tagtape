@@ -128,7 +128,12 @@ Run `pnpm check`, `pnpm typecheck` and the relevant tests before calling a task 
   - Server env vars (`API_URL`, `API_TOKEN`) never get a `VITE_` prefix. Dev loads `apps/web/.env`; in the image, `docker/start.mjs` sets them.
   - Production serving: `pnpm --filter @tagtape/web start` (srvx). srvx resolves `--static` relative to the entry file, hence `--static ../client`.
   - Tailwind scans `src/` only (`@import "tailwindcss" source(".")`). Don't rely on `.gitignore`-based auto-detection: it mismatched the client and server CSS hashes in Docker.
-  - Styling is Tailwind v4 utilities, with emerald as the accent, zinc neutrals, and automatic dark mode. Keep inputs accessible: every field has a label (`sr-only` when visually hidden) and `aria-invalid` plus `aria-describedby` for errors.
+  - UI is **shadcn/ui** on the React Aria base (`components.json`, preset `b2oXkljRz`: vega style, green on olive, no radius, Oxanium, lucide icons).
+    - Add components with `pnpm dlx shadcn@latest add <name>` from `apps/web`. `src/components/ui/` is vendor code: Biome formats it but doesn't lint it. Prefer composing over editing those files.
+    - `shadcn init` ignores the preset in this app (it falls back to legacy prompts). To re-theme, scaffold the template in a scratch directory and copy the CSS variables over.
+    - Use theme tokens (`bg-card`, `text-muted-foreground`, `text-destructive`, `text-primary`), never raw palette colours. Dark mode follows `prefers-color-scheme` (a `@custom-variant` in `styles.css`), with no `.dark` class.
+    - Track reordering stays on dnd-kit: a React Aria GridList is a single Tab stop, and its arrow-key row navigation fights the text inputs inside the rows.
+  - Keep inputs accessible: every field has a label (`sr-only` when visually hidden) and `aria-invalid` plus `aria-describedby` for errors (`components/text-field.tsx`).
   - Form state is a client-side `AlbumDraft` (`src/lib/album-draft.ts`), validated with `albumInputSchema` before submit. Errors are keyed like `tracks.0.url`.
   - Unit tests live in `src/**/*.test.ts` and use `vitest.config.ts`, without the Start plugin. For real UI checks, drive the dev server with a browser (Playwright) against the API container.
 - **API:**

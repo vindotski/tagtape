@@ -23,10 +23,10 @@ function Home() {
 	return (
 		<>
 			<section className="mb-10 max-w-2xl">
-				<h1 className="text-3xl font-bold tracking-tight text-zinc-900 sm:text-4xl dark:text-zinc-50">
+				<h1 className="font-heading text-3xl font-bold tracking-tight sm:text-4xl">
 					Links to a tagged MP3 album
 				</h1>
-				<p className="mt-3 text-zinc-600 dark:text-zinc-400">
+				<p className="mt-3 text-muted-foreground">
 					Paste up to {MAX_TRACKS} links from {SUPPORTED_SITE_NAMES}, add the
 					album details, and download a ZIP of MP3s with titles, track numbers
 					and cover art already filled in, so they show up properly on any MP3

@@ -19,7 +19,18 @@ import {
 	MAX_TRACKS,
 	SUPPORTED_SITES,
 } from "@tagtape/shared";
+import { ArrowDown, ArrowUp, GripVertical, Plus, X } from "lucide-react";
+import { Button } from "#/components/ui/button";
+import {
+	CardAction,
+	CardContent,
+	CardDescription,
+	CardHeader,
+	CardTitle,
+} from "#/components/ui/card";
+import { Tooltip, TooltipTrigger } from "#/components/ui/tooltip";
 import type { FieldErrors, TrackDraft } from "#/lib/album-draft";
+import { cn } from "#/lib/utils";
 import { TextField } from "./text-field";
 
 /** "2 hours", from the shared limit. */
@@ -38,6 +49,11 @@ interface TrackListProps {
 	onAdd: () => void;
 }
 
+/**
+ * Reordering uses dnd-kit, not React Aria's GridList: a GridList is a single
+ * Tab stop whose rows are entered with arrow keys, which text inputs inside
+ * the rows swallow. Here every input and button stays in the normal Tab order.
+ */
 export function TrackList({
 	tracks,
 	errors,
@@ -62,77 +78,80 @@ export function TrackList({
 	}
 
 	return (
-		<section aria-labelledby="tracks-heading">
-			<div className="mb-3 flex items-baseline justify-between">
-				<h2
-					id="tracks-heading"
-					className="text-sm font-semibold text-zinc-900 dark:text-zinc-100"
+		<>
+			<CardHeader>
+				<CardTitle>
+					<h2 id="tracks-heading">Tracks</h2>
+				</CardTitle>
+				<CardDescription>
+					Drag to reorder. Track numbers follow this order.
+				</CardDescription>
+				<CardAction
+					className="text-xs tabular-nums text-muted-foreground"
+					aria-live="polite"
 				>
-					Tracks
-				</h2>
-				<span className="text-xs tabular-nums text-zinc-500" aria-live="polite">
 					{tracks.length} / {MAX_TRACKS}
-				</span>
-			</div>
-			{errors.tracks && (
-				<p className="mb-2 text-xs text-red-600 dark:text-red-400">
-					{errors.tracks}
-				</p>
-			)}
+				</CardAction>
+			</CardHeader>
 
-			{/* A fixed id keeps dnd-kit's aria attributes identical on server and client. */}
-			<DndContext
-				id="tracks"
-				sensors={sensors}
-				collisionDetection={closestCenter}
-				onDragEnd={handleDragEnd}
-			>
-				<SortableContext
-					items={tracks.map((track) => track.key)}
-					strategy={verticalListSortingStrategy}
-					disabled={disabled}
-				>
-					<ol className="space-y-2">
-						{tracks.map((track, index) => (
-							<TrackRow
-								key={track.key}
-								track={track}
-								index={index}
-								count={tracks.length}
-								errors={errors}
-								disabled={disabled}
-								onChange={(patch) => onChange(index, patch)}
-								onMove={(to) => onMove(index, to)}
-								onRemove={() => onRemove(index)}
-							/>
-						))}
-					</ol>
-				</SortableContext>
-			</DndContext>
+			<CardContent className="flex flex-col gap-3">
+				{errors.tracks && (
+					<p className="text-sm text-destructive">{errors.tracks}</p>
+				)}
 
-			{tracks.length < MAX_TRACKS && (
-				<button
-					type="button"
-					onClick={onAdd}
-					disabled={disabled}
-					className="mt-3 w-full rounded-lg border border-dashed border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-600 transition hover:border-emerald-500 hover:text-emerald-700 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-400 dark:hover:text-emerald-400"
+				{/* A fixed id keeps dnd-kit's aria attributes identical on server and client. */}
+				<DndContext
+					id="tracks"
+					sensors={sensors}
+					collisionDetection={closestCenter}
+					onDragEnd={handleDragEnd}
 				>
-					+ Add track
-				</button>
-			)}
-			<p className="mt-3 text-xs text-zinc-500">
-				One track per link, up to {limitText} each. Works with{" "}
-				{SUPPORTED_SITES.map((site, i) => (
-					<span key={site.id}>
-						{i > 0 && (i === SUPPORTED_SITES.length - 1 ? " and " : ", ")}
-						<span className="font-medium text-zinc-600 dark:text-zinc-400">
-							{site.name}
+					<SortableContext
+						items={tracks.map((track) => track.key)}
+						strategy={verticalListSortingStrategy}
+						disabled={disabled}
+					>
+						<ol className="flex flex-col gap-2">
+							{tracks.map((track, index) => (
+								<TrackRow
+									key={track.key}
+									track={track}
+									index={index}
+									count={tracks.length}
+									errors={errors}
+									disabled={disabled}
+									onChange={(patch) => onChange(index, patch)}
+									onMove={(to) => onMove(index, to)}
+									onRemove={() => onRemove(index)}
+								/>
+							))}
+						</ol>
+					</SortableContext>
+				</DndContext>
+
+				{tracks.length < MAX_TRACKS && (
+					<Button
+						variant="outline"
+						className="w-full border-dashed"
+						onPress={onAdd}
+						isDisabled={disabled}
+					>
+						<Plus aria-hidden="true" />
+						Add track
+					</Button>
+				)}
+				<p className="text-xs text-muted-foreground">
+					One track per link, up to {limitText} each. Works with{" "}
+					{SUPPORTED_SITES.map((site, i) => (
+						<span key={site.id}>
+							{i > 0 && (i === SUPPORTED_SITES.length - 1 ? " and " : ", ")}
+							<span className="font-medium text-foreground">{site.name}</span>
 						</span>
-					</span>
-				))}
-				.
-			</p>
-		</section>
+					))}
+					.
+				</p>
+			</CardContent>
+		</>
 	);
 }
 
@@ -173,36 +192,25 @@ function TrackRow({
 		<li
 			ref={setNodeRef}
 			style={{ transform: CSS.Transform.toString(transform), transition }}
-			className={`flex items-center gap-2 rounded-xl border bg-white p-2 dark:bg-zinc-900 ${
-				isDragging
-					? "relative z-10 border-emerald-500 shadow-lg"
-					: "border-zinc-200 dark:border-zinc-800"
-			}`}
+			className={cn(
+				"flex items-start gap-2 rounded-md border bg-card p-2",
+				isDragging && "relative z-10 border-primary shadow-lg",
+			)}
 		>
+			{/* dnd-kit needs a plain element for its listeners (pointer + keyboard). */}
 			<button
 				type="button"
 				ref={setActivatorNodeRef}
 				{...attributes}
 				{...listeners}
 				aria-label={`Reorder ${name}`}
-				className="flex w-8 shrink-0 cursor-grab touch-none flex-col items-center justify-center self-stretch rounded-lg text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 active:cursor-grabbing dark:hover:bg-zinc-800"
+				title={`Reorder ${name}`}
+				className="flex min-h-9 w-9 shrink-0 cursor-grab touch-none flex-col items-center justify-center self-stretch rounded-md text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 active:cursor-grabbing"
 			>
-				<span className="text-xs font-semibold tabular-nums text-zinc-500">
+				<span className="text-xs font-semibold tabular-nums text-foreground">
 					{number}
 				</span>
-				<svg
-					viewBox="0 0 20 20"
-					className="size-4"
-					fill="currentColor"
-					aria-hidden="true"
-				>
-					<circle cx="7" cy="5" r="1.5" />
-					<circle cx="13" cy="5" r="1.5" />
-					<circle cx="7" cy="10" r="1.5" />
-					<circle cx="13" cy="10" r="1.5" />
-					<circle cx="7" cy="15" r="1.5" />
-					<circle cx="13" cy="15" r="1.5" />
-				</svg>
+				<GripVertical className="size-4" aria-hidden="true" />
 			</button>
 
 			<div className="grid min-w-0 flex-1 gap-2 sm:grid-cols-2">
@@ -216,6 +224,7 @@ function TrackRow({
 					error={errors[`tracks.${index}.title`]}
 					disabled={disabled}
 					maxLength={60}
+					className="gap-1"
 				/>
 				<TextField
 					id={`track-${track.key}-url`}
@@ -228,28 +237,32 @@ function TrackRow({
 					onChange={(url) => onChange({ url })}
 					error={errors[`tracks.${index}.url`]}
 					disabled={disabled}
+					className="gap-1"
 				/>
 			</div>
 
-			<div className="flex shrink-0 flex-col items-center gap-0.5 sm:flex-row">
+			<div className="flex shrink-0 flex-col items-center sm:flex-row">
 				<IconButton
 					label={`Move ${name} up`}
 					disabled={disabled || index === 0}
-					onClick={() => onMove(index - 1)}
-					path="M10 6l-4 4m4-4l4 4m-4-4v9"
-				/>
+					onPress={() => onMove(index - 1)}
+				>
+					<ArrowUp aria-hidden="true" />
+				</IconButton>
 				<IconButton
 					label={`Move ${name} down`}
 					disabled={disabled || index === count - 1}
-					onClick={() => onMove(index + 1)}
-					path="M10 15l-4-4m4 4l4-4m-4 4V6"
-				/>
+					onPress={() => onMove(index + 1)}
+				>
+					<ArrowDown aria-hidden="true" />
+				</IconButton>
 				<IconButton
 					label={`Remove ${name}`}
 					disabled={disabled || count === 1}
-					onClick={onRemove}
-					path="M6 6l8 8M14 6l-8 8"
-				/>
+					onPress={onRemove}
+				>
+					<X aria-hidden="true" />
+				</IconButton>
 			</div>
 		</li>
 	);
@@ -257,36 +270,27 @@ function TrackRow({
 
 function IconButton({
 	label,
-	path,
 	disabled,
-	onClick,
+	onPress,
+	children,
 }: {
 	label: string;
-	path: string;
 	disabled: boolean;
-	onClick: () => void;
+	onPress: () => void;
+	children: React.ReactNode;
 }) {
 	return (
-		<button
-			type="button"
-			aria-label={label}
-			title={label}
-			disabled={disabled}
-			onClick={onClick}
-			className="rounded-md p-1 text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-700 disabled:pointer-events-none disabled:opacity-30 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
-		>
-			<svg
-				viewBox="0 0 20 20"
-				className="size-4"
-				fill="none"
-				stroke="currentColor"
-				strokeWidth="1.75"
-				strokeLinecap="round"
-				strokeLinejoin="round"
-				aria-hidden="true"
+		<TooltipTrigger>
+			<Button
+				variant="ghost"
+				size="icon-sm"
+				aria-label={label}
+				isDisabled={disabled}
+				onPress={onPress}
 			>
-				<path d={path} />
-			</svg>
-		</button>
+				{children}
+			</Button>
+			<Tooltip>{label}</Tooltip>
+		</TooltipTrigger>
 	);
 }
