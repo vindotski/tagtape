@@ -1,51 +1,34 @@
 {
-  "name": "tagtape",
-  "private": true,
-  "license": "GPL-2.0",
-  "type": "module",
-  "imports": {
-    "#/*": "./src/*"
-  },
-  "scripts": {
-    "dev": "vite dev --port 3000",
-    "generate-routes": "vite build",
-    "build": "vite build",
-    "preview": "vite preview",
-    "format": "biome format",
-    "lint": "biome lint",
-    "check": "biome check"
-  },
-  "dependencies": {
-    "@tanstack/react-router": "1.170.46",
-    "@tanstack/react-start": "1.169.4",
-    "react": "^19.2.0",
-    "react-dom": "^19.2.0"
-  },
-  "devDependencies": {
-    "@biomejs/biome": "2.4.5",
-    "@tanstack/intent": "^0.5.6",
-    "@types/node": "^22.10.2",
-    "@types/react": "^19.2.0",
-    "@types/react-dom": "^19.2.0",
-    "@vitejs/plugin-react": "^6.0.1",
-    "typescript": "^6.0.2",
-    "vite": "^8.0.0"
-  },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "esbuild",
-      "lightningcss"
-    ]
-  },
-  "intent": {
-    "exclude": [
-      "@tanstack/react-router#lifecycle/*",
-      "@tanstack/react-start#lifecycle/*",
-      "@tanstack/react-start#react-start/server-components",
-      "@tanstack/react-router#compositions/router-query",
-      "@tanstack/router-core#router-core/auth-and-guards",
-      "@tanstack/start-client-core#start-core/auth-server-primitives",
-      "@tanstack/virtual-file-routes#*"
-    ]
-  }
+	"name": "tagtape",
+	"private": true,
+	"license": "GPL-2.0",
+	"type": "module",
+	"packageManager": "pnpm@12.4.1",
+	"engines": {
+		"node": ">=24"
+	},
+	"scripts": {
+		"dev": "pnpm --recursive --parallel run dev",
+		"build": "pnpm --recursive run build",
+		"typecheck": "pnpm --recursive run typecheck",
+		"test": "pnpm --recursive --if-present run test",
+		"check": "biome check",
+		"fix": "biome check --write"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "2.4.5",
+		"@tanstack/intent": "^0.5.6",
+		"typescript": "^6.0.2"
+	},
+	"intent": {
+		"exclude": [
+			"@tanstack/react-router#lifecycle/*",
+			"@tanstack/react-start#lifecycle/*",
+			"@tanstack/react-start#react-start/server-components",
+			"@tanstack/react-router#compositions/router-query",
+			"@tanstack/router-core#router-core/auth-and-guards",
+			"@tanstack/start-client-core#start-core/auth-server-primitives",
+			"@tanstack/virtual-file-routes#*"
+		]
+	}
 }

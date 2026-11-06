@@ -1,5 +1,8 @@
+packages:
+  - apps/*
+  - packages/*
+
 allowBuilds:
   esbuild: true
   lightningcss: true
-packages:
-  - .
+  sharp: true

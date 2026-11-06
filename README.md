@@ -7,16 +7,24 @@ TagTape is being rewritten with [TanStack Start](https://tanstack.com/start). Th
 
 ## Development
 
-Requires Node and pnpm.
+pnpm monorepo. Requires Node 24+ and pnpm 12.
+
+| Path | What |
+|---|---|
+| `apps/web` | TanStack Start web app |
+| `apps/api` | Fastify service: yt-dlp, ffmpeg, tagging, zipping *(in progress)* |
+| `packages/shared` | zod schemas and types shared by web and API *(in progress)* |
+| `legacy/` | Original Symfony app, kept for reference |
 
 ```bash
 pnpm install
-pnpm dev      # http://localhost:3000
-pnpm build    # production build
-pnpm check    # Biome lint + format check
+pnpm dev        # all apps; web on http://localhost:3000
+pnpm build
+pnpm typecheck
+pnpm check      # Biome lint + format (pnpm fix to apply)
 ```
 
-Routes live in `src/routes`. TanStack Router regenerates `src/routeTree.gen.ts` automatically.
+Web routes live in `apps/web/src/routes`. TanStack Router regenerates `routeTree.gen.ts` automatically.
 
 ## Meta
 

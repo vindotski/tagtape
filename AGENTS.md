@@ -69,7 +69,7 @@ TagTape turns 1–10 YouTube links plus album details (title, artist, genre, yea
 | Path | What |
 |---|---|
 | `legacy/` | Original Symfony/PHP app. **Read-only reference**: never edit, build, or lint it. |
-| `src/`, `vite.config.ts` | TanStack Start web app (moving to `apps/web/`). |
+| `apps/web/` | TanStack Start web app (`@tagtape/web`). |
 | `apps/api/` *(planned)* | Fastify 5 service that runs yt-dlp + ffmpeg, tags, zips, as background jobs. |
 | `packages/shared/` *(planned)* | zod schemas and types shared by web and API (`@tagtape/shared`). |
 
@@ -77,14 +77,19 @@ How the parts talk to each other: the browser calls TanStack Start **server func
 
 ## Commands (pnpm only)
 
+pnpm workspace (`apps/*`, `packages/*`). Run these from the repo root:
+
 ```bash
 pnpm install
-pnpm dev        # web app on http://localhost:3000
+pnpm dev        # all apps in parallel; web on :3000 (Vite falls back to the next free port)
 pnpm build
-pnpm check      # Biome lint + format (use `pnpm exec biome check --write` to fix)
+pnpm typecheck
+pnpm test
+pnpm check      # Biome lint + format; `pnpm fix` applies fixes
+pnpm --filter @tagtape/web <script>   # run a script in one package
 ```
 
-Run `pnpm check` and the relevant tests before calling a task done.
+Run `pnpm check`, `pnpm typecheck` and the relevant tests before calling a task done. Shared TypeScript options live in `tsconfig.base.json`, and every package extends it. Add root-level dev tools with `pnpm add -Dw`.
 
 ## Conventions
 
