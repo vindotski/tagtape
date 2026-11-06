@@ -1,7 +1,7 @@
 {
   "name": "tagtape",
   "version": "0.0.1",
-  "license": "GPL-2.0",
+  "license": "Unlicense",
   "description": "Convert YouTube to MP3 with metadata for standard MP3 players.",
   "main": "gulpfile.js",
   "author": {

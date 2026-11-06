@@ -1,7 +1,7 @@
 {
 	"name": "tagtape",
 	"private": true,
-	"license": "GPL-2.0",
+	"license": "Unlicense",
 	"type": "module",
 	"packageManager": "pnpm@12.4.1",
 	"engines": {

@@ -139,7 +139,7 @@ jobs:
           labels: |
             org.opencontainers.image.title=TagTape
             org.opencontainers.image.description=YouTube links to a ZIP of ID3-tagged MP3s. Web app + API (yt-dlp, ffmpeg) in one image. https://tagtape.app
-            org.opencontainers.image.licenses=GPL-2.0
+            org.opencontainers.image.licenses=Unlicense
             org.opencontainers.image.url=https://tagtape.app
 
       - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0

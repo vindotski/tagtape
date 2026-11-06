@@ -2,7 +2,7 @@
     "name": "vindotski/tagtape",
     "description": "Convert YouTube to MP3 with metadata for standard MP3 players.",
     "type": "project",
-    "license": "gpl-2.0",
+    "license": "Unlicense",
     "homepage": "https://tagtape.app",
     "authors": [
         {

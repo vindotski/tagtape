@@ -16,7 +16,7 @@ TagTape addresses the problem most YouTube to MP3 converters face and that's not
 
 [Ivan Vinski](https://www.vin.ski) – ivan@vin.ski
 
-Distributed under the GPL-2.0 license. See [LICENSE](LICENSE) for more information.
+Released into the public domain under the [Unlicense](../LICENSE), except the MIT-licensed third-party snippets credited in their files.
 
 [https://github.com/vindotski/tagtape](https://github.com/vindotski/tagtape)
 

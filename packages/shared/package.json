@@ -1,7 +1,7 @@
 {
 	"name": "@tagtape/shared",
 	"private": true,
-	"license": "GPL-2.0",
+	"license": "Unlicense",
 	"type": "module",
 	"exports": {
 		".": "./src/index.ts"

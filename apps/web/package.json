@@ -1,7 +1,7 @@
 {
 	"name": "@tagtape/web",
 	"private": true,
-	"license": "GPL-2.0",
+	"license": "Unlicense",
 	"type": "module",
 	"imports": {
 		"#/*": "./src/*"
