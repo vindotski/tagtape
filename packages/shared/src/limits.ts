@@ -3,8 +3,8 @@
 export const MAX_TRACKS = 10;
 
 /**
- * Longest track we accept, in seconds: 2 hours, so long DJ mixes (Mixcloud)
- * fit. TagTape v1 allowed 10 minutes.
+ * Longest track we accept, in seconds: 2 hours, so long DJ mixes fit.
+ * TagTape v1 allowed 10 minutes.
  */
 export const MAX_TRACK_SECONDS = 2 * 60 * 60;
 

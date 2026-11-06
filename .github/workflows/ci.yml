@@ -83,7 +83,7 @@ jobs:
             echo "The API port is reachable from outside the container" >&2
             exit 1
           fi
-          # ...but healthy inside (yt-dlp + ffmpeg run) and token-protected.
+          # ...but healthy inside (ffmpeg runs) and token-protected.
           docker exec app node -e "
             (async () => {
               const h = await (await fetch('http://127.0.0.1:4000/health')).json();
@@ -163,7 +163,7 @@ jobs:
             type=sha,format=short
           labels: |
             org.opencontainers.image.title=TagTape
-            org.opencontainers.image.description=YouTube links to a ZIP of ID3-tagged MP3s. Web app + API (yt-dlp, ffmpeg) in one image. https://tagtape.app
+            org.opencontainers.image.description=Track links to a ZIP of ID3-tagged MP3s. Web app + API (ffmpeg) in one image. https://tagtape.app
             org.opencontainers.image.licenses=MIT
             org.opencontainers.image.url=https://tagtape.app
 

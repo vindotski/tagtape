@@ -1,10 +1,7 @@
-name: End-to-end (real YouTube)
+name: End-to-end (real MP3 links)
 
-# YouTube changes often and yt-dlp has to keep up. This converts a real video
-# through the API image weekly, so breakage shows up here before users see it.
-# Note: YouTube sometimes asks datacenter IPs (like GitHub's runners) to
-# "confirm you're not a bot". A failure with that message is an IP problem,
-# not a TagTape bug.
+# Converts public MP3 files through the image weekly (and on demand), with the
+# real ffmpeg and network, so breakage shows up here before users see it.
 on:
   schedule:
     - cron: "17 6 * * 1" # Mondays 06:17 UTC
@@ -51,7 +48,7 @@ jobs:
             -e API_HOST=0.0.0.0 -e API_TOKEN="$TOKEN" tagtape:e2e
           for _ in $(seq 1 30); do curl -sf http://127.0.0.1:4100/health && break; sleep 1; done
 
-      - name: Convert a real video
+      - name: Convert real MP3 links
         env:
           TAGTAPE_E2E_URL: http://127.0.0.1:4100
         run: pnpm --filter @tagtape/api exec vitest run src/e2e.test.ts

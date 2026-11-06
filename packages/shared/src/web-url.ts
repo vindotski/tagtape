@@ -1,7 +1,7 @@
 /**
  * Parses what a person pasted into a URL we're willing to look at: http(s)
  * only, no credentials, no custom port. A missing scheme is tolerated
- * (people paste `youtube.com/watch?v=…`). Returns `null` for anything else.
+ * (people paste `example.com/song.mp3`). Returns `null` for anything else.
  */
 export function parseWebUrl(input: string): URL | null {
 	const trimmed = input.trim();

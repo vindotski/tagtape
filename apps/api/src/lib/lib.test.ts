@@ -35,8 +35,8 @@ describe("filenames", () => {
 	});
 
 	test("archive name", () => {
-		expect(archiveFileName("Rick Astley", "Whenever You Need Somebody")).toBe(
-			"Rick Astley - Whenever You Need Somebody.zip",
+		expect(archiveFileName("The Examples", "Night Drive")).toBe(
+			"The Examples - Night Drive.zip",
 		);
 	});
 
@@ -132,7 +132,7 @@ describe("run", () => {
 		await expect(pending).rejects.toMatchObject({ name: "AbortError" });
 	});
 
-	test("cancelling kills grandchildren too (yt-dlp → ffmpeg)", async () => {
+	test("cancelling kills grandchildren too (a downloader → ffmpeg)", async () => {
 		const controller = new AbortController();
 		let grandchildPid = 0;
 		const parent = `

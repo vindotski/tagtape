@@ -9,10 +9,11 @@
  * Plugins get everything they need from TagTape through `PluginContext`, so
  * they never import TagTape's files at runtime (only these types). The core
  * does the rest: limits, cover, ID3 tags, the streamed ZIP, the job queue.
+ *
+ * This file depends on nothing but Node's types, so a plugin kept in another
+ * repository can copy it verbatim for type checking.
  */
 import type { Readable } from "node:stream";
-import type { UserFacingError } from "../lib/errors.ts";
-import type { ExecError, run, spawnStream } from "../lib/exec.ts";
 
 /** Bumped when the contract changes incompatibly. */
 export const PLUGIN_API_VERSION = 1;
@@ -30,18 +31,47 @@ export interface PluginContext {
 	/** The ffmpeg binary TagTape uses. */
 	ffmpegBin: string;
 	/** Run a binary and collect its output: argument array, never a shell. */
-	run: typeof run;
-	/** Run a binary and stream its stdout; the whole process group dies on abort. */
-	spawnStream: typeof spawnStream;
+	run(
+		command: string,
+		args: readonly string[],
+		options?: { signal?: AbortSignal; timeoutMs?: number },
+	): Promise<{ stdout: string; stderr: string }>;
+	/**
+	 * Run a binary and stream its stdout (backpressure applies). `done` settles
+	 * when it exits: resolves on exit code 0, rejects with an `ExecError` or an
+	 * `AbortError`. Aborting `signal` or the timeout kills the process group.
+	 */
+	spawnStream(
+		command: string,
+		args: readonly string[],
+		options: {
+			signal: AbortSignal;
+			stdin?: string | Readable;
+			timeoutMs?: number;
+		},
+	): { stdout: Readable; done: Promise<void> };
 	/** Thrown by `run` / `spawnStream` (non-zero exit, timeout, failed start). */
-	ExecError: typeof ExecError;
+	ExecError: abstract new (
+		...args: never[]
+	) => ExecErrorLike;
 	/** Throw (or destroy a stream with) one of these to show the user a message. */
-	UserFacingError: typeof UserFacingError;
+	UserFacingError: new (
+		message: string,
+		options?: ErrorOptions,
+	) => Error;
 	log: {
 		info(obj: object, msg: string): void;
 		warn(obj: object, msg: string): void;
 		error(obj: object, msg: string): void;
 	};
+}
+
+export interface ExecErrorLike extends Error {
+	/** `null` when the process never started, was killed, or timed out. */
+	exitCode: number | null;
+	/** The last few KB of the process's stderr. */
+	stderr: string;
+	timedOut: boolean;
 }
 
 /** One kind of link TagTape can turn into an MP3, e.g. one website. */

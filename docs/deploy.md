@@ -12,7 +12,7 @@ TagTape runs as one Docker image (`vindotski/tagtape`) behind [Caddy](https://ca
 
 Deploys run from GitHub Actions ([`deploy.yml`](../.github/workflows/deploy.yml)), triggered by hand with an image tag. Because the setup is reproducible, **switching providers, moving servers or getting a new IP** means creating a new server from the same files, then running a deploy.
 
-> ⚠️ **YouTube may block datacenter IPs** with "Sign in to confirm you're not a bot". Test a real conversion on every new server (step 6). How strict YouTube is varies by provider and IP range.
+> ⚠️ Some sites block or rate-limit datacenter IPs. If you run source plugins, test a real conversion on every new server (step 6).
 
 ## 1. Create the server
 
@@ -104,17 +104,16 @@ The first deploy also issues the HTTPS certificate, which can take up to a minut
 
 ## 6. Test a real conversion (every new server)
 
-Open the site and convert a short video, for example `https://youtu.be/jNQXAC9IVRw` (19 s). If the track fails with **"The site refused to provide this track"**, check the logs:
+Open the site and convert a short album, for example a public MP3 such as `https://archive.org/download/testmp3testfile/mpthreetest.mp3` (12 s), plus a link for each source plugin you run. If a track fails, check the logs:
 
 ```bash
 ssh deploy@<server-ip> 'cd /opt/tagtape && docker compose logs --tail 50 app'
 ```
 
-If you see `Sign in to confirm you're not a bot`, YouTube is blocking the server's IP. Options, cheapest first:
+If a site refuses the server's IP (rate limits, bot checks), options, cheapest first:
 - a new IP or server
 - another region
 - another provider (the same files work)
-- later: route yt-dlp through a proxy (not built yet)
 
 ## Rollback
 

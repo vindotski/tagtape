@@ -98,7 +98,7 @@ describe("jobSnapshotSchema", () => {
 					number: 2,
 					title: "Track 2",
 					status: "error",
-					error: "Video unavailable",
+					error: "Track unavailable",
 				},
 			],
 			downloadReady: false,

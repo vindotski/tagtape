@@ -1,6 +1,6 @@
 # @tagtape/api
 
-The Fastify service that turns track links (YouTube, SoundCloud, Bandcamp, Mixcloud, Vimeo) into a ZIP of tagged MP3s, using yt-dlp and ffmpeg. **Nothing is stored:** tracks convert *while* the ZIP streams to the browser. The TagTape web app is its only client. It calls the API from server functions with a bearer token, and proxies the download as `/download/:id`.
+The Fastify service that turns track links into a ZIP of tagged MP3s, using ffmpeg. Out of the box it reads direct links to MP3 files; source plugins can add more. **Nothing is stored:** tracks convert *while* the ZIP streams to the browser. The TagTape web app is its only client. It calls the API from server functions with a bearer token, and proxies the download as `/download/:id`.
 
 ## Endpoints
 
@@ -24,32 +24,28 @@ One source is built in and always tried last: **direct links to MP3 files** ([`s
 ## How a job runs
 
 1. **Check (on `POST /jobs`):**
-   - one `yt-dlp --dump-single-json` per track; the info JSON stays **in memory**
-   - a track fails the check if it's longer than 2 hours, live, DRM-protected, unavailable, or only offered as DASH
+   - each track is probed by the source that claimed its link; whatever the source needs later stays **in memory**
+   - a track fails the check if it's longer than 2 hours, live, of unknown length, or the source refuses it (with a reason per track)
    - the cover is downloaded (5 MB cap, private-network addresses blocked to prevent SSRF) and centre-cropped to a 1000×1000 JPEG, also in memory
    - the job becomes `ready`
 2. **Download (`GET /jobs/:id/archive`):** a ZIP (stored entries, data descriptors) streams to the client. For each track, **one at a time**:
    - write our **ID3v2.3 tag** first: title, artist, album artist, album, track `n/total`, year, genre, front cover
-   - then pipe `yt-dlp --load-info-json - -o -` (the probe's JSON on stdin, so nothing is fetched twice) into `ffmpeg` → **MP3 256 kbps CBR**
-   - MP3 sources (e.g. Bandcamp) are copied, not re-encoded
+   - then the source's untagged MP3 stream (for direct links: the file through `ffmpeg`, CBR copied, VBR re-encoded to **256 kbps CBR**)
 3. **The client leaving** kills that track's process groups, and the job goes back to `ready`.
 4. **A track failing** cuts the response off (the browser shows a failed download, never a complete-looking ZIP) and the job records `Track N failed: …`.
 
 **Why the flags:**
 - **CBR, and no Xing header** (`-write_xing 0`): a VBR header would have to be rewritten at the end of the file, which a stream can't do.
 - **ffmpeg writes no tags** (`-id3v2_version 0 -write_id3v1 0`): ours is the only one.
-- **HLS goes through ffmpeg** (`--downloader m3u8:ffmpeg`): yt-dlp's own HLS-to-stdout crashes.
-- **No DASH formats:** yt-dlp writes DASH fragments to temp files even when the output is stdout.
-- **yt-dlp is the onedir release** in the image: the single-file binary unpacks about 90 MB into `/tmp` on every run.
 
-Jobs live in memory (metadata and cover only), and a sweeper forgets them `JOB_TTL_MIN` minutes after their last activity. Binaries are always spawned with an argument array, never through a shell, each in its own process group so cancelling kills yt-dlp's ffmpeg too.
+Jobs live in memory (metadata and cover only), and a sweeper forgets them `JOB_TTL_MIN` minutes after their last activity. Binaries are always spawned with an argument array, never through a shell, each in its own process group so cancelling also kills any children they started.
 
 ## Development
 
-The service runs on Node 24+ native TypeScript type stripping, with no build step. It needs `yt-dlp` and `ffmpeg` on `PATH`:
+The service runs on Node 24+ native TypeScript type stripping, with no build step. It needs `ffmpeg` on `PATH`:
 
 ```bash
-brew install yt-dlp ffmpeg
+brew install ffmpeg
 cp .env.example .env          # then set API_TOKEN (openssl rand -hex 32)
 pnpm --filter @tagtape/api dev   # http://127.0.0.1:4000, restarts on change
 pnpm --filter @tagtape/api test
@@ -61,11 +57,11 @@ All configuration comes from environment variables; see [.env.example](.env.exam
 
 The API ships inside the single TagTape image (web app + API, one version), built from the repo root's [`Dockerfile`](../../Dockerfile). There, it listens on `127.0.0.1:4000`, and only the web app reaches it. See the root [README](../../README.md#run-it) for tags and settings.
 
-The image bundles Node 24, ffmpeg (Debian), and the official yt-dlp binary, checked against the release's `SHA2-256SUMS`. It runs as the non-root `node` user, with `tini` as PID 1. YouTube changes often, so update yt-dlp by bumping the `YTDLP_VERSION` build argument in the root `Dockerfile`.
+The image bundles Node 24 and ffmpeg (Debian). It runs as the non-root `node` user, with `tini` as PID 1. To add sources, build an image `FROM` it that copies plugin modules in and sets `TAGTAPE_PLUGINS`.
 
 ## End-to-end test
 
-`src/e2e.test.ts` runs against a running API with the real binaries, and is skipped unless `TAGTAPE_E2E_URL` is set. It streams a three-track album covering every audio path: YouTube (Opus → 256 kbps), SoundCloud (HLS → 256 kbps), and Bandcamp (MP3, copied). It checks that our tag is the only one, the constant bitrate, that there's no Xing header, the durations, the 1000×1000 cover and the ZIP names:
+`src/e2e.test.ts` runs against a running API with the real binaries, and is skipped unless `TAGTAPE_E2E_URL` is set. It streams an album of two public, freely licensed MP3 files (CBR, so copied). It checks that our tag is the only one, the constant bitrate, that there's no Xing header, the durations, the 1000×1000 cover and the ZIP names:
 
 ```bash
 TOKEN=$(openssl rand -hex 32)

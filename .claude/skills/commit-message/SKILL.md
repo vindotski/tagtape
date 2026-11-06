@@ -49,8 +49,8 @@ description: Suggest Conventional Commits messages for the current changes in th
 ## Examples
 
 ```
-feat(api): add job endpoints with yt-dlp pipeline
-fix(shared): reject youtube playlist urls
+feat(api): add job endpoints with a streaming pipeline
+fix(shared): reject links with credentials
 refactor(web): extract track list into its own component
 build(repo): restructure into pnpm monorepo
 chore(deps): bump @tanstack/react-start to 1.170

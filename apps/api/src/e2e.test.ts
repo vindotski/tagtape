@@ -1,16 +1,13 @@
 /**
- * Opt-in end-to-end test against a running API with the real yt-dlp and ffmpeg,
- * e.g. the TagTape image with its internal API exposed on purpose:
+ * Opt-in end-to-end test against a running API with the real ffmpeg, e.g. the
+ * TagTape image with its internal API exposed on purpose:
  *
  *   docker run -d -p 127.0.0.1:4100:4000 -e API_HOST=0.0.0.0 -e API_TOKEN=$TOKEN tagtape
  *   TAGTAPE_E2E_URL=http://127.0.0.1:4100 TAGTAPE_E2E_TOKEN=$TOKEN \
  *     pnpm --filter @tagtape/api exec vitest run src/e2e.test.ts
  *
- * Covers the three audio paths of the streaming pipeline, with short, stable
- * tracks (needs the network):
- *   - YouTube "Me at the zoo" (19 s, Opus → MP3 256 kbps CBR)
- *   - SoundCloud "Flickermood" (3:33, HLS via ffmpeg → MP3 256 kbps CBR)
- *   - Bandcamp yt-dlp test song (9 s, already MP3 → copied, 128 kbps)
+ * Converts two public, freely licensed MP3 files through the built-in direct
+ * source (needs the network): both are CBR, so they're copied, not re-encoded.
  */
 import { jobSnapshotSchema } from "@tagtape/shared";
 import NodeID3 from "node-id3";
@@ -39,27 +36,22 @@ function splitTag(file: Buffer): { tag: Buffer; audio: Buffer } {
 
 const tracks = [
 	{
-		title: "Тест ✓ zoo",
-		url: "https://youtu.be/jNQXAC9IVRw",
-		kbps: 256,
-		seconds: 19,
+		title: "Тест ✓ Helix",
+		// SoundHelix's generated demo songs, widely used as test audio.
+		url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
+		kbps: 192,
+		seconds: 373,
 	},
 	{
-		title: "Flickermood",
-		url: "https://soundcloud.com/forss/flickermood",
-		kbps: 256,
-		seconds: 213,
-	},
-	{
-		title: "Bandcamp test",
-		url: "https://youtube-dl.bandcamp.com/track/youtube-dl-test-song",
+		title: "Archive test",
+		url: "archive.org/download/testmp3testfile/mpthreetest.mp3",
 		kbps: 128,
-		seconds: 10,
+		seconds: 12,
 	},
 ];
 
-describe.skipIf(!BASE)("end to end (real yt-dlp + ffmpeg, streamed)", () => {
-	test("links + cover → streamed ZIP of tagged CBR MP3s", {
+describe.skipIf(!BASE)("end to end (real ffmpeg, streamed)", () => {
+	test("MP3 links + cover → streamed ZIP of tagged MP3s", {
 		timeout: 300_000,
 	}, async () => {
 		const headers = {
@@ -107,9 +99,8 @@ describe.skipIf(!BASE)("end to end (real yt-dlp + ffmpeg, streamed)", () => {
 		const zip = Buffer.from(await archive.arrayBuffer());
 		const entries = readZip(zip);
 		expect(entries.map((e) => [e.name, e.method])).toEqual([
-			["01 - Тест ✓ zoo.mp3", 0],
-			["02 - Flickermood.mp3", 0],
-			["03 - Bandcamp test.mp3", 0],
+			["01 - Тест ✓ Helix.mp3", 0],
+			["02 - Archive test.mp3", 0],
 		]);
 
 		for (const [index, entry] of entries.entries()) {
@@ -122,7 +113,7 @@ describe.skipIf(!BASE)("end to end (real yt-dlp + ffmpeg, streamed)", () => {
 				artist: "Various",
 				performerInfo: "Various",
 				album: "E2E Album",
-				trackNumber: `${index + 1}/3`,
+				trackNumber: `${index + 1}/2`,
 				year: "2005",
 				genre: "Test",
 			});

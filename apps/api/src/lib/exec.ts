@@ -39,7 +39,7 @@ export class ExecError extends Error {
 /**
  * Runs a binary with an argument array. There is **never a shell**, so arguments
  * are passed to the program verbatim and can't inject commands (unlike the
- * v1 app's `shell_exec("youtube-dl $value")`).
+ * v1 app, which built a shell command string from the user's URL).
  */
 export function run(
 	command: string,
@@ -65,7 +65,8 @@ export function run(
 		}
 
 		// `detached` puts the child in its own process group, so cancelling kills
-		// the whole tree: yt-dlp spawns ffmpeg, and killing only yt-dlp would
+		// the whole tree: a tool may start its own children (a downloader starting
+		// ffmpeg), and killing only the parent would
 		// leave ffmpeg running as an orphan.
 		const child = spawn(command, args, {
 			shell: false,

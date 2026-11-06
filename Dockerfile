@@ -3,37 +3,12 @@
 #   docker build -t tagtape .
 #   docker run -p 3000:3000 tagtape        → http://localhost:3000
 #
-# Inside: web (TanStack Start via srvx) on :3000, API (Fastify, yt-dlp, ffmpeg)
-# on 127.0.0.1:4000, both started by docker/start.mjs under tini.
+# Inside: web (TanStack Start via srvx) on :3000, API (Fastify, ffmpeg) on
+# 127.0.0.1:4000, both started by docker/start.mjs under tini. Out of the box
+# it reads direct MP3 links; images built FROM this one can add source plugins
+# (TAGTAPE_PLUGINS).
 
 ARG NODE_VERSION=24
-ARG YTDLP_VERSION=2026.10.26
-
-# --- yt-dlp: official "onedir" release, verified against the release checksums.
-# Not the single-file binary: that one unpacks ~90 MB into /tmp on *every* run
-# and leaves it behind when a cancelled download kills it. onedir is unpacked
-# once, here, so runs write nothing to disk.
-FROM debian:bookworm-slim AS ytdlp
-ARG YTDLP_VERSION
-ARG TARGETARCH
-RUN apt-get update \
-	&& apt-get install -y --no-install-recommends ca-certificates curl unzip \
-	&& rm -rf /var/lib/apt/lists/*
-WORKDIR /dl
-RUN set -eux; \
-	case "$TARGETARCH" in \
-		amd64) name=yt-dlp_linux ;; \
-		arm64) name=yt-dlp_linux_aarch64 ;; \
-		*) echo "unsupported architecture: $TARGETARCH" >&2; exit 1 ;; \
-	esac; \
-	base="https://github.com/yt-dlp/yt-dlp/releases/download/${YTDLP_VERSION}"; \
-	curl -fsSLo "$name.zip" "$base/$name.zip"; \
-	curl -fsSLo SHA2-256SUMS "$base/SHA2-256SUMS"; \
-	grep " ${name}.zip\$" SHA2-256SUMS | sha256sum -c -; \
-	unzip -q "$name.zip" -d /opt/yt-dlp; \
-	mv "/opt/yt-dlp/$name" /opt/yt-dlp/yt-dlp; \
-	chmod 0755 /opt/yt-dlp/yt-dlp; \
-	/opt/yt-dlp/yt-dlp --version
 
 # --- shared base with pnpm (its own image, not Corepack: see the pnpm skill)
 FROM node:${NODE_VERSION}-bookworm-slim AS pnpm
@@ -74,8 +49,6 @@ LABEL org.opencontainers.image.title="TagTape" \
 RUN apt-get update \
 	&& apt-get install -y --no-install-recommends ffmpeg tini ca-certificates \
 	&& rm -rf /var/lib/apt/lists/*
-COPY --from=ytdlp /opt/yt-dlp /opt/yt-dlp
-RUN ln -s /opt/yt-dlp/yt-dlp /usr/local/bin/yt-dlp
 
 WORKDIR /app
 # Keep the monorepo layout: @tagtape/shared is linked from packages/shared
@@ -88,10 +61,7 @@ COPY --chown=node:node docker/start.mjs docker/start.mjs
 
 ENV PORT=3000 \
 	TAGTAPE_VERSION=${TAGTAPE_VERSION} \
-	YTDLP_BIN=/usr/local/bin/yt-dlp \
-	FFMPEG_BIN=/usr/bin/ffmpeg \
-	YTDLP_JS_RUNTIME=node \
-	TAGTAPE_PLUGINS=/app/apps/api/src/sources/sites/index.ts
+	FFMPEG_BIN=/usr/bin/ffmpeg
 USER node
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=15s \

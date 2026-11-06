@@ -1,15 +1,17 @@
 # TagTape
-> Turn links from YouTube, SoundCloud, Bandcamp, Mixcloud or Vimeo into a tagged MP3 album for standard MP3 players.
+> Turn track links into a tagged MP3 album for standard MP3 players.
 
 [![CI](https://github.com/vindotski/tagtape/actions/workflows/ci.yml/badge.svg)](https://github.com/vindotski/tagtape/actions/workflows/ci.yml)
 
-![TagTape: album details on the left, up to 10 reorderable tracks from different sites on the right](docs/screenshot.png)
+![TagTape: album details on the left, up to 10 reorderable track links on the right](docs/screenshot.png)
 
-Paste up to 10 links from **YouTube** (incl. YouTube Music), **SoundCloud**, **Bandcamp**, **Mixcloud** or **Vimeo** (one track each, up to 2 hours long), add the album title, artist, year, genre and a cover image, and download a ZIP of MP3s with every tag filled in and the tracks numbered in your order. The albums show up properly on any plain MP3 player.
+Paste up to 10 track links (one track each, up to 2 hours long), add the album title, artist, year, genre and a cover image, and download a ZIP of MP3s with every tag filled in and the tracks numbered in your order. The albums show up properly on any plain MP3 player.
 
 **Nothing is stored on the server:** tracks convert while the ZIP streams to your browser.
 
-Built with [TanStack Start](https://tanstack.com/start), with a Fastify service running [yt-dlp](https://github.com/yt-dlp/yt-dlp) and ffmpeg. Version 1 was a 2020 Symfony/PHP app called Albumie; its code is preserved at the [`v1.0.0`](https://github.com/vindotski/tagtape/tree/v1.0.0) tag.
+Out of the box, TagTape reads **direct links to MP3 files**. Other kinds of links can be added with [source plugins](#sources-and-plugins).
+
+Built with [TanStack Start](https://tanstack.com/start), with a Fastify service running ffmpeg. Version 1 was a 2020 Symfony/PHP app called Albumie; its code is preserved at the [`v1.0.0`](https://github.com/vindotski/tagtape/tree/v1.0.0) tag.
 
 [tagtape.app](https://tagtape.app)
 
@@ -54,19 +56,19 @@ pnpm monorepo. Requires Node 24+ and pnpm 12.
 | Path | What |
 |---|---|
 | `apps/web` | TanStack Start web app |
-| `apps/api` | Fastify service: yt-dlp, ffmpeg, tagging, zipping ([README](apps/api/README.md)) |
+| `apps/api` | Fastify service: sources, ffmpeg, tagging, zipping ([README](apps/api/README.md)) |
 | `packages/shared` | zod schemas and types shared by web and API |
 
 ### Running it locally
 
-The API needs yt-dlp and ffmpeg. You can install them, or borrow them from the image.
+The API needs ffmpeg. You can install it, or borrow it from the image.
 
 ```bash
 pnpm install
 TOKEN=$(openssl rand -hex 32)
 
-# Option A: install the binaries and run both apps with hot reload
-brew install yt-dlp ffmpeg
+# Option A: install ffmpeg and run both apps with hot reload
+brew install ffmpeg
 printf 'API_TOKEN=%s\n' "$TOKEN" > apps/api/.env
 printf 'API_URL=http://127.0.0.1:4000\nAPI_TOKEN=%s\n' "$TOKEN" > apps/web/.env
 pnpm dev                                   # web :3000, API :4000
@@ -86,12 +88,26 @@ pnpm check      # Biome lint + format (pnpm fix to apply)
 
 Web routes live in `apps/web/src/routes`. TanStack Router regenerates `routeTree.gen.ts` automatically.
 
+## Sources and plugins
+
+A **source** turns one kind of link into MP3 audio: it claims links (`match`), checks a track (`probe`) and streams it (`stream`). TagTape does everything else: limits, the cover, the ID3 tags, the streamed ZIP and the queue. The built-in source reads direct links to MP3 files.
+
+More sources come from **plugins**: ES modules (TypeScript works, thanks to Node's type stripping) listed in `TAGTAPE_PLUGINS`, comma-separated. To use one, build your own image on top of TagTape's:
+
+```dockerfile
+FROM vindotski/tagtape:2
+COPY --chown=node:node my-plugin/ /app/plugins/my-plugin/
+ENV TAGTAPE_PLUGINS=/app/plugins/my-plugin/index.ts
+```
+
+The contract, with every rule a plugin must follow (strict link matching, no shell, nothing written to disk), is in [`apps/api/src/plugins/api.ts`](apps/api/src/plugins/api.ts). It depends only on Node's types, so a plugin can copy it for type checking. Plugins get TagTape's helpers (the no-shell process runner, the error types, ffmpeg's path) through a context object. You're responsible for the plugins you run and for the terms of the sites they read from.
+
 ## Meta
 
 [Ivan Vinski](https://www.vin.ski) – ivan@vin.ski
 
 Released under the [MIT License](LICENSE).
 
-That covers TagTape's own code. Third-party software keeps its own license: the Docker image bundles ffmpeg (LGPL/GPL), yt-dlp (Unlicense) and Node.js (MIT).
+That covers TagTape's own code. Third-party software keeps its own license: the Docker image bundles ffmpeg (LGPL/GPL) and Node.js (MIT).
 
 [https://github.com/vindotski/tagtape](https://github.com/vindotski/tagtape)

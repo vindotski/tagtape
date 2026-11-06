@@ -10,20 +10,19 @@ A complete rewrite of Albumie as **TagTape** ([tagtape.app](https://tagtape.app)
 - Web app built with TanStack Start and **shadcn/ui** (React Aria base), with automatic dark mode and a mobile layout. You can reorder tracks by dragging (mouse, touch or keyboard) or with buttons.
 - **Nothing is stored on the server:** after a quick check of every track, the download *is* the conversion. Tracks convert one after another while the ZIP streams to your browser (per-track progress on the page), and closing the tab stops the work. "Download again" converts again.
 - **Direct links to MP3 files**, built in. Only the file's first few KB are read to check it's MP3 and how long it is. Constant-bitrate files are copied unchanged (old tags removed); variable-bitrate files are re-encoded to 256 kbps CBR so players show the right length. Up to 300 MB (`MAX_DIRECT_MB`).
-- **Five sources:** links from YouTube (incl. YouTube Music), SoundCloud, Bandcamp, Mixcloud and Vimeo, mixed freely in one album. Tracks can be up to **2 hours** long (v1: 10 minutes, YouTube only), so DJ mixes fit.
-- Every track is checked **before** anything downloads. Tracks longer than 2 hours, live streams, and private, unavailable or DRM-protected tracks are rejected with a reason per track, and the form keeps everything you typed.
+- **Source plugins:** where tracks come from is pluggable (`TAGTAPE_PLUGINS`). A source claims links, checks tracks and streams MP3; TagTape does the limits, cover, tags and ZIP. Tracks can be up to **2 hours** long (v1: 10 minutes), so long mixes fit.
+- Every track is checked **before** anything downloads. Tracks longer than 2 hours, live streams, and tracks a source can't provide are rejected with a reason per track, and the form keeps everything you typed.
 - Covers are **centre-cropped** to 1000×1000 instead of stretched.
-- MP3s at **256 kbps constant bitrate** (MP3 sources like Bandcamp are copied, not re-encoded), with ID3v2.3 tags for wide player support: title, artist, album artist, album, `n/total` track number, year, genre and front cover.
+- MP3s at **256 kbps constant bitrate** (constant-bitrate MP3 sources are copied, not re-encoded), with ID3v2.3 tags for wide player support: title, artist, album artist, album, `n/total` track number, year, genre and front cover.
 - **Unicode filenames** (`01 - Тест ✓.mp3`) instead of ASCII-only.
 - **One Docker image** (`vindotski/tagtape`, amd64 + arm64) containing the web app and the API, with provenance and an SBOM.
 - Reusable, provider-neutral **deploy config** for a single server (any cloud-init host: DigitalOcean, Hetzner, Vultr, Linode, AWS, …; Ubuntu or Debian, amd64 or arm64): cloud-init bootstrap, Docker Compose with Caddy for automatic HTTPS, and a manual GitHub Actions deploy with a pinned SSH host key, health-gated rollout and an outside check. See [docs/deploy.md](docs/deploy.md).
 
 ### Changed
-- youtube-dl (unmaintained since 2020) is replaced by **yt-dlp**. Each track is fetched once instead of twice.
 - Relicensed from GPL-2.0 to **MIT**.
 
 ### Security
-- Fixed **shell injection**: v1 passed the user's URL to `shell_exec`. Binaries now run with argument arrays, never through a shell, and only canonical single-track URLs from the five supported sites are accepted. yt-dlp is additionally restricted to those sites' extractors (`--use-extractors`), so it can never fetch arbitrary pages.
+- Fixed **shell injection**: v1 passed the user's URL to `shell_exec`. Binaries now run with argument arrays, never through a shell (plugins get the same helpers), and a link is only accepted when a source's strict matcher claims it.
 - Added **SSRF protection** for cover image URLs and MP3 links: private, loopback and link-local addresses are blocked on every redirect hop, including IP-literal hosts such as `http://169.254.169.254/` (Node skips DNS lookups for those), with a fresh connection per request, a size cap and a timeout.
 - The API is internal to the container. The web app talks to it with a per-start random token.
 

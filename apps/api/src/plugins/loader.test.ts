@@ -115,36 +115,4 @@ describe("plugin loader", () => {
 		expect(pipeline.resolve("https://nobody.example/z")).toBeNull();
 		expect(pipeline.resolve("javascript:alert(1)")).toBeNull();
 	});
-
-	test("the bundled sites plugin loads through the real loader", async () => {
-		const path = fileURLToPath(
-			new URL("../sources/sites/index.ts", import.meta.url),
-		);
-		const sources = await loadPlugins([path], ctx);
-		expect(sources.map((s) => s.id)).toEqual([
-			"youtube",
-			"soundcloud",
-			"bandcamp",
-			"mixcloud",
-			"vimeo",
-		]);
-		const pipeline = createPipeline(testConfig(), sources);
-		expect(
-			pipeline.resolve("https://soundcloud.com/forss/flickermood"),
-		).toEqual({
-			source: "soundcloud",
-			url: "https://soundcloud.com/forss/flickermood",
-		});
-	});
-
-	test("the sites plugin runs yt-dlp --version once for all its sites", async () => {
-		const path = fileURLToPath(
-			new URL("../sources/sites/index.ts", import.meta.url),
-		);
-		const fakeRun = vi.fn(async () => ({ stdout: "2026.10.26\n", stderr: "" }));
-		const sources = await loadPlugins([path], { ...ctx, run: fakeRun });
-		const versions = await Promise.all(sources.map((s) => s.version?.()));
-		expect(new Set(versions)).toEqual(new Set(["2026.10.26"]));
-		expect(fakeRun).toHaveBeenCalledTimes(1);
-	});
 });

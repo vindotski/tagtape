@@ -62,14 +62,14 @@ tanstackIntent:
 
 # TagTape — agent instructions
 
-TagTape turns 1–10 track links (YouTube, SoundCloud, Bandcamp, Mixcloud, Vimeo) plus album details (title, artist, genre, year, cover) into a ZIP of ID3-tagged MP3s laid out as an album, so the tracks sort and display correctly on any plain MP3 player. It is stateless: no accounts, no database. https://tagtape.app
+TagTape turns 1–10 track links plus album details (title, artist, genre, year, cover) into a ZIP of ID3-tagged MP3s laid out as an album, so the tracks sort and display correctly on any plain MP3 player. It is stateless: no accounts, no database. Out of the box it reads direct links to MP3 files; other sources come from plugins. https://tagtape.app
 
 ## Repo layout
 
 | Path | What |
 |---|---|
 | `apps/web/` | TanStack Start web app (`@tagtape/web`). |
-| `apps/api/` | `@tagtape/api`: a Fastify 5 service that runs yt-dlp and ffmpeg, writes the tags, and builds the ZIP as background jobs. It runs on Node's native type stripping (`node src/server.ts`), with no build step. See `apps/api/README.md`. |
+| `apps/api/` | `@tagtape/api`: a Fastify 5 service that loads the track sources, runs ffmpeg, writes the tags, and builds the ZIP as background jobs. It runs on Node's native type stripping (`node src/server.ts`), with no build step. See `apps/api/README.md`. |
 | `packages/shared/` | `@tagtape/shared`: zod schemas (`albumInputSchema`, `jobSnapshotSchema`), `parseWebUrl`, limits. Exports TS source directly: no build step. Vite bundles it, and Node runs it with native type stripping. |
 
 How the parts talk to each other: the browser only ever talks to the web app. Server functions call the API with a bearer token, and the ZIP download goes through the web route `GET /download/:jobId`, which streams it from the API's `/jobs/:id/archive`.
@@ -108,15 +108,15 @@ Run `pnpm check`, `pnpm typecheck` and the relevant tests before calling a task 
 
 - **Biome** is the only linter and formatter. Don't add ESLint or Prettier.
 - **TypeScript strict.** Validate input with **zod** schemas from `@tagtape/shared`, and use the same schema on the client and the server.
-- **External binaries** (yt-dlp, ffmpeg) are spawned with an **argument array, never a shell string**. TagTape v1 (the 2020 PHP app, at tag `v1.0.0`) had a shell injection bug from building a command string.
+- **External binaries** (ffmpeg, and whatever plugins run) are spawned with an **argument array, never a shell string**. TagTape v1 (the 2020 PHP app, at tag `v1.0.0`) had a shell injection bug from building a command string.
 - **Tracks come from source plugins** (`apps/api/src/plugins/api.ts`), loaded from `TAGTAPE_PLUGINS` at startup. A link is accepted only if a loaded source's strict `match()` claims it; the shared schema only checks that it's an http(s) URL.
-- **The sites plugin** (`apps/api/src/sources/sites/`) is self-contained: it imports only Node built-ins, its own files, and plugin *types*; everything else comes through `PluginContext`. Its sites are allow-listed twice: `parseTrackUrl` (`sites.ts`) accepts only canonical single-track URLs from `SUPPORTED_SITES`, and yt-dlp runs with `--use-extractors` built from the same list.
-  - To add a site, add it to `SUPPORTED_SITES` (with yt-dlp's exact extractor name from `yt-dlp --list-extractors`), write a strict parser with accept/reject tests, and probe a real track in the container.
-  - Never enable yt-dlp's generic extractor or accept arbitrary URLs: that would make the server an SSRF proxy. Never try to get around DRM.
+- **The core is site-neutral.** It contains no site-specific sources: no code, tests, docs, examples or screenshots that name third-party sites, and it never references or links to any plugin repository. Site sources live outside this repo as plugins. Test data uses made-up names on `example.com` hosts, never commercial songs.
+  - The plugin contract (`plugins/api.ts`) depends only on Node's types, so plugins elsewhere can copy it verbatim. Bump `PLUGIN_API_VERSION` for incompatible changes.
+  - The built-in `direct` source (`sources/direct.ts`) is always tried last: http(s) links whose path ends in `.mp3`. It reads only the head of the file to check it (`sources/mp3.ts`).
   - UI copy reads the source names from the API (`GET /sources`, via the root route's loader), so don't hard-code them.
-- Fetch remote images with a size cap, a timeout, and private-IP blocking (SSRF).
-- **Never write media to disk.** Downloads stream: `yt-dlp -o -` | `ffmpeg pipe:1` → ID3 tag + MP3 → streamed ZIP. Only metadata and the cover live in memory, and a TTL sweeper forgets jobs.
-  - Each flag in `sources/sites/ytdlp.ts` exists for a reason documented there and in `apps/api/README.md`: no DASH, HLS via ffmpeg, `--load-info-json -` (not `/dev/stdin`), and ffmpeg with no tags, no Xing header, 256 kbps CBR.
+- Fetch user-supplied URLs only through `lib/http.ts` (`openPublicUrl`): private addresses blocked on every hop, IP literals included, a fresh connection per request. Add a size cap and a timeout (SSRF).
+- **Never write media to disk.** Downloads stream: source → `ffmpeg pipe:1` → ID3 tag + MP3 → streamed ZIP. Only metadata and the cover live in memory, and a TTL sweeper forgets jobs.
+  - ffmpeg writes no tags and no Xing header (we write the only tag; a header written before the end of a stream would be wrong), and CBR (VBR is re-encoded to 256 kbps).
   - After any change, check `find /tmp -type f` inside a container *during* and after a download (the e2e test plus a real abort).
   - Don't add persistence without asking.
 - pnpm settings live in `pnpm-workspace.yaml`. `.npmrc` is for auth only (see the `pnpm` skill).
@@ -138,13 +138,13 @@ Run `pnpm check`, `pnpm typecheck` and the relevant tests before calling a task 
   - Form state is a client-side `AlbumDraft` (`src/lib/album-draft.ts`), validated with `albumInputSchema` before submit. Errors are keyed like `tracks.0.url`.
   - Unit tests live in `src/**/*.test.ts` and use `vitest.config.ts`, without the Start plugin. For real UI checks, drive the dev server with a browser (Playwright) against the API container.
 - **API:**
-  - Build the app with `buildApp({ config, pipeline })` and test routes with `app.inject()`, using the fake pipeline in `apps/api/src/test/helpers.ts`. Tests never need yt-dlp, ffmpeg or the network.
+  - Build the app with `buildApp({ config, pipeline })` and test routes with `app.inject()`, using the fake pipeline in `apps/api/src/test/helpers.ts`. Tests never need ffmpeg or the network.
   - Config comes from environment variables only, validated in `config.ts`. Don't use config files or branch on `NODE_ENV`.
   - Errors shown to users must be `UserFacingError`. Anything else is logged and replaced with a generic message.
   - New routes require the bearer token unless they set `config: { public: true }`.
-  - Spawn external processes only through `lib/exec.ts`. It never uses a shell, and it kills the whole process group on timeout or cancel; yt-dlp starts ffmpeg as a child.
-  - Docker: the API is part of the root `Dockerfile` (`docker build -t tagtape .`). When yt-dlp breaks against YouTube, the fix is usually bumping `YTDLP_VERSION` there.
-  - The real-binary check is `src/e2e.test.ts`, run against a container (see `apps/api/README.md`). Run it after changing the pipeline or the yt-dlp version.
+  - Spawn external processes only through `lib/exec.ts`. It never uses a shell, and it kills the whole process group on timeout or cancel; a tool may start its own children.
+  - Docker: the API is part of the root `Dockerfile` (`docker build -t tagtape .`). Images built `FROM` it may add plugins via `TAGTAPE_PLUGINS`.
+  - The real-binary check is `src/e2e.test.ts`, run against a container (see `apps/api/README.md`). Run it after changing the pipeline.
 
 ## Deploy (`deploy/`, `docs/deploy.md`)
 
@@ -179,9 +179,7 @@ Run `pnpm check`, `pnpm typecheck` and the relevant tests before calling a task 
   - Tags: `latest` (main), `X.Y.Z`, `X.Y` and `X` (version tags), plus `sha-<short>`.
   - It uses the repo variable `DOCKERHUB_USERNAME` and the secret `DOCKERHUB_TOKEN` (a Docker Hub personal access token with Read & Write scope).
   - Never publish from `dev` or from PRs.
-- **`e2e.yml`** runs weekly (and on demand): a real YouTube conversion through the API image.
-  - A failure saying "confirm you're not a bot" means YouTube blocked GitHub's IP; it isn't a code bug.
-  - Other failures usually mean `YTDLP_VERSION` needs bumping.
+- **`e2e.yml`** runs weekly (and on demand): real public MP3 links converted through the image.
 - Actions are pinned to commit SHAs, with the version in a comment. To update one, resolve the new tag's SHA with `git ls-remote`, and prefer releases that are at least a few days old.
 - Lint workflows locally with `docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.7`.
 
