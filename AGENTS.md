@@ -62,7 +62,7 @@ tanstackIntent:
 
 # TagTape — agent instructions
 
-TagTape turns 1–10 YouTube links plus album details (title, artist, genre, year, cover) into a ZIP of ID3-tagged MP3s laid out as an album, so the tracks sort and display correctly on any plain MP3 player. It is stateless: no accounts, no database. https://tagtape.app
+TagTape turns 1–10 track links (YouTube, SoundCloud, Bandcamp, Mixcloud, Vimeo) plus album details (title, artist, genre, year, cover) into a ZIP of ID3-tagged MP3s laid out as an album, so the tracks sort and display correctly on any plain MP3 player. It is stateless: no accounts, no database. https://tagtape.app
 
 ## Repo layout
 
@@ -70,7 +70,7 @@ TagTape turns 1–10 YouTube links plus album details (title, artist, genre, yea
 |---|---|
 | `apps/web/` | TanStack Start web app (`@tagtape/web`). |
 | `apps/api/` | `@tagtape/api`: a Fastify 5 service that runs yt-dlp and ffmpeg, writes the tags, and builds the ZIP as background jobs. It runs on Node's native type stripping (`node src/server.ts`), with no build step. See `apps/api/README.md`. |
-| `packages/shared/` | `@tagtape/shared`: zod schemas (`albumInputSchema`, `jobSnapshotSchema`), `parseYouTubeUrl`, limits. Exports TS source directly: no build step. Vite bundles it, and Node runs it with native type stripping. |
+| `packages/shared/` | `@tagtape/shared`: zod schemas (`albumInputSchema`, `jobSnapshotSchema`), `parseTrackUrl` + `SUPPORTED_SITES`, limits. Exports TS source directly: no build step. Vite bundles it, and Node runs it with native type stripping. |
 
 How the parts talk to each other: the browser only ever talks to the web app. Server functions call the API with a bearer token, and the ZIP download goes through the web route `GET /download/:jobId`, which streams it from the API's `/jobs/:id/archive`.
 
@@ -109,7 +109,11 @@ Run `pnpm check`, `pnpm typecheck` and the relevant tests before calling a task 
 - **Biome** is the only linter and formatter. Don't add ESLint or Prettier.
 - **TypeScript strict.** Validate input with **zod** schemas from `@tagtape/shared`, and use the same schema on the client and the server.
 - **External binaries** (yt-dlp, ffmpeg) are spawned with an **argument array, never a shell string**. TagTape v1 (the 2020 PHP app, at tag `v1.0.0`) had a shell injection bug from building a command string.
-- Only accept YouTube URLs, normalised by the shared parser. Fetch remote images with a size cap, a timeout, and private-IP blocking (SSRF).
+- **Sources are allow-listed twice.** `parseTrackUrl` (`packages/shared/src/sources.ts`) accepts only canonical single-track URLs from `SUPPORTED_SITES`, and yt-dlp runs with `--use-extractors` built from the same list.
+  - To add a site, add it to `SUPPORTED_SITES` (with yt-dlp's exact extractor name from `yt-dlp --list-extractors`), write a strict parser with accept/reject tests, and probe a real track in the container.
+  - Never enable yt-dlp's generic extractor or accept arbitrary URLs: that would make the server an SSRF proxy. Never try to get around DRM.
+  - UI and meta copy read the site names from `SUPPORTED_SITES`, so don't hard-code them.
+- Fetch remote images with a size cap, a timeout, and private-IP blocking (SSRF).
 - Jobs are in-memory, and their temp files are cleaned up by a TTL sweeper. Don't add persistence without asking.
 - pnpm settings live in `pnpm-workspace.yaml`. `.npmrc` is for auth only (see the `pnpm` skill).
 - Versions used by more than one package (zod, vitest, typescript) go in the pnpm **catalog**: write `"catalog:"` in package.json, or use `pnpm add --save-catalog`.

@@ -14,9 +14,19 @@ import {
 	verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { MAX_TRACKS } from "@tagtape/shared";
+import {
+	MAX_TRACK_SECONDS,
+	MAX_TRACKS,
+	SUPPORTED_SITES,
+} from "@tagtape/shared";
 import type { FieldErrors, TrackDraft } from "#/lib/album-draft";
 import { TextField } from "./text-field";
+
+/** "2 hours", from the shared limit. */
+const limitText =
+	MAX_TRACK_SECONDS % 3600 === 0
+		? `${MAX_TRACK_SECONDS / 3600} hour${MAX_TRACK_SECONDS === 3600 ? "" : "s"}`
+		: `${Math.round(MAX_TRACK_SECONDS / 60)} minutes`;
 
 interface TrackListProps {
 	tracks: TrackDraft[];
@@ -110,6 +120,18 @@ export function TrackList({
 					+ Add track
 				</button>
 			)}
+			<p className="mt-3 text-xs text-zinc-500">
+				One track per link, up to {limitText} each. Works with{" "}
+				{SUPPORTED_SITES.map((site, i) => (
+					<span key={site.id}>
+						{i > 0 && (i === SUPPORTED_SITES.length - 1 ? " and " : ", ")}
+						<span className="font-medium text-zinc-600 dark:text-zinc-400">
+							{site.name}
+						</span>
+					</span>
+				))}
+				.
+			</p>
 		</section>
 	);
 }
@@ -197,9 +219,9 @@ function TrackRow({
 				/>
 				<TextField
 					id={`track-${track.key}-url`}
-					label={`Track ${number} YouTube link`}
+					label={`Track ${number} link`}
 					hideLabel
-					placeholder="YouTube link"
+					placeholder="Track link"
 					type="url"
 					inputMode="url"
 					value={track.url}

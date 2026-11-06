@@ -1,11 +1,11 @@
 # TagTape
-> Convert YouTube to MP3 with metadata for standard MP3 players.
+> Turn links from YouTube, SoundCloud, Bandcamp, Mixcloud or Vimeo into a tagged MP3 album for standard MP3 players.
 
 [![CI](https://github.com/vindotski/tagtape/actions/workflows/ci.yml/badge.svg)](https://github.com/vindotski/tagtape/actions/workflows/ci.yml)
 
-![TagTape: album details on the left, up to 10 reorderable YouTube tracks on the right](docs/screenshot.png)
+![TagTape: album details on the left, up to 10 reorderable tracks from different sites on the right](docs/screenshot.png)
 
-Paste up to 10 YouTube links, add the album title, artist, year, genre and a cover image, and download a ZIP of MP3s with every tag filled in and the tracks numbered in your order. The albums show up properly on any plain MP3 player.
+Paste up to 10 links from **YouTube** (incl. YouTube Music), **SoundCloud**, **Bandcamp**, **Mixcloud** or **Vimeo** (one track each, up to 2 hours long), add the album title, artist, year, genre and a cover image, and download a ZIP of MP3s with every tag filled in and the tracks numbered in your order. The albums show up properly on any plain MP3 player.
 
 Built with [TanStack Start](https://tanstack.com/start), with a Fastify service running [yt-dlp](https://github.com/yt-dlp/yt-dlp) and ffmpeg. Version 1 was a 2020 Symfony/PHP app called Albumie; its code is preserved at the [`v1.0.0`](https://github.com/vindotski/tagtape/tree/v1.0.0) tag.
 

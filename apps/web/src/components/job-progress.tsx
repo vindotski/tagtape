@@ -4,7 +4,7 @@ import { type JobView, useJob } from "#/lib/use-job";
 
 const JOB_LABELS: Record<JobStatus, string> = {
 	queued: "Waiting for a free slot…",
-	probing: "Checking your videos…",
+	probing: "Checking your tracks…",
 	processing: "Converting your tracks…",
 	packaging: "Creating the ZIP…",
 	done: "Your album is ready",

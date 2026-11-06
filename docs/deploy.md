@@ -104,7 +104,7 @@ The first deploy also issues the HTTPS certificate, which can take up to a minut
 
 ## 6. Test a real conversion (every new server)
 
-Open the site and convert a short video, for example `https://youtu.be/jNQXAC9IVRw` (19 s). If the track fails with **"YouTube refused to provide this video"**, check the logs:
+Open the site and convert a short video, for example `https://youtu.be/jNQXAC9IVRw` (19 s). If the track fails with **"The site refused to provide this track"**, check the logs:
 
 ```bash
 ssh deploy@<server-ip> 'cd /opt/tagtape && docker compose logs --tail 50 app'

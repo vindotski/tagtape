@@ -1,15 +1,15 @@
+import { SUPPORTED_SITE_NAMES } from "@tagtape/shared";
 import { createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
 import appCss from "../styles.css?url";
 
-const DESCRIPTION =
-	"Turn YouTube videos into a ZIP of MP3s with album, artist, track numbers and cover art filled in. Works on any MP3 player.";
+const DESCRIPTION = `Turn links from ${SUPPORTED_SITE_NAMES} into a ZIP of MP3s with album, artist, track numbers and cover art filled in. Works on any MP3 player.`;
 
 export const Route = createRootRoute({
 	head: () => ({
 		meta: [
 			{ charSet: "utf-8" },
 			{ name: "viewport", content: "width=device-width, initial-scale=1" },
-			{ title: "TagTape: YouTube to tagged MP3 albums" },
+			{ title: "TagTape: links to tagged MP3 albums" },
 			{ name: "description", content: DESCRIPTION },
 			{ name: "theme-color", content: "#059669" },
 			{ property: "og:title", content: "TagTape" },

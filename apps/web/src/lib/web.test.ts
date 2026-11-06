@@ -84,14 +84,18 @@ describe("API client", () => {
 			issues: [
 				{
 					path: "/tracks/0/url",
-					message: "Enter a link to a single YouTube video",
+					message:
+						"Enter a link to a single track on YouTube, SoundCloud, Bandcamp, Mixcloud or Vimeo",
 				},
 			],
 		});
 		expect(await createJob(album, config)).toEqual({
 			ok: false,
 			message: "Some fields need attention.",
-			fieldErrors: { "tracks.0.url": "Enter a link to a single YouTube video" },
+			fieldErrors: {
+				"tracks.0.url":
+					"Enter a link to a single track on YouTube, SoundCloud, Bandcamp, Mixcloud or Vimeo",
+			},
 		});
 	});
 

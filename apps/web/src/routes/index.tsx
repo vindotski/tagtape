@@ -1,3 +1,4 @@
+import { MAX_TRACKS, SUPPORTED_SITE_NAMES } from "@tagtape/shared";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { AlbumForm } from "#/components/album-form";
@@ -23,12 +24,13 @@ function Home() {
 		<>
 			<section className="mb-10 max-w-2xl">
 				<h1 className="text-3xl font-bold tracking-tight text-zinc-900 sm:text-4xl dark:text-zinc-50">
-					YouTube to a tagged MP3 album
+					Links to a tagged MP3 album
 				</h1>
 				<p className="mt-3 text-zinc-600 dark:text-zinc-400">
-					Paste up to 10 YouTube links, add the album details, and download a
-					ZIP of MP3s with titles, track numbers and cover art already filled
-					in, so they show up properly on any MP3 player.
+					Paste up to {MAX_TRACKS} links from {SUPPORTED_SITE_NAMES}, add the
+					album details, and download a ZIP of MP3s with titles, track numbers
+					and cover art already filled in, so they show up properly on any MP3
+					player.
 				</p>
 			</section>
 
