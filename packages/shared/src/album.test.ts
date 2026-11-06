@@ -68,7 +68,7 @@ describe("albumInputSchema", () => {
 	});
 
 	test("reports the failing track field", () => {
-		const tracks = [track(1), { title: "", url: "https://vimeo.com/123" }];
+		const tracks = [track(1), { title: "", url: "https://example.com/123" }];
 		expect(errorPaths({ ...valid, tracks })).toEqual([
 			["tracks", 1, "title"],
 			["tracks", 1, "url"],

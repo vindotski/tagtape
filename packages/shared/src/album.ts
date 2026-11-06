@@ -5,7 +5,7 @@ import {
 	MAX_TITLE_LENGTH,
 	MAX_TRACKS,
 } from "./limits.ts";
-import { parseYouTubeUrl } from "./youtube.ts";
+import { parseTrackUrl, SUPPORTED_SITE_NAMES } from "./sources.ts";
 
 const requiredText = (label: string, max: number) =>
 	z
@@ -27,11 +27,11 @@ export const trackInputSchema = z.object({
 	url: z
 		.string()
 		.trim()
-		.min(1, { error: "YouTube link is required" })
-		.refine((value) => parseYouTubeUrl(value) !== null, {
-			error: "Enter a link to a single YouTube video",
+		.min(1, { error: "Track link is required" })
+		.refine((value) => parseTrackUrl(value) !== null, {
+			error: `Enter a link to a single track on ${SUPPORTED_SITE_NAMES}`,
 		})
-		.transform((value) => parseYouTubeUrl(value) as string),
+		.transform((value) => (parseTrackUrl(value) as { url: string }).url),
 });
 
 export const albumInputSchema = z.object({

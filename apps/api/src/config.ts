@@ -31,7 +31,7 @@ export const configSchema = z.object({
 	/** Tracks downloaded in parallel within one job. */
 	TRACK_CONCURRENCY: positiveInt(2),
 	/** Kill a single yt-dlp run after this many seconds. */
-	YTDLP_TIMEOUT_SEC: positiveInt(300),
+	YTDLP_TIMEOUT_SEC: positiveInt(1800),
 	YTDLP_BIN: z.string().min(1).default("yt-dlp"),
 	/**
 	 * JavaScript runtime yt-dlp uses to solve YouTube's player challenges

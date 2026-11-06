@@ -77,7 +77,7 @@ describe("POST /jobs validation", () => {
 		const body = {
 			...album(),
 			year: "87",
-			tracks: [{ title: "", url: "https://vimeo.com/1" }],
+			tracks: [{ title: "", url: "https://example.com/1" }],
 		};
 		const { response } = await createJob(app, body);
 		expect(response.statusCode).toBe(400);
@@ -157,7 +157,7 @@ describe("job lifecycle", () => {
 		const pipeline = fakePipeline();
 		pipeline.probes.set(canonical(1), {
 			title: "",
-			durationSeconds: 754,
+			durationSeconds: 7384,
 			isLive: false,
 		});
 		pipeline.probes.set(canonical(2), {
@@ -183,7 +183,7 @@ describe("job lifecycle", () => {
 				number: 1,
 				title: "Track 1",
 				status: "error",
-				error: "Longer than 10 minutes (12:34)",
+				error: "Longer than 2 hours (2:03:04)",
 			},
 			{
 				number: 2,

@@ -1,3 +1,5 @@
+import { parseWebUrl, pathSegments } from "./web-url.ts";
+
 const VIDEO_ID = /^[A-Za-z0-9_-]{11}$/;
 
 const YOUTUBE_HOSTS = new Set([
@@ -19,23 +21,11 @@ const ID_PATH_PREFIXES = new Set(["shorts", "embed", "live", "v"]);
  * `null`; a `list=` parameter on a watch URL is ignored.
  */
 export function getYouTubeVideoId(input: string): string | null {
-	const trimmed = input.trim();
-	if (trimmed === "") return null;
-
-	let url: URL;
-	try {
-		url = new URL(
-			/^[a-z][a-z\d+.-]*:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`,
-		);
-	} catch {
-		return null;
-	}
-
-	if (url.protocol !== "https:" && url.protocol !== "http:") return null;
-	if (url.username || url.password || url.port) return null;
+	const url = parseWebUrl(input);
+	if (!url) return null;
 
 	const host = url.hostname.toLowerCase();
-	const segments = url.pathname.split("/").filter(Boolean);
+	const segments = pathSegments(url);
 
 	let id: string | null | undefined;
 	if (host === "youtu.be" || host === "www.youtu.be") {

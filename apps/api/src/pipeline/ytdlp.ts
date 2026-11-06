@@ -1,5 +1,6 @@
 import { stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { YTDLP_EXTRACTORS } from "@tagtape/shared";
 import { UserFacingError } from "../lib/errors.ts";
 import { ExecError, run } from "../lib/exec.ts";
 import type { ProbeResult } from "./types.ts";
@@ -13,7 +14,15 @@ export interface YtDlpOptions {
 
 /** Flags every invocation gets: ignore user/system config files for reproducible runs. */
 function baseArgs(options: YtDlpOptions): string[] {
-	const args = ["--ignore-config", "--no-warnings", "--no-cache-dir"];
+	const args = [
+		"--ignore-config",
+		"--no-warnings",
+		"--no-cache-dir",
+		// Second, independent allow-list behind parseTrackUrl: yt-dlp refuses any
+		// other extractor, including "generic", which would fetch arbitrary pages.
+		"--use-extractors",
+		YTDLP_EXTRACTORS,
+	];
 	if (options.jsRuntime) args.push("--js-runtimes", options.jsRuntime);
 	return args;
 }
@@ -62,22 +71,30 @@ export function downloadArgs(
 }
 
 const KNOWN_ERRORS: ReadonlyArray<readonly [RegExp, string]> = [
-	[/private video/i, "This video is private"],
+	[/private (?:video|track)|this track is private/i, "This track is private"],
+	// We never try to get around DRM; say so plainly.
+	[
+		/DRM protected|is DRM|drm-protected/i,
+		"This track is copy-protected (DRM) and can't be converted",
+	],
 	[
 		/sign in to confirm your age|age-restricted/i,
-		"This video is age-restricted",
+		"This track is age-restricted",
 	],
-	[/members-only|join this channel/i, "This video is for channel members only"],
 	[
-		/not available in your country|geo.?restrict/i,
-		"This video isn't available in our region",
+		/members-only|join this channel|subscriber.?only|go\+|requires (?:a )?(?:subscription|purchase)|purchase required/i,
+		"This track is only available to paying members or subscribers",
 	],
-	[/copyright/i, "This video was removed for copyright reasons"],
 	[
-		/video (?:is )?unavailable|no longer available|has been removed|does not exist/i,
-		"This video is unavailable",
+		/not available in your country|geo.?restrict|not available in your region/i,
+		"This track isn't available in our region",
 	],
-	[/premieres in|live event will begin/i, "This video hasn't premiered yet"],
+	[/copyright/i, "This track was removed for copyright reasons"],
+	[
+		/(?:video|track) (?:is )?unavailable|no longer available|has been removed|does not exist|HTTP Error 404/i,
+		"This track is unavailable",
+	],
+	[/premieres in|live event will begin/i, "This track hasn't premiered yet"],
 	[
 		/live stream recording is not available/i,
 		"This live stream's recording isn't available",
@@ -94,7 +111,7 @@ export function describeYtDlpFailure(stderr: string): string {
 	for (const [pattern, message] of KNOWN_ERRORS) {
 		if (pattern.test(last)) return message;
 	}
-	return "YouTube refused to provide this video";
+	return "The site refused to provide this track";
 }
 
 function toUserFacing(error: unknown, action: string): unknown {

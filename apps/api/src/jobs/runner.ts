@@ -189,11 +189,21 @@ function probeProblem(probe: {
 }): string | undefined {
 	if (probe.isLive) return "Live streams and premieres can't be converted";
 	if (probe.durationSeconds === null)
-		return "Couldn't determine the video's length";
+		return "Couldn't determine the track's length";
 	if (probe.durationSeconds > MAX_TRACK_SECONDS) {
-		return `Longer than ${MAX_TRACK_SECONDS / 60} minutes (${formatDuration(probe.durationSeconds)})`;
+		return `Longer than ${describeLimit(MAX_TRACK_SECONDS)} (${formatDuration(probe.durationSeconds)})`;
 	}
 	return undefined;
+}
+
+/** 7200 → "2 hours", 600 → "10 minutes". */
+export function describeLimit(seconds: number): string {
+	if (seconds % 3600 === 0) {
+		const hours = seconds / 3600;
+		return `${hours} hour${hours === 1 ? "" : "s"}`;
+	}
+	const minutes = Math.round(seconds / 60);
+	return `${minutes} minute${minutes === 1 ? "" : "s"}`;
 }
 
 export function formatDuration(seconds: number): string {

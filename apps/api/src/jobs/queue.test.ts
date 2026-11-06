@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { mapLimit, Semaphore } from "./queue.ts";
-import { formatDuration } from "./runner.ts";
+import { describeLimit, formatDuration } from "./runner.ts";
 
 describe("Semaphore", () => {
 	test("limits concurrency and hands slots over in FIFO order", async () => {
@@ -74,4 +74,13 @@ test.each([
 	[3725, "1:02:05"],
 ])("formatDuration(%i) = %s", (seconds, expected) => {
 	expect(formatDuration(seconds)).toBe(expected);
+});
+
+test.each([
+	[7200, "2 hours"],
+	[3600, "1 hour"],
+	[600, "10 minutes"],
+	[60, "1 minute"],
+])("describeLimit(%i) = %s", (seconds, expected) => {
+	expect(describeLimit(seconds)).toBe(expected);
 });

@@ -1,0 +1,27 @@
+/**
+ * Parses what a person pasted into a URL we're willing to look at: http(s)
+ * only, no credentials, no custom port. A missing scheme is tolerated
+ * (people paste `youtube.com/watch?v=…`). Returns `null` for anything else.
+ */
+export function parseWebUrl(input: string): URL | null {
+	const trimmed = input.trim();
+	if (trimmed === "") return null;
+
+	let url: URL;
+	try {
+		url = new URL(
+			/^[a-z][a-z\d+.-]*:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`,
+		);
+	} catch {
+		return null;
+	}
+
+	if (url.protocol !== "https:" && url.protocol !== "http:") return null;
+	if (url.username || url.password || url.port) return null;
+	return url;
+}
+
+/** Non-empty path segments of a URL, e.g. `/a/b/` → `["a", "b"]`. */
+export function pathSegments(url: URL): string[] {
+	return url.pathname.split("/").filter(Boolean);
+}

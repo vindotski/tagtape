@@ -39,6 +39,17 @@ describe("yt-dlp arguments", () => {
 		expect(args).toEqual(expect.arrayContaining(["--js-runtimes", "node"]));
 	});
 
+	test("every call is restricted to the supported sites' extractors", () => {
+		for (const args of [
+			probeArgs("https://soundcloud.com/a/b", ytOptions),
+			downloadArgs("/tmp/j/1.info.json", "/tmp/j/1.%(ext)s", ytOptions),
+		]) {
+			expect(args[args.indexOf("--use-extractors") + 1]).toBe(
+				"youtube,soundcloud,Bandcamp,mixcloud,vimeo",
+			);
+		}
+	});
+
 	test("download reuses the probe JSON and converts to best-quality MP3", () => {
 		const args = downloadArgs(
 			"/tmp/j/1.info.json",
@@ -63,27 +74,41 @@ describe("yt-dlp arguments", () => {
 	test.each([
 		[
 			"ERROR: [youtube] abc: Private video. Sign in if you've been granted access",
-			"This video is private",
+			"This track is private",
 		],
-		["ERROR: [youtube] abc: Video unavailable", "This video is unavailable"],
+		["ERROR: [youtube] abc: Video unavailable", "This track is unavailable"],
 		// Real yt-dlp 2026.10.26 wording, seen in the e2e run:
 		[
 			"ERROR: [youtube] BaW_jenozKc: This video is unavailable",
-			"This video is unavailable",
+			"This track is unavailable",
 		],
 		[
 			"ERROR: [youtube] abc: This video is no longer available",
-			"This video is unavailable",
+			"This track is unavailable",
 		],
 		[
 			"WARNING: x\nERROR: [youtube] abc: Sign in to confirm your age",
-			"This video is age-restricted",
+			"This track is age-restricted",
 		],
 		[
 			"ERROR: [youtube] jfKfPfyJRdk: This live stream recording is not available.",
 			"This live stream's recording isn't available",
 		],
-		["ERROR: something brand new", "YouTube refused to provide this video"],
+		[
+			"ERROR: [soundcloud] 123: Unable to download JSON metadata: HTTP Error 404: Not Found",
+			"This track is unavailable",
+		],
+		// Real wording for a DRM-protected Vimeo video (yt-dlp 2026.10.26):
+		[
+			"[hlsnative] Downloading m3u8 manifest\nERROR: This format is DRM protected; Try selecting another format with --format or add --check-formats to automatically fallback to the next best format",
+			"This track is copy-protected (DRM) and can't be converted",
+		],
+		[
+			// A missing ffmpeg is the operator's problem, not "unavailable".
+			"ERROR: Postprocessing: ffprobe and ffmpeg not found. Please install or provide the path",
+			"The site refused to provide this track",
+		],
+		["ERROR: something brand new", "The site refused to provide this track"],
 	])("explains %j", (stderr, expected) => {
 		expect(describeYtDlpFailure(stderr)).toBe(expected);
 	});
