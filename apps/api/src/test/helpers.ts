@@ -1,7 +1,8 @@
 import { Readable } from "node:stream";
 import { buildApp } from "../app.ts";
 import { type Config, configSchema } from "../config.ts";
-import type { Pipeline, ProbeResult } from "../pipeline/types.ts";
+import type { Pipeline } from "../pipeline/types.ts";
+import type { TrackProbe } from "../plugins/api.ts";
 
 export const TOKEN = "test-token-0123456789abcdef0123456789";
 export const auth = { authorization: `Bearer ${TOKEN}` };
@@ -22,7 +23,7 @@ export const fakeMp3 = (url: string) =>
 	]);
 
 export interface FakePipeline extends Pipeline {
-	probes: Map<string, Omit<ProbeResult, "infoJson" | "sourceCodec"> | Error>;
+	probes: Map<string, Omit<TrackProbe, "state"> | Error>;
 	/** URLs whose stream was started, in order. */
 	streamed: string[];
 	/** URLs whose stream was cancelled through its signal. */
@@ -35,28 +36,36 @@ export interface FakePipeline extends Pipeline {
 	holdStreams?: boolean;
 }
 
-/** A pipeline with no network, no binaries and no disk. */
+/**
+ * A pipeline with one made-up source ("Example Music", see `trackUrl`) and no
+ * network, no binaries and no disk.
+ */
 export function fakePipeline(): FakePipeline {
 	const fake: FakePipeline = {
+		sources: [{ id: "example", name: "Example Music" }],
+		resolve(input) {
+			const match = /^(?:https?:\/\/)?music\.example\.com\/t\/(\w+)/.exec(
+				input,
+			);
+			return match
+				? { source: "example", url: `https://music.example.com/t/${match[1]}` }
+				: null;
+		},
 		probes: new Map(),
 		streamed: [],
 		aborted: [],
 		async probe({ url }) {
 			if (fake.gate) await fake.gate;
 			const result = fake.probes.get(url) ?? {
-				title: "Video",
+				title: "Track",
 				durationSeconds: 200,
 				isLive: false,
 			};
 			if (result instanceof Error) throw result;
-			return {
-				...result,
-				sourceCodec: "opus",
-				infoJson: JSON.stringify({ url }),
-			};
+			return { ...result, state: { url } };
 		},
-		streamMp3({ infoJson, signal }) {
-			const { url } = JSON.parse(infoJson) as { url: string };
+		stream({ state, signal }) {
+			const { url } = state as { url: string };
 			fake.streamed.push(url);
 			const stream = new Readable({ read() {} });
 			stream.push(fakeMp3(url));
@@ -81,7 +90,7 @@ export function fakePipeline(): FakePipeline {
 			return Buffer.from("jpeg");
 		},
 		async versions() {
-			return { ytDlp: "2026.10.01", ffmpeg: "ffmpeg version 7.1" };
+			return { ffmpeg: "ffmpeg version 7.1", example: "1.0" };
 		},
 	};
 	return fake;
@@ -106,20 +115,22 @@ export async function testApp(
 	return { app, pipeline, config };
 }
 
-export const ytUrl = (n: number) =>
-	`https://youtu.be/dQw4w9WgX${String(n).padStart(2, "0")}`;
+/** A link to track `n` of the fake source, as someone might paste it. */
+export const trackUrl = (n: number) =>
+	`music.example.com/t/${String(n).padStart(2, "0")}?ref=share`;
+/** The same link, canonicalised by the fake source. */
 export const canonical = (n: number) =>
-	`https://www.youtube.com/watch?v=dQw4w9WgX${String(n).padStart(2, "0")}`;
+	`https://music.example.com/t/${String(n).padStart(2, "0")}`;
 
 export function album(trackCount = 2) {
 	return {
-		title: "Whenever You Need Somebody",
-		artist: "Rick Astley",
-		genre: "Pop",
-		year: "1987",
+		title: "Night Drive",
+		artist: "The Examples",
+		genre: "Synthwave",
+		year: "2026",
 		tracks: Array.from({ length: trackCount }, (_, i) => ({
 			title: `Track ${i + 1}`,
-			url: ytUrl(i + 1),
+			url: trackUrl(i + 1),
 		})),
 	};
 }

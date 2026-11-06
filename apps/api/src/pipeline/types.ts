@@ -1,42 +1,49 @@
 import type { Readable } from "node:stream";
+import type { TrackProbe } from "../plugins/api.ts";
 
 /**
- * Everything the job runner needs from the outside world (yt-dlp, ffmpeg, the
- * network), behind one interface so the runner can be tested with fakes. Same
- * idea as TagTape v1's Downloader / TagWriter interfaces.
+ * Everything the job runner needs from the outside world (the track sources,
+ * the cover download), behind one interface so the runner can be tested with
+ * fakes. Same idea as TagTape v1's Downloader / TagWriter interfaces.
  *
  * Nothing here touches the disk: probes stay in memory and audio streams
  * straight from the source to the client.
  */
 export interface Pipeline {
-	/** Fetch one track's metadata (kept in memory for the stream step). */
-	probe(input: { url: string; signal: AbortSignal }): Promise<ProbeResult>;
+	/** The sources links can come from, in matching order. */
+	sources: SourceInfo[];
+	/** Which source handles a link, and its canonical URL; `null` if none does. */
+	resolve(input: string): ResolvedLink | null;
+	/** One track's details, read through its source (kept in memory). */
+	probe(input: {
+		source: string;
+		url: string;
+		signal: AbortSignal;
+	}): Promise<TrackProbe>;
 	/**
-	 * Download and convert one track, as an MP3 byte stream without tags. It ends
-	 * only on success; on failure it's destroyed with the reason (a
-	 * `UserFacingError` when the user should see it).
+	 * One track as an untagged MP3 byte stream. It ends only on success; on
+	 * failure it's destroyed with the reason (a `UserFacingError` when the
+	 * user should see it).
 	 */
-	streamMp3(input: {
-		infoJson: string;
-		sourceCodec: string | null;
+	stream(input: {
+		source: string;
+		state: unknown;
 		signal: AbortSignal;
 	}): Readable;
 	/** Download a cover image and turn it into a 1000×1000 JPEG (in memory). */
 	fetchCover(input: { url: string; signal: AbortSignal }): Promise<Buffer>;
-	/** Versions of the external binaries, for the health check. */
-	versions(): Promise<{ ytDlp: string; ffmpeg: string }>;
+	/** Versions of ffmpeg and of each source, for the health check. */
+	versions(): Promise<Record<string, string>>;
 }
 
-export interface ProbeResult {
-	title: string;
-	/** Seconds, or `null` when yt-dlp couldn't tell. */
-	durationSeconds: number | null;
-	/** Live, upcoming, or still-processing streams can't be downloaded as a file. */
-	isLive: boolean;
-	/** Codec of the audio that will be fetched, e.g. `opus` or `mp3` (copied as is). */
-	sourceCodec: string | null;
-	/** yt-dlp's info JSON, handed back to it for the download. */
-	infoJson: string;
+export interface SourceInfo {
+	id: string;
+	name: string;
+}
+
+export interface ResolvedLink {
+	source: string;
+	url: string;
 }
 
 export interface TrackTags {

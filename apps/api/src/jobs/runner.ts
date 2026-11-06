@@ -4,7 +4,8 @@ import { UserFacingError, userMessage } from "../lib/errors.ts";
 import { trackFileName } from "../lib/filenames.ts";
 import { streamZip } from "../pipeline/archive.ts";
 import { createTag } from "../pipeline/tags.ts";
-import type { Pipeline, ProbeResult } from "../pipeline/types.ts";
+import type { Pipeline } from "../pipeline/types.ts";
+import type { TrackProbe } from "../plugins/api.ts";
 import { mapLimit } from "./queue.ts";
 import type { Job, TrackState } from "./store.ts";
 
@@ -31,7 +32,8 @@ export async function probeJob(job: Job, ctx: RunnerContext): Promise<void> {
 	const probes = await mapLimit(
 		job.tracks,
 		ctx.trackConcurrency,
-		(track) => ctx.pipeline.probe({ url: track.url, signal }),
+		(track) =>
+			ctx.pipeline.probe({ source: track.source, url: track.url, signal }),
 		signal,
 	);
 	if (signal.aborted) return;
@@ -52,8 +54,8 @@ export async function probeJob(job: Job, ctx: RunnerContext): Promise<void> {
 			track.status = "error";
 			track.error = problem;
 		} else if (result.status === "fulfilled") {
-			track.infoJson = result.value.infoJson;
-			track.sourceCodec = result.value.sourceCodec;
+			track.probed = true;
+			track.state = result.value.state;
 		}
 	});
 	if (job.tracks.some((track) => track.status === "error")) {
@@ -89,7 +91,7 @@ export async function probeJob(job: Job, ctx: RunnerContext): Promise<void> {
 /**
  * Phase 2, run for each download: the album as a ZIP stream. Tracks convert
  * one after another *while* the ZIP is read: each entry is our ID3 tag followed
- * by `yt-dlp | ffmpeg` output. Nothing is written to disk.
+ * by the source's MP3 stream. Nothing is written to disk.
  *
  * Track statuses update as it goes. The caller decides the job's final status
  * from how the stream ends.
@@ -125,9 +127,9 @@ export function streamJob(
 						...(job.cover ? { cover: job.cover } : {}),
 					}),
 				);
-				const mp3 = ctx.pipeline.streamMp3({
-					infoJson: track.infoJson as string,
-					sourceCodec: track.sourceCodec ?? null,
+				const mp3 = ctx.pipeline.stream({
+					source: track.source,
+					state: track.state,
 					signal,
 				});
 				mp3.once("end", () => {
@@ -153,7 +155,7 @@ export function streamJob(
 	);
 }
 
-function probeProblem(probe: ProbeResult): string | undefined {
+function probeProblem(probe: TrackProbe): string | undefined {
 	if (probe.isLive) return "Live streams and premieres can't be converted";
 	if (probe.durationSeconds === null)
 		return "Couldn't determine the track's length";
@@ -194,7 +196,7 @@ function reportError(
 			fallback,
 		);
 	} else if (error.cause) {
-		// Users see the friendly message; operators get the original (e.g. yt-dlp's stderr).
+		// Users see the friendly message; operators get the original (e.g. a tool's stderr).
 		ctx.log.warn(
 			{ err: error.cause, jobId: job.id, track: track?.number },
 			error.message,

@@ -5,7 +5,7 @@ import {
 	MAX_TITLE_LENGTH,
 	MAX_TRACKS,
 } from "./limits.ts";
-import { parseTrackUrl, SUPPORTED_SITE_NAMES } from "./sources.ts";
+import { parseWebUrl } from "./web-url.ts";
 
 const requiredText = (label: string, max: number) =>
 	z
@@ -28,10 +28,12 @@ export const trackInputSchema = z.object({
 		.string()
 		.trim()
 		.min(1, { error: "Track link is required" })
-		.refine((value) => parseTrackUrl(value) !== null, {
-			error: `Enter a link to a single track on ${SUPPORTED_SITE_NAMES}`,
+		// Only the shape is checked here (it runs in the browser too). Which
+		// links work depends on the server's sources, which also canonicalise them.
+		.refine((value) => parseWebUrl(value) !== null, {
+			error: "Enter a web link (https://…)",
 		})
-		.transform((value) => (parseTrackUrl(value) as { url: string }).url),
+		.transform((value) => (parseWebUrl(value) as URL).href),
 });
 
 export const albumInputSchema = z.object({
@@ -65,6 +67,6 @@ export const albumInputSchema = z.object({
 
 /** What a client sends (raw form values). */
 export type AlbumInput = z.input<typeof albumInputSchema>;
-/** What the server works with after validation: trimmed, blanks removed, URLs canonical. */
+/** What the server works with after validation: trimmed, blanks removed, URLs normalised. */
 export type Album = z.output<typeof albumInputSchema>;
 export type Track = z.output<typeof trackInputSchema>;

@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { Readable } from "node:stream";
 import type { Album } from "@tagtape/shared";
 import { archiveFileName } from "../lib/filenames.ts";
-import type { Pipeline } from "../pipeline/types.ts";
+import type { Pipeline, ResolvedLink } from "../pipeline/types.ts";
 import { Semaphore } from "./queue.ts";
 import { probeJob, streamJob } from "./runner.ts";
 import { canStream, isProbed, type Job } from "./store.ts";
@@ -65,8 +65,11 @@ export class JobManager {
 		this.#sweeper.unref();
 	}
 
-	/** Queues a new job for checking, or returns `undefined` when the queue is full. */
-	create(album: Album): Job | undefined {
+	/**
+	 * Queues a new job for checking, or returns `undefined` when the queue is
+	 * full. `links` holds each track's source and canonical URL, in order.
+	 */
+	create(album: Album, links: ResolvedLink[]): Job | undefined {
 		const { maxActiveProbes, maxQueuedJobs, ttlMs } = this.#options;
 		if (
 			this.#probeSlots.active + this.#probeSlots.waiting >=
@@ -79,12 +82,18 @@ export class JobManager {
 			id: randomUUID(),
 			album,
 			status: "queued",
-			tracks: album.tracks.map((track, index) => ({
-				number: index + 1,
-				title: track.title,
-				url: track.url,
-				status: "queued",
-			})),
+			tracks: album.tracks.map((track, index) => {
+				const link = links[index];
+				if (!link) throw new Error(`Track ${index + 1} has no resolved link`);
+				return {
+					number: index + 1,
+					title: track.title,
+					url: link.url,
+					source: link.source,
+					status: "queued",
+					probed: false,
+				};
+			}),
 			createdAt,
 			expiresAt: new Date(createdAt.getTime() + ttlMs),
 			controller: new AbortController(),

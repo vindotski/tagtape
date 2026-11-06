@@ -8,6 +8,7 @@ import { z } from "zod";
 import type { JobManager } from "../jobs/manager.ts";
 import { toSnapshot } from "../jobs/store.ts";
 import { contentDisposition } from "../lib/filenames.ts";
+import type { Pipeline, ResolvedLink } from "../pipeline/types.ts";
 
 const errorSchema = z.object({
 	statusCode: z.number(),
@@ -15,7 +16,18 @@ const errorSchema = z.object({
 	message: z.string(),
 });
 
+const issueSchema = z.object({ path: z.string(), message: z.string() });
+const badRequestSchema = errorSchema.extend({ issues: z.array(issueSchema) });
+
 const jobParams = z.object({ id: z.uuid() });
+
+const sourcesResponseSchema = z.object({
+	sources: z.array(z.object({ id: z.string(), name: z.string() })),
+});
+
+/** Shown when no loaded source handles a link. */
+export const UNSUPPORTED_LINK =
+	"TagTape can't read tracks from this link. Check that it points to a single track.";
 
 const notFound = {
 	statusCode: 404,
@@ -23,20 +35,52 @@ const notFound = {
 	message: "This job doesn't exist or has expired",
 } as const;
 
-export const jobRoutes: FastifyPluginAsyncZod<{ jobs: JobManager }> = async (
-	app,
-	{ jobs },
-) => {
+export const jobRoutes: FastifyPluginAsyncZod<{
+	jobs: JobManager;
+	pipeline: Pipeline;
+}> = async (app, { jobs, pipeline }) => {
+	// Which kinds of links this instance accepts (the web app shows them).
+	app.get(
+		"/sources",
+		{ schema: { response: { 200: sourcesResponseSchema } } },
+		async () => ({ sources: pipeline.sources }),
+	);
+
 	app.post(
 		"/jobs",
 		{
 			schema: {
 				body: albumInputSchema,
-				response: { 202: createJobResponseSchema, 429: errorSchema },
+				response: {
+					202: createJobResponseSchema,
+					400: badRequestSchema,
+					429: errorSchema,
+				},
 			},
 		},
 		async (request, reply) => {
-			const job = jobs.create(request.body);
+			// The schema checked that each link is a URL; a source must claim it.
+			const links: ResolvedLink[] = [];
+			const issues: z.infer<typeof issueSchema>[] = [];
+			request.body.tracks.forEach((track, index) => {
+				const link = pipeline.resolve(track.url);
+				if (link) links.push(link);
+				else
+					issues.push({
+						path: `/tracks/${index}/url`,
+						message: UNSUPPORTED_LINK,
+					});
+			});
+			if (issues.length > 0) {
+				return reply.code(400).send({
+					statusCode: 400,
+					error: "Bad Request",
+					message: "Some links aren't supported",
+					issues,
+				});
+			}
+
+			const job = jobs.create(request.body, links);
 			if (!job) {
 				return reply.code(429).header("retry-after", "60").send({
 					statusCode: 429,

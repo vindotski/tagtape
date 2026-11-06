@@ -6,11 +6,22 @@
 import { albumInputSchema } from "@tagtape/shared";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { apiConfigFromEnv, createJob, getJob } from "./api.server";
+import { apiConfigFromEnv, createJob, getJob, getSources } from "./api.server";
 
 export const startJob = createServerFn({ method: "POST" })
 	.validator(albumInputSchema)
 	.handler(({ data }) => createJob(data, apiConfigFromEnv()));
+
+/** The API's sources, for the page copy. Empty when the API isn't reachable. */
+export const fetchSources = createServerFn({ method: "GET" }).handler(
+	async () => {
+		try {
+			return await getSources(apiConfigFromEnv());
+		} catch {
+			return [];
+		}
+	},
+);
 
 export const fetchJob = createServerFn({ method: "GET" })
 	.validator(z.object({ id: z.uuid() }))

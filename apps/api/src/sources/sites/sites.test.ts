@@ -4,7 +4,7 @@ import {
 	SUPPORTED_SITE_NAMES,
 	SUPPORTED_SITES,
 	YTDLP_EXTRACTORS,
-} from "./sources.ts";
+} from "./sites.ts";
 
 describe("parseTrackUrl accepts single tracks", () => {
 	test.each([

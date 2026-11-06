@@ -1,8 +1,6 @@
 import { PassThrough, type Readable } from "node:stream";
-import { YTDLP_EXTRACTORS } from "@tagtape/shared";
-import { UserFacingError } from "../lib/errors.ts";
-import { ExecError, run, spawnStream } from "../lib/exec.ts";
-import type { ProbeResult } from "./types.ts";
+import type { PluginContext, TrackProbe } from "../../plugins/api.ts";
+import { YTDLP_EXTRACTORS } from "./sites.ts";
 
 export interface YtDlpOptions {
 	bin: string;
@@ -162,16 +160,30 @@ export function describeYtDlpFailure(stderr: string): string {
 	return "The site refused to provide this track";
 }
 
-function toUserFacing(error: unknown, action: string): unknown {
-	if (error instanceof ExecError) {
-		if (error.timedOut) return new UserFacingError(`Timed out while ${action}`);
+function toUserFacing(
+	ctx: PluginContext,
+	error: unknown,
+	action: string,
+): unknown {
+	if (error instanceof ctx.ExecError) {
+		if (error.timedOut) {
+			return new ctx.UserFacingError(`Timed out while ${action}`);
+		}
 		if (error.exitCode === null) return error; // couldn't even start yt-dlp: operator problem
 		// Keep the original (with yt-dlp's stderr) as the cause, for the logs.
-		return new UserFacingError(describeYtDlpFailure(error.stderr), {
+		return new ctx.UserFacingError(describeYtDlpFailure(error.stderr), {
 			cause: error,
 		});
 	}
 	return error;
+}
+
+/** What the stream step needs from the probe (kept in memory with the job). */
+export interface YtDlpState {
+	/** yt-dlp's info JSON, handed back to it on stdin: no second metadata fetch. */
+	infoJson: string;
+	/** Codec of the audio that will be fetched, e.g. `opus` or `mp3` (copied as is). */
+	sourceCodec: string | null;
 }
 
 interface YtDlpInfo {
@@ -182,7 +194,7 @@ interface YtDlpInfo {
 	acodec?: unknown;
 }
 
-export function parseProbe(json: string): ProbeResult {
+export function parseProbe(json: string): TrackProbe & { state: YtDlpState } {
 	const info = JSON.parse(json) as YtDlpInfo;
 	const liveStatus =
 		typeof info.live_status === "string" ? info.live_status : "";
@@ -197,26 +209,28 @@ export function parseProbe(json: string): ProbeResult {
 			liveStatus === "is_live" ||
 			liveStatus === "is_upcoming" ||
 			liveStatus === "post_live",
-		sourceCodec: typeof info.acodec === "string" ? info.acodec : null,
-		infoJson: json,
+		state: {
+			infoJson: json,
+			sourceCodec: typeof info.acodec === "string" ? info.acodec : null,
+		},
 	};
 }
 
-export function createYtDlp(options: YtDlpOptions) {
+export function createYtDlp(options: YtDlpOptions, ctx: PluginContext) {
 	return {
 		async probe(input: {
 			url: string;
 			signal: AbortSignal;
-		}): Promise<ProbeResult> {
+		}): Promise<TrackProbe> {
 			try {
-				const { stdout } = await run(
+				const { stdout } = await ctx.run(
 					options.bin,
 					probeArgs(input.url, options),
 					{ signal: input.signal, timeoutMs: options.timeoutMs },
 				);
 				return parseProbe(stdout);
 			} catch (error) {
-				throw toUserFacing(error, "reading the track's details");
+				throw toUserFacing(ctx, error, "reading the track's details");
 			}
 		},
 
@@ -226,22 +240,18 @@ export function createYtDlp(options: YtDlpOptions) {
 		 * half-downloaded track can never pass as complete. Destroying it (or
 		 * aborting `signal`) kills both process groups.
 		 */
-		streamMp3(input: {
-			infoJson: string;
-			sourceCodec: string | null;
-			signal: AbortSignal;
-		}): Readable {
+		streamMp3(input: YtDlpState & { signal: AbortSignal }): Readable {
 			const out = new PassThrough();
 			const local = new AbortController();
 			const signal = AbortSignal.any([input.signal, local.signal]);
 			out.once("close", () => local.abort());
 
-			const ytDlp = spawnStream(options.bin, streamArgs(options), {
+			const ytDlp = ctx.spawnStream(options.bin, streamArgs(options), {
 				stdin: input.infoJson,
 				signal,
 				timeoutMs: options.timeoutMs,
 			});
-			const ffmpeg = spawnStream(
+			const ffmpeg = ctx.spawnStream(
 				options.ffmpegBin,
 				ffmpegArgs(input.sourceCodec),
 				{
@@ -262,7 +272,9 @@ export function createYtDlp(options: YtDlpOptions) {
 					} else if (download.status === "rejected") {
 						// yt-dlp's reason explains the failure; ffmpeg just saw its input end.
 						out.destroy(
-							asError(toUserFacing(download.reason, "downloading the audio")),
+							asError(
+								toUserFacing(ctx, download.reason, "downloading the audio"),
+							),
 						);
 					} else if (convert.status === "rejected") {
 						out.destroy(asError(convert.reason));
@@ -273,7 +285,7 @@ export function createYtDlp(options: YtDlpOptions) {
 		},
 
 		async version(): Promise<string> {
-			const { stdout } = await run(options.bin, ["--version"], {
+			const { stdout } = await ctx.run(options.bin, ["--version"], {
 				timeoutMs: 10_000,
 			});
 			return stdout.trim();

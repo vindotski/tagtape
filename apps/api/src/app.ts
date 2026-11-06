@@ -1,5 +1,8 @@
 import { createHash, timingSafeEqual } from "node:crypto";
-import Fastify, { type FastifyServerOptions } from "fastify";
+import Fastify, {
+	type FastifyBaseLogger,
+	type FastifyServerOptions,
+} from "fastify";
 import {
 	hasZodFastifySchemaValidationErrors,
 	serializerCompiler,
@@ -20,7 +23,8 @@ declare module "fastify" {
 
 export interface AppDependencies {
 	config: Config;
-	pipeline: Pipeline;
+	/** The pipeline, or a factory that gets the app's logger (for plugins). */
+	pipeline: Pipeline | ((log: FastifyBaseLogger) => Promise<Pipeline>);
 	logger?: FastifyServerOptions["logger"];
 	now?: () => Date;
 }
@@ -31,7 +35,7 @@ export interface AppDependencies {
  */
 export async function buildApp({
 	config,
-	pipeline,
+	pipeline: pipelineOrFactory,
 	logger,
 	now,
 }: AppDependencies) {
@@ -41,6 +45,10 @@ export async function buildApp({
 			redact: ["req.headers.authorization"],
 		},
 	});
+	const pipeline =
+		typeof pipelineOrFactory === "function"
+			? await pipelineOrFactory(app.log)
+			: pipelineOrFactory;
 	app.setValidatorCompiler(validatorCompiler);
 	app.setSerializerCompiler(serializerCompiler);
 
@@ -105,7 +113,7 @@ export async function buildApp({
 		pipeline,
 		version: config.TAGTAPE_VERSION,
 	});
-	await app.register(jobRoutes, { jobs });
+	await app.register(jobRoutes, { jobs, pipeline });
 
 	return app;
 }

@@ -9,12 +9,16 @@ export interface TrackState {
 	/** 1-based position in the album. */
 	number: number;
 	title: string;
+	/** Canonical URL, as the source matched it. */
 	url: string;
+	/** Id of the source that handles this track. */
+	source: string;
 	status: TrackStatus;
 	error?: string;
-	/** From the probe; handed back to yt-dlp when the track streams. */
-	infoJson?: string;
-	sourceCodec?: string | null;
+	/** Set once the probe succeeded. */
+	probed: boolean;
+	/** What the source's probe returned for its stream step (in memory only). */
+	state?: unknown;
 }
 
 /**
@@ -38,7 +42,7 @@ export interface Job {
 
 /** Every track probed successfully: the album can be streamed. */
 export function isProbed(job: Job): boolean {
-	return job.tracks.every((track) => track.infoJson !== undefined);
+	return job.tracks.every((track) => track.probed);
 }
 
 /** A download can start now: probed, and no download queued or running. */

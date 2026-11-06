@@ -9,6 +9,8 @@ import {
 	type JobSnapshot,
 	jobSnapshotSchema,
 } from "@tagtape/shared";
+import { z } from "zod";
+import type { SourceInfo } from "./sources";
 
 export interface ApiConfig {
 	/** Where the web server reaches the API, e.g. a private network address. */
@@ -80,6 +82,17 @@ export async function createJob(
 		};
 	}
 	return { ok: false, message: UNAVAILABLE };
+}
+
+const sourcesResponseSchema = z.object({
+	sources: z.array(z.object({ id: z.string(), name: z.string() })),
+});
+
+/** The kinds of links the API accepts (its loaded sources), in matching order. */
+export async function getSources(config: ApiConfig): Promise<SourceInfo[]> {
+	const response = await request(config, "/sources");
+	if (!response.ok) throw new Error(`API answered ${response.status}`);
+	return sourcesResponseSchema.parse(await response.json()).sources;
 }
 
 export interface JobView {

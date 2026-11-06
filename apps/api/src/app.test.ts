@@ -1,6 +1,7 @@
 import NodeID3 from "node-id3";
 import { afterEach, describe, expect, test } from "vitest";
 import { UserFacingError } from "./lib/errors.ts";
+import { UNSUPPORTED_LINK } from "./routes/jobs.ts";
 import {
 	album,
 	auth,
@@ -9,6 +10,7 @@ import {
 	fakePipeline,
 	readZip,
 	testApp,
+	trackUrl,
 } from "./test/helpers.ts";
 
 type App = Awaited<ReturnType<typeof testApp>>["app"];
@@ -55,7 +57,7 @@ describe("auth", () => {
 		expect(health.json()).toMatchObject({
 			status: "ok",
 			version: "dev",
-			ytDlp: "2026.10.01",
+			versions: { ffmpeg: "ffmpeg version 7.1", example: "1.0" },
 		});
 
 		const archive = await app.inject(
@@ -74,13 +76,24 @@ describe("auth", () => {
 	});
 });
 
+describe("GET /sources", () => {
+	test("lists the loaded sources (token required)", async () => {
+		({ app } = await testApp());
+		expect((await app.inject("/sources")).statusCode).toBe(401);
+		const response = await app.inject({ url: "/sources", headers: auth });
+		expect(response.json()).toEqual({
+			sources: [{ id: "example", name: "Example Music" }],
+		});
+	});
+});
+
 describe("POST /jobs validation", () => {
 	test("returns 400 with the failing field paths", async () => {
 		({ app } = await testApp());
 		const body = {
 			...album(),
 			year: "87",
-			tracks: [{ title: "", url: "https://example.com/1" }],
+			tracks: [{ title: "", url: "not a link" }],
 		};
 		const { response } = await createJob(app, body);
 		expect(response.statusCode).toBe(400);
@@ -90,6 +103,23 @@ describe("POST /jobs validation", () => {
 		expect(paths).toEqual(
 			expect.arrayContaining(["/year", "/tracks/0/title", "/tracks/0/url"]),
 		);
+	});
+
+	test("a link no source handles is a field error on that track", async () => {
+		({ app } = await testApp());
+		const body = {
+			...album(),
+			tracks: [
+				{ title: "Fine", url: trackUrl(1) },
+				{ title: "Elsewhere", url: "https://elsewhere.example.org/song" },
+			],
+		};
+		const { response } = await createJob(app, body);
+		expect(response.statusCode).toBe(400);
+		expect(response.json()).toMatchObject({
+			issues: [{ path: "/tracks/1/url", message: UNSUPPORTED_LINK }],
+		});
+		expect(app.jobs.get("anything")).toBeUndefined();
 	});
 
 	test("rejects a non-UUID job id on the public archive route", async () => {
@@ -137,7 +167,7 @@ describe("job lifecycle", () => {
 		expect(archive.headers["content-type"]).toBe("application/zip");
 		expect(archive.headers["content-length"]).toBeUndefined();
 		expect(archive.headers["content-disposition"]).toContain(
-			"filename*=UTF-8''Rick%20Astley%20-%20Whenever%20You%20Need%20Somebody.zip",
+			"filename*=UTF-8''The%20Examples%20-%20Night%20Drive.zip",
 		);
 
 		const entries = readZip(archive.rawPayload);
@@ -150,12 +180,12 @@ describe("job lifecycle", () => {
 		expect(first.subarray(0, 3).toString()).toBe("ID3");
 		expect(NodeID3.read(first)).toMatchObject({
 			title: "Track 1",
-			artist: "Rick Astley",
-			performerInfo: "Rick Astley",
-			album: "Whenever You Need Somebody",
+			artist: "The Examples",
+			performerInfo: "The Examples",
+			album: "Night Drive",
 			trackNumber: "1/2",
-			year: "1987",
-			genre: "Pop",
+			year: "2026",
+			genre: "Synthwave",
 		});
 		expect(first.subarray(-fakeMp3(canonical(1)).length)).toEqual(
 			fakeMp3(canonical(1)),

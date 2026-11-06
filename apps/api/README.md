@@ -6,10 +6,15 @@ The Fastify service that turns track links (YouTube, SoundCloud, Bandcamp, Mixcl
 
 | Method | Path | Auth | |
 |---|---|---|---|
-| POST | `/jobs` | Bearer | Body: `AlbumInput` from `@tagtape/shared`. Returns `202 { jobId }`; `400` with `issues` for invalid input; `429` when the check queue is full. |
+| POST | `/jobs` | Bearer | Body: `AlbumInput` from `@tagtape/shared`. Returns `202 { jobId }`; `400` with `issues` for invalid input, including links no loaded source handles (`/tracks/N/url`); `429` when the check queue is full. |
 | GET | `/jobs/:id` | Bearer | `JobSnapshot`: status (`queued → probing → ready → streaming → done`, or `failed`), per-track status and errors, and `downloadReady`. Poll it. |
 | GET | `/jobs/:id/archive` | public | **The download is the conversion.** Streams the ZIP as tracks convert (no `content-length`). `404` if the job is unknown or not checked yet, `409` if this album is already downloading, `429` if downloads are full. Can be repeated (it converts again) until `JOB_TTL_MIN` after the last activity. |
-| GET | `/health` | public | Checks that yt-dlp and ffmpeg run, and reports the image `version`. Returns `503` if they don't. |
+| GET | `/sources` | Bearer | `{ sources: [{ id, name }] }`: the loaded sources, in matching order. The web app shows their names. |
+| GET | `/health` | public | Checks that ffmpeg and every source's tools run; reports the image `version` and `versions`. Returns `503` if they don't. |
+
+## Sources and plugins
+
+Where tracks come from is pluggable. A **source** claims links (`match`), reads a track's details (`probe`) and streams it as untagged MP3 (`stream`); the core does everything else (limits, cover, tags, the ZIP, the queue). Sources come from plugin modules listed in `TAGTAPE_PLUGINS` (comma-separated paths), loaded at startup: an invalid plugin stops the API from starting. The contract, with every rule a plugin must follow, is in [`src/plugins/api.ts`](src/plugins/api.ts).
 
 ## How a job runs
 

@@ -90,7 +90,8 @@ ENV PORT=3000 \
 	TAGTAPE_VERSION=${TAGTAPE_VERSION} \
 	YTDLP_BIN=/usr/local/bin/yt-dlp \
 	FFMPEG_BIN=/usr/bin/ffmpeg \
-	YTDLP_JS_RUNTIME=node
+	YTDLP_JS_RUNTIME=node \
+	TAGTAPE_PLUGINS=/app/apps/api/src/sources/sites/index.ts
 USER node
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=15s \

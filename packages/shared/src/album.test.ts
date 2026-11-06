@@ -5,14 +5,14 @@ import { MAX_TRACKS } from "./limits.ts";
 
 const track = (n: number) => ({
 	title: `Track ${n}`,
-	url: `https://youtu.be/dQw4w9WgX${String(n).padStart(2, "0")}`,
+	url: `music.example.com/tracks/${n}.mp3`,
 });
 
 const valid: AlbumInput = {
-	title: "  Whenever You Need Somebody ",
-	artist: "Rick Astley",
+	title: "  Night Drive ",
+	artist: "The Examples",
 	genre: "",
-	year: "1987",
+	year: "2026",
 	coverUrl: "",
 	tracks: [track(1)],
 };
@@ -26,15 +26,16 @@ const errorPaths = (input: unknown) => {
 describe("albumInputSchema", () => {
 	test("normalises a valid album", () => {
 		expect(albumInputSchema.parse(valid)).toEqual({
-			title: "Whenever You Need Somebody",
-			artist: "Rick Astley",
+			title: "Night Drive",
+			artist: "The Examples",
 			genre: undefined,
-			year: "1987",
+			year: "2026",
 			coverUrl: undefined,
 			tracks: [
 				{
 					title: "Track 1",
-					url: "https://www.youtube.com/watch?v=dQw4w9WgX01",
+					// Only normalised: sources canonicalise links on the server.
+					url: "https://music.example.com/tracks/1.mp3",
 				},
 			],
 		});
@@ -54,6 +55,16 @@ describe("albumInputSchema", () => {
 		["cover not a url", { coverUrl: "cover.jpg" }, ["coverUrl"]],
 		["cover with ftp", { coverUrl: "ftp://example.com/a.jpg" }, ["coverUrl"]],
 		["no tracks", { tracks: [] }, ["tracks"]],
+		[
+			"a track link with ftp",
+			{ tracks: [{ title: "A", url: "ftp://example.com/a.mp3" }] },
+			["tracks", 0, "url"],
+		],
+		[
+			"a track link with a password",
+			{ tracks: [{ title: "A", url: "https://u:p@example.com/a.mp3" }] },
+			["tracks", 0, "url"],
+		],
 	])("rejects %s", (_label, override, path) => {
 		expect(errorPaths({ ...valid, ...override })).toEqual([path]);
 	});
@@ -68,7 +79,7 @@ describe("albumInputSchema", () => {
 	});
 
 	test("reports the failing track field", () => {
-		const tracks = [track(1), { title: "", url: "https://example.com/123" }];
+		const tracks = [track(1), { title: "", url: "not a link" }];
 		expect(errorPaths({ ...valid, tracks })).toEqual([
 			["tracks", 1, "title"],
 			["tracks", 1, "url"],

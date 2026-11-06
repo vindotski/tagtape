@@ -27,20 +27,17 @@ export const configSchema = z.object({
 	MAX_ACTIVE_PROBES: positiveInt(4),
 	/** Jobs allowed to wait for a check before POST /jobs answers 429. */
 	MAX_QUEUED_JOBS: queueSize(20),
-	/** Downloads converting at the same time (each runs yt-dlp + ffmpeg). */
+	/** Downloads converting at the same time (each runs its source's tools + ffmpeg). */
 	MAX_ACTIVE_STREAMS: positiveInt(2),
 	/** Downloads allowed to wait for a slot before the archive route answers 429. */
 	MAX_QUEUED_STREAMS: queueSize(10),
 	/** Tracks checked in parallel within one job. */
 	TRACK_CONCURRENCY: positiveInt(2),
-	/** Kill a single yt-dlp run after this many seconds. */
-	YTDLP_TIMEOUT_SEC: positiveInt(1800),
-	YTDLP_BIN: z.string().min(1).default("yt-dlp"),
 	/**
-	 * JavaScript runtime yt-dlp uses to solve YouTube's player challenges
-	 * (`--js-runtimes`). Node is already present, so reuse it. Empty disables the flag.
+	 * Source plugins to load: absolute paths to their modules, comma-separated.
+	 * Each plugin reads its own settings from the environment.
 	 */
-	YTDLP_JS_RUNTIME: z.string().default("node"),
+	TAGTAPE_PLUGINS: z.string().default(""),
 	FFMPEG_BIN: z.string().min(1).default("ffmpeg"),
 	/** Release of the web + API image (set at Docker build time). */
 	TAGTAPE_VERSION: z.string().min(1).default("dev"),

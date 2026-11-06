@@ -5,9 +5,11 @@ import {
 	apiConfigFromEnv,
 	createJob,
 	getJob,
+	getSources,
 	issuesToFieldErrors,
 	streamArchive,
 } from "./api.server";
+import { joinNames } from "./sources";
 
 const JOB_ID = "8f14e45f-ceea-4e7a-9f3b-1c2d3e4f5a6b";
 
@@ -27,7 +29,7 @@ function fakeApi(status: number, body: unknown) {
 const album = {
 	title: "Album",
 	artist: "Artist",
-	tracks: [{ title: "One", url: "https://youtu.be/dQw4w9WgXcQ" }],
+	tracks: [{ title: "One", url: "https://music.example.com/t/01" }],
 };
 
 describe("album draft", () => {
@@ -49,13 +51,13 @@ describe("album draft", () => {
 
 	test("a filled-in draft becomes the API input", () => {
 		const draft = { ...emptyDraft(), title: "A", artist: "B" };
-		draft.tracks = [{ key: "k", title: "T", url: "youtu.be/dQw4w9WgXcQ" }];
+		draft.tracks = [{ key: "k", title: "T", url: "music.example.com/t/01" }];
 		expect(validateDraft(draft)).toMatchObject({
 			ok: true,
 			input: {
 				title: "A",
 				artist: "B",
-				tracks: [{ title: "T", url: "youtu.be/dQw4w9WgXcQ" }],
+				tracks: [{ title: "T", url: "music.example.com/t/01" }],
 			},
 		});
 	});
@@ -69,6 +71,30 @@ describe("album draft", () => {
 });
 
 describe("API client", () => {
+	test("lists the API's sources", async () => {
+		const { fetch, config } = fakeApi(200, {
+			sources: [{ id: "example", name: "Example Music" }],
+		});
+		expect(await getSources(config)).toEqual([
+			{ id: "example", name: "Example Music" },
+		]);
+		expect(fetch).toHaveBeenCalledWith(
+			"http://api.internal:4000/sources",
+			expect.objectContaining({
+				headers: expect.objectContaining({
+					authorization: "Bearer secret-token",
+				}),
+			}),
+		);
+		await expect(getSources(fakeApi(500, {}).config)).rejects.toThrow("500");
+	});
+
+	test("joins source names for the page copy", () => {
+		expect(joinNames([], "or")).toBe("");
+		expect(joinNames(["A"], "or")).toBe("A");
+		expect(joinNames(["A", "B", "C"], "and")).toBe("A, B and C");
+	});
+
 	test("sends the bearer token and returns the job id", async () => {
 		const { fetch, config } = fakeApi(202, { jobId: JOB_ID });
 		expect(await createJob(album, config)).toEqual({ ok: true, jobId: JOB_ID });
@@ -84,8 +110,7 @@ describe("API client", () => {
 			issues: [
 				{
 					path: "/tracks/0/url",
-					message:
-						"Enter a link to a single track on YouTube, SoundCloud, Bandcamp, Mixcloud or Vimeo",
+					message: "TagTape can't read tracks from this link.",
 				},
 			],
 		});
@@ -93,8 +118,7 @@ describe("API client", () => {
 			ok: false,
 			message: "Some fields need attention.",
 			fieldErrors: {
-				"tracks.0.url":
-					"Enter a link to a single track on YouTube, SoundCloud, Bandcamp, Mixcloud or Vimeo",
+				"tracks.0.url": "TagTape can't read tracks from this link.",
 			},
 		});
 	});

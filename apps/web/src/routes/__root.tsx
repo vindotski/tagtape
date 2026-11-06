@@ -1,10 +1,13 @@
-import { SUPPORTED_SITE_NAMES } from "@tagtape/shared";
 import { createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
+import { fetchSources } from "#/lib/jobs.functions";
 import appCss from "../styles.css?url";
 
-const DESCRIPTION = `Turn links from ${SUPPORTED_SITE_NAMES} into a ZIP of MP3s with album, artist, track numbers and cover art filled in. Works on any MP3 player.`;
+const DESCRIPTION =
+	"Turn track links into a ZIP of MP3s with album, artist, track numbers and cover art filled in. Works on any MP3 player.";
 
 export const Route = createRootRoute({
+	// Which links this instance accepts depends on the API's source plugins.
+	loader: () => fetchSources(),
 	head: () => ({
 		meta: [
 			{ charSet: "utf-8" },

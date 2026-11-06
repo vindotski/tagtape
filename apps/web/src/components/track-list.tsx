@@ -14,11 +14,8 @@ import {
 	verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import {
-	MAX_TRACK_SECONDS,
-	MAX_TRACKS,
-	SUPPORTED_SITES,
-} from "@tagtape/shared";
+import { MAX_TRACK_SECONDS, MAX_TRACKS } from "@tagtape/shared";
+import { getRouteApi } from "@tanstack/react-router";
 import { ArrowDown, ArrowUp, GripVertical, Plus, X } from "lucide-react";
 import { Button } from "#/components/ui/button";
 import {
@@ -32,6 +29,8 @@ import { Tooltip, TooltipTrigger } from "#/components/ui/tooltip";
 import type { FieldErrors, TrackDraft } from "#/lib/album-draft";
 import { cn } from "#/lib/utils";
 import { TextField } from "./text-field";
+
+const rootRoute = getRouteApi("__root__");
 
 /** "2 hours", from the shared limit. */
 const limitText =
@@ -63,6 +62,7 @@ export function TrackList({
 	onRemove,
 	onAdd,
 }: TrackListProps) {
+	const sources = rootRoute.useLoaderData();
 	const sensors = useSensors(
 		useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
 		useSensor(KeyboardSensor, {
@@ -141,14 +141,22 @@ export function TrackList({
 					</Button>
 				)}
 				<p className="text-xs text-muted-foreground">
-					One track per link, up to {limitText} each. Works with{" "}
-					{SUPPORTED_SITES.map((site, i) => (
-						<span key={site.id}>
-							{i > 0 && (i === SUPPORTED_SITES.length - 1 ? " and " : ", ")}
-							<span className="font-medium text-foreground">{site.name}</span>
-						</span>
-					))}
-					.
+					One track per link, up to {limitText} each.
+					{sources.length > 0 && (
+						<>
+							{" "}
+							Works with{" "}
+							{sources.map((source, i) => (
+								<span key={source.id}>
+									{i > 0 && (i === sources.length - 1 ? " and " : ", ")}
+									<span className="font-medium text-foreground">
+										{source.name}
+									</span>
+								</span>
+							))}
+							.
+						</>
+					)}
 				</p>
 			</CardContent>
 		</>
