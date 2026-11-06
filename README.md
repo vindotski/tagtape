@@ -61,23 +61,17 @@ pnpm monorepo. Requires Node 24+ and pnpm 12.
 
 ### Running it locally
 
-The API needs ffmpeg. You can install it, or borrow it from the image.
+Everything runs in Docker: you only need Docker and pnpm (to run the scripts). Nothing else is installed on your machine.
 
 ```bash
-pnpm install
-TOKEN=$(openssl rand -hex 32)
-
-# Option A: install ffmpeg and run both apps with hot reload
-brew install ffmpeg
-printf 'API_TOKEN=%s\n' "$TOKEN" > apps/api/.env
-printf 'API_URL=http://127.0.0.1:4000\nAPI_TOKEN=%s\n' "$TOKEN" > apps/web/.env
-pnpm dev                                   # web :3000, API :4000
-
-# Option B: API from the image (exposed on purpose), web app with hot reload
-docker run --rm -p 127.0.0.1:4000:4000 -e API_HOST=0.0.0.0 -e API_TOKEN=$TOKEN vindotski/tagtape
-printf 'API_URL=http://127.0.0.1:4000\nAPI_TOKEN=%s\n' "$TOKEN" > apps/web/.env
-pnpm --filter @tagtape/web dev
+pnpm docker        # build the real image and run it → http://localhost:3000
+pnpm docker:dev    # hot reload: web + API in containers, source mounted (Ctrl+C, then pnpm docker:down)
+pnpm docker:test   # Biome, typecheck and tests, inside the dev container
 ```
+
+Use `PORT=3010 pnpm docker:dev` (or `pnpm docker`) when port 3000 is taken. `docker:dev` keeps dependencies in Docker volumes, so the first start installs them and later starts are quick; `pnpm docker:down -v` resets them. To load a source plugin in dev, layer your own compose file on [`compose.dev.yaml`](compose.dev.yaml) that mounts it and sets `TAGTAPE_PLUGINS` on the `api` service.
+
+Running outside Docker also works (`pnpm install`, ffmpeg on `PATH`, `.env` files from the `.env.example`s, `pnpm dev`), plus the usual scripts:
 
 ```bash
 pnpm build

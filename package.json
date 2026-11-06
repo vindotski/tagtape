@@ -14,7 +14,11 @@
 		"typecheck": "pnpm --recursive run typecheck",
 		"test": "pnpm --recursive --if-present run test",
 		"check": "biome check",
-		"fix": "biome check --write"
+		"fix": "biome check --write",
+		"docker": "docker build -t tagtape:local . && docker run --rm -p 127.0.0.1:${PORT:-3000}:3000 tagtape:local",
+		"docker:dev": "docker compose -f compose.dev.yaml up --build",
+		"docker:test": "docker compose -f compose.dev.yaml run --rm --build install sh -c 'pnpm install --frozen-lockfile && pnpm check && pnpm typecheck && pnpm test'",
+		"docker:down": "docker compose -f compose.dev.yaml down"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.4.5",

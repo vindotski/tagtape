@@ -14,3 +14,4 @@
 apps/api/src/test
 deploy
 docs
+compose.dev.yaml

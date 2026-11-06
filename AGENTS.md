@@ -90,7 +90,20 @@ How the parts talk to each other: the browser only ever talks to the web app. Se
 
 ## Commands (pnpm only)
 
-pnpm workspace (`apps/*`, `packages/*`). Run these from the repo root:
+**Run things through Docker.** The user doesn't want to install dependencies or binaries (ffmpeg, …) on their machine, so never ask them to; use these scripts from the repo root:
+
+```bash
+pnpm docker        # build tagtape:local and run it on :3000 (PORT=… to change)
+pnpm docker:dev    # hot reload in containers (compose.dev.yaml); stop with pnpm docker:down
+pnpm docker:test   # pnpm check + typecheck + test inside the dev container
+```
+
+- `compose.dev.yaml` + `docker/dev.Dockerfile`: Node, pnpm and ffmpeg in one dev image. The source is bind-mounted and `node_modules` live in named volumes (Linux native builds never mix with the host's).
+- The API isn't published in dev either; `web` reaches it at `http://api:4000` with a fixed dev-only token.
+- Port 3000 may be busy (the user often has a container running): use `PORT=3010`.
+- In dev containers, `/tmp` holds two empty pnpm lock files; that's expected (no media).
+
+pnpm workspace (`apps/*`, `packages/*`). The plain scripts, from the repo root:
 
 ```bash
 pnpm install
@@ -102,7 +115,7 @@ pnpm check      # Biome lint + format; `pnpm fix` applies fixes
 pnpm --filter @tagtape/web <script>   # run a script in one package
 ```
 
-Run `pnpm check`, `pnpm typecheck` and the relevant tests before calling a task done. Shared TypeScript options live in `tsconfig.base.json`, and every package extends it. Add root-level dev tools with `pnpm add -Dw`.
+Run `pnpm check`, `pnpm typecheck` and the relevant tests (or `pnpm docker:test`) before calling a task done. Shared TypeScript options live in `tsconfig.base.json`, and every package extends it. Add root-level dev tools with `pnpm add -Dw`.
 
 ## Conventions
 
