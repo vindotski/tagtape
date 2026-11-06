@@ -16,6 +16,11 @@ The Fastify service that turns track links (YouTube, SoundCloud, Bandcamp, Mixcl
 
 Where tracks come from is pluggable. A **source** claims links (`match`), reads a track's details (`probe`) and streams it as untagged MP3 (`stream`); the core does everything else (limits, cover, tags, the ZIP, the queue). Sources come from plugin modules listed in `TAGTAPE_PLUGINS` (comma-separated paths), loaded at startup: an invalid plugin stops the API from starting. The contract, with every rule a plugin must follow, is in [`src/plugins/api.ts`](src/plugins/api.ts).
 
+One source is built in and always tried last: **direct links to MP3 files** ([`src/sources/direct.ts`](src/sources/direct.ts)), for http(s) links whose path ends in `.mp3`.
+- The check reads only the ID3 tag and a few KB after it ([`src/sources/mp3.ts`](src/sources/mp3.ts)): enough to prove it's MPEG audio and to get the length from the Xing/Info or VBRI header, or from size ÷ bitrate.
+- The download goes through ffmpeg with `-f mp3` (anything else fails) and no tags. CBR files are copied; VBR files are re-encoded to 256 kbps CBR, because a streamed file can't carry a correct VBR header.
+- Requests go through `lib/http.ts`: public addresses only (checked for IP literals too, on every redirect), a fresh connection each time, a 30 s connect timeout and the `MAX_DIRECT_MB` cap. A connection that drops mid-file fails the track instead of passing it as complete.
+
 ## How a job runs
 
 1. **Check (on `POST /jobs`):**

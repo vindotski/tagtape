@@ -16,6 +16,7 @@ services:
       MAX_ACTIVE_STREAMS: ${MAX_ACTIVE_STREAMS:-2}
       MAX_QUEUED_STREAMS: ${MAX_QUEUED_STREAMS:-10}
       TRACK_CONCURRENCY: ${TRACK_CONCURRENCY:-2}
+      MAX_DIRECT_MB: ${MAX_DIRECT_MB:-300}
     # Redeploys stop running downloads (nothing is stored to resume); users retry.
     stop_grace_period: 30s
 

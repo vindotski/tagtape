@@ -9,7 +9,6 @@ import {
 	issuesToFieldErrors,
 	streamArchive,
 } from "./api.server";
-import { joinNames } from "./sources";
 
 const JOB_ID = "8f14e45f-ceea-4e7a-9f3b-1c2d3e4f5a6b";
 
@@ -87,12 +86,6 @@ describe("API client", () => {
 			}),
 		);
 		await expect(getSources(fakeApi(500, {}).config)).rejects.toThrow("500");
-	});
-
-	test("joins source names for the page copy", () => {
-		expect(joinNames([], "or")).toBe("");
-		expect(joinNames(["A"], "or")).toBe("A");
-		expect(joinNames(["A", "B", "C"], "and")).toBe("A, B and C");
 	});
 
 	test("sends the bearer token and returns the job id", async () => {

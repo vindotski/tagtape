@@ -1,15 +1,13 @@
-import { request as httpRequest, type IncomingMessage } from "node:http";
-import { request as httpsRequest } from "node:https";
+import type { IncomingMessage } from "node:http";
 import type { LookupFunction } from "node:net";
 import { MAX_COVER_BYTES } from "@tagtape/shared";
 import sharp from "sharp";
 import { UserFacingError } from "../lib/errors.ts";
-import { publicOnlyLookup } from "../lib/net.ts";
+import { openPublicUrl } from "../lib/http.ts";
 
 export const COVER_SIZE = 1000;
-const MAX_REDIRECTS = 3;
 const TIMEOUT_MS = 15_000;
-const USER_AGENT = "TagTape/1.0 (+https://tagtape.app)";
+const LABEL = "Cover image URL";
 
 export interface DownloadOptions {
 	signal: AbortSignal;
@@ -20,78 +18,41 @@ export interface DownloadOptions {
 
 /**
  * Downloads an image with a size cap, a timeout, a redirect limit and SSRF
- * protection (every hop, including redirects, must resolve to a public address).
+ * protection (see `openPublicUrl`).
  */
 export async function downloadImage(
 	url: string,
 	options: DownloadOptions,
 ): Promise<Buffer> {
-	const signal = AbortSignal.any([
-		options.signal,
-		AbortSignal.timeout(TIMEOUT_MS),
-	]);
+	const timeout = AbortSignal.timeout(TIMEOUT_MS);
+	const signal = AbortSignal.any([options.signal, timeout]);
 	const maxBytes = options.maxBytes ?? MAX_COVER_BYTES;
-	const lookup =
-		options.lookup ?? (publicOnlyLookup as unknown as LookupFunction);
 
-	let current = new URL(url);
-	for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
-		if (current.protocol !== "http:" && current.protocol !== "https:") {
-			throw new UserFacingError("Cover image URL must use http or https");
-		}
-		const response = await get(current, lookup, signal);
-		const status = response.statusCode ?? 0;
-
-		if (status >= 300 && status < 400 && response.headers.location) {
-			response.resume();
-			current = new URL(response.headers.location, current);
-			continue;
-		}
-		if (status !== 200) {
-			response.resume();
-			throw new UserFacingError(`Cover image URL answered with HTTP ${status}`);
-		}
-		const type = response.headers["content-type"] ?? "";
-		if (!type.toLowerCase().startsWith("image/")) {
-			response.resume();
-			throw new UserFacingError("Cover image URL doesn't point to an image");
-		}
-		const declared = Number(response.headers["content-length"]);
-		if (Number.isFinite(declared) && declared > maxBytes) {
-			response.destroy();
-			throw tooLarge(maxBytes);
-		}
-		return readCapped(response, maxBytes);
-	}
-	throw new UserFacingError("Cover image URL redirects too many times");
-}
-
-function get(
-	url: URL,
-	lookup: LookupFunction,
-	signal: AbortSignal,
-): Promise<IncomingMessage> {
-	const request = url.protocol === "https:" ? httpsRequest : httpRequest;
-	return new Promise((resolve, reject) => {
-		const req = request(
-			url,
-			{
-				method: "GET",
-				lookup,
-				signal,
-				// Many image hosts (Wikimedia, some CDNs) answer 403 without a User-Agent.
-				headers: { accept: "image/*", "user-agent": USER_AGENT },
-			},
-			resolve,
-		);
-		req.once("error", (error) => {
-			if (error instanceof UserFacingError) reject(error);
-			else if (signal.aborted)
-				reject(new UserFacingError("Cover image download timed out"));
-			else reject(new UserFacingError("Couldn't download the cover image"));
+	let response: IncomingMessage;
+	try {
+		response = await openPublicUrl(url, {
+			signal,
+			accept: "image/*",
+			label: LABEL,
+			...(options.lookup ? { lookup: options.lookup } : {}),
 		});
-		req.end();
-	});
+	} catch (error) {
+		if (timeout.aborted) {
+			throw new UserFacingError("Cover image download timed out");
+		}
+		throw error;
+	}
+	const type = response.headers["content-type"] ?? "";
+	if (!type.toLowerCase().startsWith("image/")) {
+		response.resume();
+		throw new UserFacingError("Cover image URL doesn't point to an image");
+	}
+	const declared = Number(response.headers["content-length"]);
+	if (Number.isFinite(declared) && declared > maxBytes) {
+		response.destroy();
+		throw tooLarge(maxBytes);
+	}
+	return readCapped(response, maxBytes);
 }
 
 async function readCapped(

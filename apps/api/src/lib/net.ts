@@ -84,9 +84,7 @@ export function publicOnlyLookup(
 		const blocked = addresses.find((entry) => isPrivateAddress(entry.address));
 		if (blocked || addresses.length === 0) {
 			callback(
-				new UserFacingError(
-					"Cover image URL points to a private network address",
-				),
+				new UserFacingError("This link points to a private network address"),
 				[],
 			);
 			return;

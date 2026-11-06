@@ -1,5 +1,5 @@
 import { MAX_TRACKS } from "@tagtape/shared";
-import { createFileRoute, getRouteApi } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { AlbumForm } from "#/components/album-form";
 import { JobProgress } from "#/components/job-progress";
@@ -8,25 +8,14 @@ import {
 	emptyDraft,
 	type FieldErrors,
 } from "#/lib/album-draft";
-import { joinNames } from "#/lib/sources";
 
 export const Route = createFileRoute("/")({ component: Home });
-
-const rootRoute = getRouteApi("__root__");
 
 type Phase =
 	| { kind: "edit"; errors?: FieldErrors }
 	| { kind: "job"; jobId: string };
 
 function Home() {
-	const sources = rootRoute.useLoaderData();
-	const from =
-		sources.length > 0
-			? ` from ${joinNames(
-					sources.map((source) => source.name),
-					"or",
-				)}`
-			: "";
 	// The draft lives here so going back from a failed job keeps everything filled in.
 	const [draft, setDraft] = useState<AlbumDraft>(emptyDraft);
 	const [phase, setPhase] = useState<Phase>({ kind: "edit" });
@@ -38,7 +27,7 @@ function Home() {
 					Links to a tagged MP3 album
 				</h1>
 				<p className="mt-3 text-muted-foreground">
-					Paste up to {MAX_TRACKS} track links{from}, add the album details, and
+					Paste up to {MAX_TRACKS} track links, add the album details, and
 					download a ZIP of MP3s with titles, track numbers and cover art
 					already filled in, so they show up properly on any MP3 player.
 				</p>

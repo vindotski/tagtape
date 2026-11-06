@@ -33,6 +33,8 @@ export const configSchema = z.object({
 	MAX_QUEUED_STREAMS: queueSize(10),
 	/** Tracks checked in parallel within one job. */
 	TRACK_CONCURRENCY: positiveInt(2),
+	/** Largest MP3 file a direct link may point to, in MB (300 MB ≈ 2 hours at 320 kbps). */
+	MAX_DIRECT_MB: positiveInt(300),
 	/**
 	 * Source plugins to load: absolute paths to their modules, comma-separated.
 	 * Each plugin reads its own settings from the environment.
