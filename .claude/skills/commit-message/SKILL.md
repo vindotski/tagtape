@@ -1,17 +1,17 @@
 ---
 name: commit-message
-description: Suggest Conventional Commits messages for the current changes in the TagTape repo, and split them into commits when they cover more than one concern. Use when a step or task is finished, when the user asks for a commit message, or before any change would be committed. Never runs git commit; the user commits.
+description: Suggest Conventional Commits messages for the current changes in the TagTape repo, and split them into commits when they cover more than one concern. Use when a step or task is finished, when the user asks for a commit message, or before any change would be committed. Commits on the current claude/ branch; never pushes.
 ---
 
-# Commit message (suggest only)
+# Commit message
 
-**The user makes every commit.** Never run `git commit`, `git push`, `git rebase`, or anything that rewrites history. Read the changes, then print the suggested message(s) for the user to use.
+**The agent commits each finished step** on its `claude/<topic>` branch (cut from `dev`). Never run `git push`, merge into `dev` or `main`, tag, or rewrite pushed history: the user does those. Read the changes, write the message(s), and commit.
 
 ## Workflow
 
 1. Look at the changes with `git status --short`, `git diff --stat`, `git diff`, and `git diff --cached` for anything already staged.
 2. Decide whether this is one commit or several. Split when the changes do more than one logical thing, for example a refactor mixed with a feature, or a dependency bump mixed with code. A pure move or rename should be its own commit, so git records it as a rename.
-3. For each commit, give only the message text in a fenced block. Don't include `git add` or `git commit` commands; the user writes those. When there's more than one commit, add one short line before each message naming the files it covers.
+3. Check that `pnpm check`, typecheck and the relevant tests pass. Then, for each commit, stage only its files (`git add <paths>`) and run `git commit -F -` with the message. Report each commit's short hash and subject.
 
 ## Format: Conventional Commits 1.0
 

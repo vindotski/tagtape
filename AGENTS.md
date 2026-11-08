@@ -233,8 +233,9 @@ Run `pnpm check`, `pnpm typecheck` and the relevant tests (or `pnpm docker:test`
 
 ## Git
 
-- **The user makes all commits.** Never run `git commit` or `git push`. When a step is done, suggest a commit message with the `commit-message` skill.
-- Work is done one step at a time, and each step is one commit.
+- **The agent commits each finished step** (one step = one commit), with a message from the `commit-message` skill, after `pnpm check`, typecheck and the tests pass. Split changes that do more than one thing into separate commits.
+- New work goes on its own branch, `claude/<topic>`, cut from `dev`.
+- **Never push, merge into `dev` or `main`, tag, or rewrite pushed history.** The user does that.
 
 ## Skills
 
