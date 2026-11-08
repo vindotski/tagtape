@@ -11,6 +11,7 @@ import {
 	getRequestIP,
 } from "@tanstack/react-start/server";
 import { z } from "zod";
+import { database, listAlbums, recordAlbum } from "./albums.server";
 import { apiConfigFromEnv, createJob, getJob, getSources } from "./api.server";
 import { backend, ensureGuest } from "./backend.server";
 import { clientAddress } from "./client-ip.server";
@@ -66,12 +67,42 @@ export const startJob = createServerFn({ method: "POST" })
 		}
 		for (const cookie of guest.cookies)
 			appendResponseHeader("set-cookie", cookie);
+		let result: Awaited<ReturnType<typeof createJob>>;
 		try {
-			return await createJob(data.album, apiConfigFromEnv(), client);
+			result = await createJob(data.album, apiConfigFromEnv(), client);
 		} catch {
 			return { ok: false as const, message: UNREACHABLE };
 		}
+		if (result.ok) {
+			// History is a convenience: the album still starts if this fails.
+			try {
+				await recordAlbum(await database(), guest.guestId, data.album);
+			} catch (error) {
+				console.error("[tagtape] recording the album failed", error);
+			}
+		}
+		return result;
 	});
+
+/**
+ * The visitor's recent albums. Reading never creates a guest; it refreshes
+ * the session cookie of one that exists. Empty when the database is down.
+ */
+export const fetchAlbums = createServerFn({ method: "GET" }).handler(
+	async () => {
+		try {
+			const { guest, headers } = await backend().currentGuest(getRequest());
+			for (const cookie of headers.getSetCookie()) {
+				appendResponseHeader("set-cookie", cookie);
+			}
+			if (!guest) return [];
+			return await listAlbums(await database(), guest.id);
+		} catch (error) {
+			console.error("[tagtape] reading album history failed", error);
+			return [];
+		}
+	},
+);
 
 /** The API's sources, for the page copy. Empty when the API isn't reachable. */
 export const fetchSources = createServerFn({ method: "GET" }).handler(

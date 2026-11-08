@@ -7,7 +7,7 @@
 
 Paste up to 10 track links (one track each, up to 2 hours long), add the album title, artist, year, genre and a cover image, and download a ZIP of MP3s with every tag filled in and the tracks numbered in your order. The albums show up properly on any plain MP3 player.
 
-**Nothing is stored on the server:** tracks convert while the ZIP streams to your browser.
+**No music is stored on the server:** tracks convert while the ZIP streams to your browser. TagTape only remembers the album details (title, artist, genre, year, track count) so it can list "Your albums" for your browser, under a guest account with no sign-up.
 
 Out of the box, TagTape reads **direct links to MP3 files**. Other kinds of links can be added with [source plugins](#sources-and-plugins).
 
@@ -69,7 +69,7 @@ Everything runs in Docker: you only need Docker and pnpm (to run the scripts). N
 ```bash
 pnpm docker        # build the real image and run it → http://localhost:3000
 pnpm docker:dev    # hot reload: web + API in containers, source mounted (Ctrl+C, then pnpm docker:down)
-pnpm docker:test   # Biome, typecheck and tests, inside the dev container
+pnpm docker:test   # Biome, typecheck and tests (with Postgres), inside the dev container
 ```
 
 Use `PORT=3010 pnpm docker:dev` (or `pnpm docker`) when port 3000 is taken. `docker:dev` also runs a local Postgres for guest accounts (not published) and migrates it before the web app starts. It keeps dependencies in Docker volumes, so the first start installs them and later starts are quick; `pnpm docker:down -v` resets them. To load a source plugin in dev, layer your own compose file on [`compose.dev.yaml`](compose.dev.yaml) that mounts it and sets `TAGTAPE_PLUGINS` on the `api` service.

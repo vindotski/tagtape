@@ -56,6 +56,15 @@ services:
       timeout: 5s
       retries: 30
 
+  # `pnpm docker:test`: checks and tests, with Postgres for the database tests.
+  test:
+    <<: *dev
+    environment:
+      TAGTAPE_TEST_DATABASE_URL: postgres://postgres:dev-postgres-not-secret@postgres:5432/postgres
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   migrate:
     <<: *dev
     command: node apps/web/scripts/dev-migrate.ts

@@ -1,15 +1,20 @@
 import { MAX_TRACKS } from "@tagtape/shared";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useState } from "react";
 import { AlbumForm } from "#/components/album-form";
 import { JobProgress } from "#/components/job-progress";
+import { RecentAlbums } from "#/components/recent-albums";
 import {
 	type AlbumDraft,
 	emptyDraft,
 	type FieldErrors,
 } from "#/lib/album-draft";
+import { fetchAlbums } from "#/lib/jobs.functions";
 
-export const Route = createFileRoute("/")({ component: Home });
+export const Route = createFileRoute("/")({
+	loader: () => fetchAlbums(),
+	component: Home,
+});
 
 type Phase =
 	| { kind: "edit"; errors?: FieldErrors }
@@ -19,6 +24,8 @@ function Home() {
 	// The draft lives here so going back from a failed job keeps everything filled in.
 	const [draft, setDraft] = useState<AlbumDraft>(emptyDraft);
 	const [phase, setPhase] = useState<Phase>({ kind: "edit" });
+	const albums = Route.useLoaderData();
+	const router = useRouter();
 
 	return (
 		<>
@@ -40,7 +47,11 @@ function Home() {
 					draft={draft}
 					onDraftChange={setDraft}
 					initialErrors={phase.errors}
-					onStarted={(jobId) => setPhase({ kind: "job", jobId })}
+					onStarted={(jobId) => {
+						setPhase({ kind: "job", jobId });
+						// The new album (and, on a first visit, the new guest) shows up below.
+						void router.invalidate();
+					}}
 				/>
 			) : (
 				<JobProgress
@@ -62,6 +73,8 @@ function Home() {
 					}}
 				/>
 			)}
+
+			<RecentAlbums albums={albums} />
 		</>
 	);
 }

@@ -62,7 +62,7 @@ tanstackIntent:
 
 # TagTape — agent instructions
 
-TagTape turns 1–10 track links plus album details (title, artist, genre, year, cover) into a ZIP of ID3-tagged MP3s laid out as an album, so the tracks sort and display correctly on any plain MP3 player. Visitors get guest accounts (no sign-up) from Spotcraft's backend kit, in Postgres; media is never stored. Out of the box it reads direct links to MP3 files; other sources come from plugins. https://tagtape.app
+TagTape turns 1–10 track links plus album details (title, artist, genre, year, cover) into a ZIP of ID3-tagged MP3s laid out as an album, so the tracks sort and display correctly on any plain MP3 player. Visitors get guest accounts (no sign-up) from Spotcraft's backend kit, stored in Postgres; media is never stored. Out of the box it reads direct links to MP3 files; other sources come from plugins. https://tagtape.app
 
 ## Repo layout
 
@@ -98,7 +98,7 @@ How the parts talk to each other: the browser only ever talks to the web app. Se
 ```bash
 pnpm docker        # build tagtape:local and run it on :3000 (PORT=… to change)
 pnpm docker:dev    # hot reload in containers (compose.dev.yaml); stop with pnpm docker:down
-pnpm docker:test   # pnpm check + typecheck + test inside the dev container
+pnpm docker:test   # pnpm check + typecheck + test inside the dev container, with Postgres
 ```
 
 - `compose.dev.yaml` + `docker/dev.Dockerfile`: Node, pnpm and ffmpeg in one dev image. The source is bind-mounted and `node_modules` live in named volumes (Linux native builds never mix with the host's).
@@ -145,6 +145,9 @@ Run `pnpm check`, `pnpm typecheck` and the relevant tests (or `pnpm docker:test`
   - Create guests only on writes (`ensureGuest` in `startJob`, after the proof-of-work). Reads use `currentGuest`, which never creates one.
   - Env: `DATABASE_URL` (Spotcraft sets it), `AUTH_SECRET` (32+ chars), `PUBLIC_URL`. The backend is created lazily, because `vite build` imports the module without a database.
   - Spotcraft owns the `auth` schema: never change it. TagTape's tables go in `public`, keyed to `auth.users (id) ON DELETE CASCADE`.
+  - **Album history** (`src/lib/albums.server.ts`): `startJob` records an album after the API accepts it, and the index route's loader reads it with `fetchAlbums` (via `currentGuest`). Store album details only, never track links, covers or media. Up to `HISTORY_LIMIT` (50) per guest. Database failures never block an album: history is a convenience.
+  - TagTape migrates `public` itself, on first use (`migrateApp`: numbered SQL in `MIGRATIONS`, one transaction, advisory lock, `tagtape_migrations` table). Migrations only add, so an older release keeps working during a rollover.
+  - Database tests (`albums.test.ts`) need `TAGTAPE_TEST_DATABASE_URL` (a role that may create databases) and are skipped without it. `pnpm docker:test` (the `test` service) and CI's `checks` job provide Postgres.
   - In dev, `compose.dev.yaml` runs Postgres and a `migrate` service (`apps/web/scripts/dev-migrate.ts`) before `web`. On Spotcraft, its agent migrates `auth`.
   - `pnpm-workspace.yaml` excludes `@spotcraft/kit` (our own project) from `minimumReleaseAge`; its dependencies still wait.
 - **Never write media to disk.** Downloads stream: source → `ffmpeg pipe:1` → ID3 tag + MP3 → streamed ZIP. Only metadata and the cover live in memory, and a TTL sweeper forgets jobs.
