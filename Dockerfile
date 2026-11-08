@@ -72,7 +72,9 @@ ENV PORT=3000 \
 	FFMPEG_BIN=/usr/bin/ffmpeg
 USER node
 EXPOSE 3000
-HEALTHCHECK --interval=30s --timeout=10s --start-period=15s \
+# Spotcraft's deploy waits for this check (up to 120 s) before it counts the
+# new version as up: probe every 2 s while starting, then every 30 s.
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --start-interval=2s \
 	CMD ["node", "-e", "Promise.all(['http://127.0.0.1:4000/health','http://127.0.0.1:'+process.env.PORT+'/'].map(u=>fetch(u).then(r=>{if(!r.ok)throw r.status}))).then(()=>process.exit(0),()=>process.exit(1))"]
 ENTRYPOINT ["/usr/bin/tini", "--"]
 CMD ["node", "docker/start.mjs"]

@@ -96,7 +96,7 @@ How the parts talk to each other: the browser only ever talks to the web app. Se
 **Run things through Docker.** The user doesn't want to install dependencies or binaries (ffmpeg, …) on their machine, so never ask them to; use these scripts from the repo root:
 
 ```bash
-pnpm docker        # build tagtape:local and run it on :3000 (PORT=… to change)
+pnpm docker        # the image with Spotcraft's restrictions + local Postgres, on :3000 (PORT=… to change)
 pnpm docker:dev    # hot reload in containers (compose.dev.yaml); stop with pnpm docker:down
 pnpm docker:test   # pnpm check + typecheck + test inside the dev container, with Postgres
 ```
@@ -132,14 +132,14 @@ Run `pnpm check`, `pnpm typecheck` and the relevant tests (or `pnpm docker:test`
   - UI copy reads the source names from the API (`GET /sources`, via the root route's loader), so don't hard-code them.
 - **Abuse limits:**
   - **Per-client limits live in the API** (`jobs/manager.ts`), keyed by the `x-tagtape-client` header the web app sets (`lib/client.ts`: IPv4 as is, IPv6 per /64, missing = `local`).
-  - The web app takes the address from `X-Forwarded-For` (its last entry) **only with `TRUST_PROXY=1`** (`client-ip.server.ts`). The deploy kit sets it because only Caddy reaches the app. Never enable it without a proxy in front.
+  - The web app takes the address from `X-Forwarded-For` (its last entry) **only with `TRUST_PROXY=1`** (`client-ip.server.ts`). It's set on Spotcraft, whose Caddy replaces the header with the visitor's address. Never enable it without a proxy in front.
   - Starting an album needs a **proof-of-work** (`lib/pow*.ts`, altcha-lib, PBKDF2): a challenge from `getChallenge`, solved in a Web Worker while the form is filled in, and verified once in `startJob` (replays refused).
   - Server functions are protected by the CSRF middleware in `src/start.ts`.
 - Fetch user-supplied URLs only through `lib/http.ts` (`openPublicUrl`): private addresses blocked on every hop, IP literals included, a fresh connection per request. Add a size cap and a timeout (SSRF).
-- **Hardened runtime** (`deploy/compose.yaml`):
-  - The app container is **read-only**, with a 16 MB `/tmp` tmpfs. Its code is root-owned in the image, and it runs with no capabilities, `no-new-privileges`, and memory/CPU/PID limits. Anything that needs to write to disk will fail there, which is intended.
-  - Caddy keeps only `NET_BIND_SERVICE`.
-- **CSP:** the web app sets it per page with a fresh nonce for the router's inline scripts (`src/lib/csp.server.ts`, production builds only). Caddy adds the other security headers. A new third-party script, style, font, image host or connection needs the policy changed on purpose; prefer self-hosting.
+- **Hardened runtime** (what Spotcraft applies to hosted apps; `docker/compose.local.yaml` and CI's smoke test mirror it):
+  - The app container is **read-only**, with a 64 MB `noexec` `/tmp` tmpfs. Its code is root-owned in the image, and it runs as `node` with no capabilities, `no-new-privileges`, 256 PIDs and memory/CPU limits. Anything that needs to write to disk will fail there, which is intended.
+- **Edge vs. app:** Spotcraft's Caddy sets only HSTS, `nosniff` and `Referrer-Policy`. The app's request middleware (`src/start.ts`, `lib/request-limits.ts`) adds a 64 KB body limit (411 without a length, 413 over it), plus `X-Frame-Options`, COOP and `Permissions-Policy`.
+- **CSP:** the web app sets it per page with a fresh nonce for the router's inline scripts (`src/lib/csp.server.ts`, production builds only). A new third-party script, style, font, image host or connection needs the policy changed on purpose; prefer self-hosting.
 - **Guest accounts** come from Spotcraft's backend kit, `@spotcraft/kit` (`apps/web/src/lib/backend.server.ts`), on Postgres. Keep it the same version as the Spotcraft the app deploys to.
   - Server-only: never import it from client code. The browser only carries the httpOnly session cookie.
   - Create guests only on writes (`ensureGuest` in `startJob`, after the proof-of-work). Reads use `currentGuest`, which never creates one.
@@ -181,30 +181,16 @@ Run `pnpm check`, `pnpm typecheck` and the relevant tests (or `pnpm docker:test`
   - Docker: the API is part of the root `Dockerfile` (`docker build -t tagtape .`). Images built `FROM` it may add plugins via `TAGTAPE_PLUGINS`.
   - The real-binary check is `src/e2e.test.ts`, run against a container (see `apps/api/README.md`). Run it after changing the pipeline.
 
-## Deploy (`deploy/`, `docs/deploy.md`)
+## Deploy (Spotcraft, `docs/deploy.md`)
 
-- **Target:** one Linux server on any provider with cloud-init (DigitalOcean, Hetzner, Vultr, Linode, AWS, …; Ubuntu 22.04/24.04 or Debian 12/13, amd64/arm64), running `deploy/compose.yaml`: the app image plus Caddy (automatic HTTPS, `www` redirect, security headers).
-  - Only Caddy publishes ports.
-  - Both services have health checks, so `docker compose up --wait` really waits. Without Caddy's health check, a crash-looping Caddy counted as "running".
-- **`deploy/cloud-init.yaml`** bootstraps a new server:
-  - Docker (repo per distro) with `live-restore`, `no-new-privileges` and no userland proxy
-  - the `deploy` user
-  - ufw, with SSH rate-limited
-  - key-only SSH (root keeps key login) via `sshd_config.d/00-tagtape.conf`, which must sort **before** Ubuntu's `50-cloud-init.conf` because sshd takes the first value it reads; plus `ssh_pwauth: false`
-  - unattended upgrades, including Docker's repo, with an automatic reboot at 04:00 when needed
-  - a 1 GB swapfile and log rotation
-  - Don't add `AllowUsers`: on AWS the admin logs in as the image's default user.
-  - It must stay provider-neutral. SSH keys are collected from every account and stripped of options, because AWS wraps root's keys in a forced "login as ubuntu" command.
-  - Validate it with `cloud-init schema`, and run its steps in `ubuntu:22.04`, `ubuntu:24.04`, `debian:12` and `debian:13` containers.
-- **`.github/workflows/deploy.yml`** is manual (`workflow_dispatch` with an image `tag`) and runs in the `production` environment:
-  - plain ssh/scp, with the host key pinned in `DEPLOY_KNOWN_HOSTS`
-  - runs `deploy/remote-deploy.sh` on the server, then checks the site from outside
-  - secrets: `DEPLOY_SSH_KEY`, `DEPLOY_KNOWN_HOSTS`; variables: `DEPLOY_HOST`, `TAGTAPE_DOMAIN`, `DEPLOY_USER`
-- **Rehearse changes to the deploy files locally** before relying on them:
-  - push the image to a local `registry:2`
-  - use a temp dir as `/opt/tagtape`, with `TAGTAPE_DOMAIN=localhost`
-  - run `remote-deploy.sh`, then run the browser flow against `https://localhost`
-- **Deploys need a published image** (a `sha-…` tag from `main`, or a release tag), and only the user starts them.
+- **Target:** [Spotcraft](https://spotcraft.dev) (the user's own self-hosted deploy tool; source in `../spotcraft`). The app runs the published image with a Postgres database, on the domain `tagtape.app`.
+  - Spotcraft deploys hosted apps **from its dashboard only**. TagTape has no deploy workflow, and only the user deploys.
+  - A deploy waits up to 120 s for the image's `HEALTHCHECK` and rolls back on failure. It stops the old container before starting the new one, so running downloads are cut.
+  - Spotcraft provisions the database (`app_tagtape`) and migrates `auth` before the container starts. TagTape migrates `public` itself.
+  - Environment set in the dashboard: `TRUST_PROXY=1`, `PUBLIC_URL`, `AUTH_SECRET`, `NODE_OPTIONS`, plus any tuning. `DATABASE_URL` comes from the Database checkbox.
+- **Rehearse a release with `pnpm docker`** (`docker/compose.local.yaml`): the production image with Spotcraft's container settings and a database provisioned by the kit's `provision`, like Spotcraft's agent does it. Run the browser flow and the `/tmp` check against it.
+- **Deploys need a published image** (a `sha-…` tag from `main`, or a release tag).
+- Postgres (`postgres:18.6-trixie`, by digest) in `compose.dev.yaml`, `docker/compose.local.yaml` and CI follows Spotcraft's apps server (`infra/apps-server/compose.yaml` there), not Dependabot.
 
 ## CI (`.github/workflows/`)
 
@@ -223,8 +209,8 @@ Run `pnpm check`, `pnpm typecheck` and the relevant tests (or `pnpm docker:test`
   - Never publish from `dev` or from PRs.
 - **`e2e.yml`** runs weekly (and on demand): real public MP3 links converted through the image.
 - **Image scan:** the `image` job runs Trivy (the `aquasec/trivy` CLI image, pinned by digest, not an action). Fixable HIGH/CRITICAL vulnerabilities fail the build. The runtime image has no npm/npx/corepack/yarn (removed in the `Dockerfile`), so their bundled dependencies can't be flagged or abused.
-- **Base images** (`node`, `ghcr.io/pnpm/pnpm`, `caddy`) are pinned by digest, with the tag kept for readability, in the `Dockerfile`, `docker/dev.Dockerfile` and `deploy/compose.yaml`. Don't use a build `ARG` or `COPY --from=<image>` for them: Dependabot can't update those.
-- **Dependabot** (`.github/dependabot.yml`) opens weekly grouped PRs against `dev` for actions, npm, the Docker bases and compose, with a 7-day cooldown.
+- **Base images** (`node`, `ghcr.io/pnpm/pnpm`) are pinned by digest, with the tag kept for readability, in the `Dockerfile` and `docker/dev.Dockerfile`. Don't use a build `ARG` or `COPY --from=<image>` for them: Dependabot can't update those.
+- **Dependabot** (`.github/dependabot.yml`) opens weekly grouped PRs against `dev` for actions, npm and the Docker bases, with a 7-day cooldown.
 - **pnpm supply chain** (`pnpm-workspace.yaml`): `minimumReleaseAge`, `trustPolicy: no-downgrade`, `blockExoticSubdeps` and `strictDepBuilds` are written out explicitly.
   - The root `@types/node` (catalog) exists so vitest's optional peer resolves to Node 24 types. Without it, pnpm auto-installs an old `@types/node` for `packages/shared`, which trips `trustPolicy`.
   - If `trustPolicy` flags a package, find out why before adding an exception.

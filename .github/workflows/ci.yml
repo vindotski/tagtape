@@ -91,10 +91,12 @@ jobs:
 
       - name: Smoke test the container
         run: |
-          # Same restrictions as deploy/compose.yaml: anything that starts
-          # writing to disk, or needs a capability, fails here first.
+          # Same restrictions as Spotcraft gives hosted apps (and
+          # docker/compose.local.yaml): anything that starts writing to disk,
+          # or needs a capability, fails here first. No database: pages must
+          # still render without one.
           docker run -d --name app -p 127.0.0.1:3000:3000 \
-            --read-only --tmpfs /tmp:size=16m,noexec,nosuid,nodev \
+            --read-only --tmpfs /tmp:size=64m,noexec,nosuid,nodev \
             --cap-drop ALL --security-opt no-new-privileges:true \
             --memory 1g --pids-limit 256 tagtape:ci
           for _ in $(seq 1 30); do

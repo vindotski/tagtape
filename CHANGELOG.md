@@ -8,6 +8,15 @@ TagTape has one version for the web app and the API, kept in the root `package.j
 - **Guest accounts** from Spotcraft's backend kit (`@spotcraft/kit` 0.2.0). Starting an album gives the visitor a guest account (an httpOnly session cookie, no sign-up). Page views never create one. It needs Postgres and `DATABASE_URL`, `AUTH_SECRET` and `PUBLIC_URL`; `pnpm docker:dev` now runs a local Postgres and migrates its `auth` schema.
 - **Your albums:** the page lists the albums you've started in this browser (the newest 20; up to 50 are kept). Only the album details are stored (title, artist, genre, year, track count), never track links, covers or music. TagTape migrates its own tables on first use.
 
+### Changed
+- **Hosted on [Spotcraft](https://spotcraft.dev)** instead of the single-server deploy kit. Spotcraft provides HTTPS, the Postgres database, health-checked deploys with rollback, and the same container restrictions (now a 64 MB `/tmp`). See [docs/deploy.md](docs/deploy.md).
+- The app now enforces the 64 KB request body limit itself and sets `X-Frame-Options`, `Cross-Origin-Opener-Policy` and `Permissions-Policy`, which Caddy used to add.
+- The image's health check probes every 2 s while starting, so a deploy counts as up within seconds.
+- `pnpm docker` runs the image the way Spotcraft does, with a local Postgres provisioned like Spotcraft's (`docker/compose.local.yaml`).
+
+### Removed
+- The deploy kit (`deploy/`: cloud-init, Compose with Caddy, `remote-deploy.sh`) and the manual **Deploy** workflow. Deploys now happen from Spotcraft's dashboard.
+
 ## 2.0.0 (2026-11-06)
 
 A complete rewrite of Albumie as **TagTape** ([tagtape.app](https://tagtape.app)).

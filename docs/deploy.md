@@ -1,145 +1,80 @@
-# Deploying TagTape to a server
+# Deploying TagTape on Spotcraft
 
-TagTape runs as one Docker image (`vindotski/tagtape`) behind [Caddy](https://caddyserver.com), which handles HTTPS. The setup is **provider-neutral**. It works on any Linux VM where you can paste cloud-init "user data" when creating the server: DigitalOcean, Hetzner, Vultr, Linode/Akamai, AWS EC2, and others. Everything needed to rebuild the server lives in [`deploy/`](../deploy):
+TagTape runs on [Spotcraft](https://spotcraft.dev) (v0.2.0 or later), which runs the image behind HTTPS, gives it a Postgres database and watches it. Spotcraft deploys hosted apps from its dashboard only: there is no deploy workflow in this repo.
 
-| File | What it does |
+What Spotcraft provides, and what TagTape relies on:
+
+- **Caddy in front** with automatic HTTPS, HSTS, `nosniff`, `Referrer-Policy`, and a `www` → apex redirect for two-label domains like `tagtape.app`. It sets `X-Forwarded-For` to the visitor's address (it ignores what the client sent), so `TRUST_PROXY=1` is safe. No write timeout, so ZIP downloads stream for as long as they take.
+- **A Postgres database** (`app_tagtape`). Spotcraft creates it and migrates its `auth` schema before the container starts. TagTape migrates its own tables in `public` on first use.
+- **The container restrictions** TagTape is built for: read-only root, a 64 MB `noexec` `/tmp`, no capabilities, `no-new-privileges`, 256 PIDs, and a 30 s stop grace period.
+- **Health:** a deploy waits up to 120 s for the image's `HEALTHCHECK` (the web app and the internal API), and rolls back to the previous version if it fails.
+
+The app sets the rest itself:
+- the nonce-based CSP
+- `X-Frame-Options`
+- `Cross-Origin-Opener-Policy`
+- `Permissions-Policy`
+- a 64 KB request body limit (`src/start.ts`)
+
+## 1. Rehearse the release locally
+
+```bash
+pnpm docker   # the image, run the way Spotcraft runs it, with Postgres → http://localhost:3000
+```
+
+[`docker/compose.local.yaml`](../docker/compose.local.yaml) applies Spotcraft's container settings and provisions the database the way Spotcraft's agent does. Convert a short album, and check that `find /tmp -type f` inside the app container prints nothing during and after the download.
+
+## 2. Create the app (once)
+
+In the Spotcraft dashboard, **New app**:
+
+| Field | Value |
 |---|---|
-| [`cloud-init.yaml`](../deploy/cloud-init.yaml) | First-boot setup: Docker, a `deploy` user for CI (gets the SSH keys you chose, wherever your provider put them), firewall (SSH/80/443 only), key-only SSH, automatic security updates, log rotation |
-| [`compose.yaml`](../deploy/compose.yaml) | The app + Caddy. Only Caddy publishes ports. Both have health checks. |
-| [`Caddyfile`](../deploy/Caddyfile) | HTTPS for your domain (Let's Encrypt), `www` → apex redirect, security headers |
-| [`.env.example`](../deploy/.env.example) | Server settings: domain, image tag, tuning |
-| [`remote-deploy.sh`](../deploy/remote-deploy.sh) | Runs on the server: pins the tag, pulls, restarts, waits until healthy |
+| Name | `tagtape` |
+| Image | `vindotski/tagtape` (public on Docker Hub) |
+| Tag | a release, e.g. `2.1.0`, or a `sha-abc1234` from `main` |
+| Domain | `tagtape.app` |
+| Container port | `3000` |
+| Memory / CPUs | `1g` / `2` (web, API and up to two ffmpeg conversions share them) |
+| Read-only filesystem | on (the default) |
+| Database | ticked: Spotcraft sets `DATABASE_URL`; don't set it yourself |
 
-Deploys run from GitHub Actions ([`deploy.yml`](../.github/workflows/deploy.yml)), triggered by hand with an image tag. Because the setup is reproducible, **switching providers, moving servers or getting a new IP** means creating a new server from the same files, then running a deploy.
+Environment variables, one `KEY=value` per line:
 
-> ⚠️ Some sites block or rate-limit datacenter IPs. If you run source plugins, test a real conversion on every new server (step 6).
-
-## 1. Create the server
-
-**Any provider:**
-- **OS:** Ubuntu 24.04 LTS (recommended), Ubuntu 22.04, or Debian 12/13
-- **CPU:** amd64 or arm64; the image supports both
-- **Size:** about **2 vCPU / 4 GB**, enough for 2 downloads converting at once (see `MAX_ACTIVE_STREAMS`)
-- **Login:** an SSH key, not a password
-- **User data:** paste the whole of [`deploy/cloud-init.yaml`](../deploy/cloud-init.yaml) into the provider's **user data / cloud-init** field
-
-Where that field is, and what else to check:
-
-| Provider | User-data field (in the create form) | Also check |
-|---|---|---|
-| DigitalOcean | **Startup scripts**, under *Additional Options* | Optional Reserved IP, so the address survives replacing the Droplet |
-| Hetzner Cloud | **Cloud config** | ARM (CAX) servers work too |
-| Linode / Akamai | **Add User Data** (the image must support Metadata; check Akamai's distribution list) | |
-| AWS EC2 | **User data**, under *Advanced details* | The **security group must allow** inbound 22/tcp (ideally only your IP and GitHub's), 80/tcp, 443/tcp and 443/udp |
-| Vultr / others | See your provider's docs for "cloud-init user data" | Any provider firewall must allow 22, 80, 443 (tcp) and 443/udp |
-
-Labels change over time. If your provider calls the field something else, look for "user data" or "cloud-init". If a provider doesn't support cloud-init at all, run the `runcmd` steps from `cloud-init.yaml` by hand as root.
-
-Give it a few minutes after boot. Then this should work:
-
-```bash
-ssh deploy@<server-ip> docker version
+```
+TRUST_PROXY=1
+PUBLIC_URL=https://tagtape.app
+AUTH_SECRET=<openssl rand -hex 32>
+NODE_OPTIONS=--max-old-space-size=384
 ```
 
-There are two accounts, both key-only:
-- **`deploy`** runs the app. It's in the `docker` group, which is effectively root-equivalent, so guard its key.
-- **The provider's admin account** is for admin work like reboots and upgrades. It's usually `root`; on Ubuntu images for AWS it's usually `ubuntu`, with `sudo`.
+- **`AUTH_SECRET`** signs the guests' session cookies. Generate it once and keep it: changing it signs every guest out, and they lose their album history. Spotcraft stores environment variables in plain text in the app's settings on the apps server, so treat that server's disk accordingly.
+- **Tuning** uses the same variables as the API ([README](../README.md#configuration)):
+  - the per-client limits: `MAX_JOBS_PER_CLIENT_HOUR`, `MAX_DOWNLOADS_PER_CLIENT`, …
+  - the server-wide limits: `MAX_ACTIVE_STREAMS`, …
+  - the proof-of-work cost: `POW_COST`
+  - `LOG_LEVEL`
 
-If something looks wrong, read `/var/log/cloud-init-output.log`. A missing SSH key shows up there as a `WARNING`.
+Point the domain's DNS at the apps server (A/AAAA for `tagtape.app` and `www`). With Cloudflare DNS, use **DNS only** (grey cloud): its proxy cuts long downloads and would merge every visitor into one rate-limit bucket.
 
-## 2. Point DNS at it
+## 3. Deploy a new version
 
-At your DNS provider, add:
+Push `main` (publishes `latest` and `sha-…`) or tag `vX.Y.Z` (publishes `X.Y.Z`), wait for CI's **Publish** job, then edit the app in the dashboard and pick the new tag. Spotcraft pulls it, waits for the health check, and rolls back on failure, showing the app's last log lines.
 
-| Type | Name | Value |
-|---|---|---|
-| A | `tagtape.app` | server IPv4 |
-| A | `www` | server IPv4 |
-| AAAA | `tagtape.app`, `www` | server IPv6 (if it has one) |
+- **A deploy cuts running downloads.** Spotcraft stops the old container (30 s grace) before starting the new one, and jobs live in memory. Deploy when nobody is downloading; users just retry.
+- **Database migrations only add**, in TagTape and in the kit, so a rollback to the previous tag keeps working against the newer schema.
+- Keep `@spotcraft/kit` at the version of the Spotcraft you deploy to: the kit refuses to start against an older `auth` schema.
 
-If your DNS is on Cloudflare, set these records to **DNS only** (grey cloud), at least for the first deploy, so Caddy can get its certificate directly.
+## 4. Test a real conversion (after moving servers)
 
-## 3. Server settings
+Convert a short album from the live site, for example the public sample `https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3`, plus a link for each source plugin you run. Logs are on the app's page in the dashboard. Some sites block or rate-limit datacenter IPs; if a plugin's source refuses the server, try another region or provider.
 
-```bash
-ssh deploy@<server-ip>
-cd /opt/tagtape
-nano .env     # paste deploy/.env.example and set TAGTAPE_DOMAIN
-```
+## Guests and their data
 
-The deploy workflow copies `compose.yaml` and `Caddyfile` on every deploy and only changes `TAGTAPE_TAG` in `.env`.
-
-**Hardening (built in).**
-- **App container:** read-only, root-owned code, no capabilities, and limits set by `APP_MEMORY` (1 GB), `APP_CPUS` (2) and `APP_NODE_HEAP_MB`. On a 2 GB server the defaults leave room for Caddy and the system.
-- **Caddy:** HSTS, the frame, permissions and opener headers, a 64 KB body limit and slow-client timeouts; the app adds a nonce-based CSP to every page.
-- **The server:**
-  - SSH is key-only, with root key login kept for admin work.
-  - SSH is rate-limited by ufw.
-  - Security updates (including Docker) install automatically, and the server reboots at 04:00 when one needs it.
-  - There's 1 GB of swap.
-
-**Abuse limits.** Per-client limits use the browser's address, which the app takes from Caddy's `X-Forwarded-For` header (`TRUST_PROXY=1` is set in `compose.yaml`: only Caddy can reach the app). If you put another proxy or CDN in front of Caddy, make Caddy trust it (`trusted_proxies`), or every visitor will look like that proxy and share one set of limits. The defaults, all overridable in `.env`: 30 albums per hour, 2 being checked and 2 downloads at once per address, 5 downloads per album, and an invisible proof-of-work of about a second per album (`POW_COST`).
-
-## 4. GitHub setup (once)
-
-In the repository, go to **Settings → Environments → New environment** `production` and, optionally, add yourself as a required reviewer. Then, in that environment (or under repository settings), add:
-
-| Kind | Name | Value |
-|---|---|---|
-| Variable | `DEPLOY_HOST` | server IP or hostname |
-| Variable | `TAGTAPE_DOMAIN` | `tagtape.app` |
-| Variable | `DEPLOY_USER` | `deploy` (optional, this is the default) |
-| Secret | `DEPLOY_SSH_KEY` | a **private** key whose public half is in `/home/deploy/.ssh/authorized_keys` |
-| Secret | `DEPLOY_KNOWN_HOSTS` | the output of `ssh-keyscan -t ed25519 <server-ip>` |
-
-Generate a dedicated key for CI instead of reusing your personal one:
-
-```bash
-ssh-keygen -t ed25519 -f tagtape-deploy -N "" -C "github-actions-deploy"
-ssh deploy@<server-ip> 'cat >> ~/.ssh/authorized_keys' < tagtape-deploy.pub
-# paste the contents of tagtape-deploy into DEPLOY_SSH_KEY, then delete the local file
-```
-
-Verify `DEPLOY_KNOWN_HOSTS` from a network you trust. Pinning the host key is what stops a man-in-the-middle from impersonating the server. **When you replace the server**, update `DEPLOY_HOST` and `DEPLOY_KNOWN_HOSTS`.
-
-## 5. Deploy
-
-Go to **Actions → Deploy → Run workflow** and enter a tag (for example `2.0.0`). The workflow:
-
-1. checks that the tag exists on Docker Hub
-2. uploads `compose.yaml` and `Caddyfile`
-3. runs `remote-deploy.sh`, which sets the tag, pulls, runs `docker compose up --wait`, and fails if the app or Caddy isn't healthy (the app's logs are printed)
-4. loads `https://<domain>/` and its stylesheet **from outside**
-
-The first deploy also issues the HTTPS certificate, which can take up to a minute.
-
-## 6. Test a real conversion (every new server)
-
-Open the site and convert a short album, for example a public MP3 such as `https://archive.org/download/testmp3testfile/mpthreetest.mp3` (12 s), plus a link for each source plugin you run. If a track fails, check the logs:
-
-```bash
-ssh deploy@<server-ip> 'cd /opt/tagtape && docker compose logs --tail 50 app'
-```
-
-If a site refuses the server's IP (rate limits, bot checks), options, cheapest first:
-- a new IP or server
-- another region
-- another provider (the same files work)
+- The dashboard's **Users** tab lists the app's guests (created, last seen).
+- Deleting one there also deletes their album history (`ON DELETE CASCADE`).
+- Guests are created only when someone starts an album, never by page views or crawlers, and at most 30 new guests per address per 10 minutes.
 
 ## Rollback
 
-Run the Deploy workflow with the previous tag. Every publish also has an immutable `sha-abc1234` tag on Docker Hub. On the server, `grep TAGTAPE_TAG /opt/tagtape/.env.bak` shows the tag that was running before.
-
-## Day to day
-
-```bash
-ssh deploy@<server-ip>
-cd /opt/tagtape
-docker compose ps                 # both services should be "healthy"
-docker compose logs -f app        # app + API logs (JSON)
-docker compose logs -f caddy      # HTTPS / certificate issues
-TAG=2.0.0 bash remote-deploy.sh   # manual deploy (copy the script over first)
-```
-
-- **Updates:** security updates install automatically. Reboot occasionally for kernel updates (as the admin account: `reboot`, or `sudo reboot`); Docker starts on boot and the containers come back by themselves (`restart: unless-stopped`).
-- **Restarts stop running downloads.** Nothing is stored: tracks convert while the ZIP streams, and jobs live in memory. Deploy when nobody is downloading; users just retry.
+Edit the app and pick the previous tag. Every publish also has an immutable `sha-abc1234` tag on Docker Hub.

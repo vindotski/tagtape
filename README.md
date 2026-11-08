@@ -17,16 +17,16 @@ Built with [TanStack Start](https://tanstack.com/start), with a Fastify service 
 
 ## Run it
 
-**Hosting it for real?** See [docs/deploy.md](docs/deploy.md): one Linux server on any cloud-init provider (DigitalOcean, Hetzner, Vultr, Linode, AWS, …), Caddy for HTTPS, and one-click deploys from GitHub Actions.
+**Hosting it for real?** tagtape.app runs on [Spotcraft](https://spotcraft.dev), which provides HTTPS, the Postgres database and health-checked deploys from its dashboard. See [docs/deploy.md](docs/deploy.md).
 
 The web app and the API ship together as **one image, with one version**:
 
 ```bash
-docker run --rm -p 3000:3000 vindotski/tagtape
+pnpm docker   # the image with a local Postgres, run the way Spotcraft runs it
 # → http://localhost:3000
 ```
 
-There's nothing to configure. Inside the container, [`docker/start.mjs`](docker/start.mjs) starts the API on `127.0.0.1:4000` (not exposed) and the web app on `:3000`, with a fresh internal token each time. If either process dies, the container stops, so your orchestrator restarts both together. The image is published for linux/amd64 and linux/arm64, with provenance and an SBOM attached.
+The image needs a Postgres database for guest accounts and album history (`DATABASE_URL`, `AUTH_SECRET`, `PUBLIC_URL`; see [Configuration](#configuration)). Without one, pages still render, but albums can't be started. Inside the container, [`docker/start.mjs`](docker/start.mjs) starts the API on `127.0.0.1:4000` (not exposed) and the web app on `:3000`, with a fresh internal token each time. If either process dies, the container stops, so your orchestrator restarts both together. The image is published for linux/amd64 and linux/arm64, with provenance and an SBOM attached.
 
 | Tag | Published from |
 |---|---|
@@ -43,13 +43,17 @@ The web app and the API share **one version**, which lives in the root `package.
 1. Bump `"version"` in the root `package.json` and add a `CHANGELOG.md` entry, then commit.
 2. Once that commit is on `main`, run `git tag vX.Y.Z && git push origin vX.Y.Z`. CI refuses a tag that doesn't match `package.json`, and then publishes `X.Y.Z`, `X.Y`, `X` and `latest`.
 
+### Configuration
+
 | Variable | Default | |
 |---|---|---|
+| `DATABASE_URL` | none | Postgres for guest accounts and album history. Spotcraft sets it when the app has a database. |
+| `AUTH_SECRET` | none | Signs the guests' session cookies; 32+ characters (`openssl rand -hex 32`). Changing it signs every guest out. |
+| `PUBLIC_URL` | none | The site's address, e.g. `https://tagtape.app` (http only on localhost). |
 | `PORT` | `3000` | Public port of the web app. |
 | `JOB_TTL_MIN`, `MAX_ACTIVE_STREAMS`, `MAX_QUEUED_STREAMS`, `MAX_ACTIVE_PROBES`, `MAX_QUEUED_JOBS`, `TRACK_CONCURRENCY`, `MAX_DIRECT_MB`, `MAX_DOWNLOADS_PER_JOB`, `MAX_STORED_JOBS`, `CHECK_TIMEOUT_SEC`, `MAX_JOBS_PER_CLIENT_HOUR`, `MAX_CHECKING_JOBS_PER_CLIENT`, `MAX_DOWNLOADS_PER_CLIENT`, `LOG_LEVEL` | see [apps/api/.env.example](apps/api/.env.example) | API tuning. These are passed through. |
-| `TRUST_PROXY` | off | Set to `1` **only** behind a reverse proxy that sets `X-Forwarded-For` (the deploy kit does): per-client limits then use the browser's address. Without a proxy, leave it off, or anyone could pick their address. |
+| `TRUST_PROXY` | off | Set to `1` **only** behind a reverse proxy that sets `X-Forwarded-For` (Spotcraft's Caddy does): per-client limits then use the browser's address. Without a proxy, leave it off, or anyone could pick their address. |
 | `POW_COST` | `2000` | Difficulty of the invisible proof-of-work a browser solves before starting an album. |
-| `APP_MEMORY`, `APP_CPUS`, `APP_NODE_HEAP_MB` | `1g`, `2`, `384` | Resource limits for the app container in `deploy/compose.yaml`. |
 | `API_HOST`, `API_TOKEN` | `127.0.0.1`, random | Set both only to expose the API on purpose, e.g. for the end-to-end test. |
 
 ## Development
@@ -67,7 +71,7 @@ pnpm monorepo. Requires Node 24+ and pnpm 12.
 Everything runs in Docker: you only need Docker and pnpm (to run the scripts). Nothing else is installed on your machine.
 
 ```bash
-pnpm docker        # build the real image and run it → http://localhost:3000
+pnpm docker        # the real image, Spotcraft's restrictions, local Postgres → http://localhost:3000
 pnpm docker:dev    # hot reload: web + API in containers, source mounted (Ctrl+C, then pnpm docker:down)
 pnpm docker:test   # Biome, typecheck and tests (with Postgres), inside the dev container
 ```

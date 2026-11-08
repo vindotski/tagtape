@@ -1,0 +1,74 @@
+# `pnpm docker`: the production image, run the way Spotcraft runs it, with a
+# local Postgres. Use it to rehearse a release before deploying it.
+#
+# - The app container gets Spotcraft's restrictions (agent/src/templates.ts in
+#   Spotcraft): read-only root, a 64 MB noexec /tmp, no capabilities,
+#   no-new-privileges, 256 PIDs, a 30 s stop grace period.
+# - The database is provisioned like Spotcraft's agent does it: the kit's
+#   `provision` creates the role and database `app_tagtape` and migrates
+#   `auth`; the app's role owns `public` but can't change `auth`.
+# - No proxy in front, so TRUST_PROXY stays off.
+#
+# Stop with Ctrl+C; `docker compose -f docker/compose.local.yaml down -v` resets the database.
+name: tagtape-local
+
+x-app: &app
+  image: tagtape:local
+  build:
+    context: ..
+  read_only: true
+  tmpfs:
+    - /tmp:size=64m,noexec,nosuid,nodev
+  cap_drop: [ALL]
+  security_opt:
+    - no-new-privileges:true
+  pids_limit: 256
+
+services:
+  postgres:
+    # Same image as Spotcraft's apps server (infra/apps-server/compose.yaml).
+    image: postgres:18.6-trixie@sha256:e3d24f6906d0760bf4da0dae872415391ededefad23fd471c47dc53b0ddf3c42
+    environment:
+      # Local only: Postgres isn't published, so this never leaves the Docker network.
+      POSTGRES_PASSWORD: local-postgres-not-secret
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+  provision:
+    <<: *app
+    working_dir: /app/apps/web
+    entrypoint: ["node", "--input-type=module", "-e"]
+    command:
+      - |
+        import { provision } from "@spotcraft/kit/provision";
+        await provision(process.env.ADMIN_URL, { name: "tagtape", password: "local-app-not-secret" });
+        console.log("[tagtape] database app_tagtape provisioned");
+    environment:
+      ADMIN_URL: postgres://postgres:local-postgres-not-secret@postgres:5432/postgres
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  app:
+    <<: *app
+    stop_grace_period: 30s
+    mem_limit: 1g
+    cpus: 2
+    environment:
+      DATABASE_URL: postgres://app_tagtape:local-app-not-secret@postgres:5432/app_tagtape
+      AUTH_SECRET: local-auth-secret-not-secret-0123456789abcdef
+      PUBLIC_URL: http://localhost:${PORT:-3000}
+      NODE_OPTIONS: --max-old-space-size=384
+    ports:
+      - "127.0.0.1:${PORT:-3000}:3000"
+    depends_on:
+      provision:
+        condition: service_completed_successfully
+
+volumes:
+  postgres_data:

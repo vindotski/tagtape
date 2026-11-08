@@ -29,6 +29,8 @@ updates:
     open-pull-requests-limit: 5
 
   # Base images pinned by digest: the production and dev Dockerfiles.
+  # (Postgres in the compose files and CI follows Spotcraft's apps server
+  # instead: update it when Spotcraft does.)
   - package-ecosystem: docker
     directories: [/, /docker]
     target-branch: dev
@@ -39,12 +41,3 @@ updates:
     groups:
       base-images:
         patterns: ["*"]
-
-  # Caddy in the deploy kit.
-  - package-ecosystem: docker-compose
-    directory: /deploy
-    target-branch: dev
-    schedule:
-      interval: weekly
-    cooldown:
-      default-days: 7
