@@ -31,10 +31,10 @@ The image needs a Postgres database for guest accounts and album history (`DATAB
 | Tag | Published from |
 |---|---|
 | `latest` | every push to `main` |
-| `2.0.0`, `2.0`, `2` | the git tag `v2.0.0` |
+| `3.0.0`, `3.0`, `3` | the git tag `v3.0.0` |
 | `sha-abc1234` | every publish (immutable; use it to pin a deployment) |
 
-The running version shows in the web app's footer, and the internal API reports it on `/health`. Builds from `main` carry build metadata, e.g. `2.0.0+main.abc1234`. To build the image yourself, run `docker build -t tagtape .`
+The running version shows in the web app's footer, and the internal API reports it on `/health`. Builds from `main` carry build metadata, e.g. `3.0.0+main.abc1234`. To build the image yourself, run `docker build -t tagtape .`
 
 ### Releasing
 
