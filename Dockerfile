@@ -13,7 +13,7 @@
 FROM ghcr.io/pnpm/pnpm:12@sha256:41c39d1c734b0a810669c07587888aa7dbe9ef9b4c8e98b346b3654f7b269b6d AS pnpm-bin
 
 # --- shared base with pnpm (its own image, not Corepack: see the pnpm skill)
-FROM node:24-bookworm-slim@sha256:01d566e8d94d8c619591d78652babfccd3c6992a3dffa9ed5ab39e11cf6c70e9 AS pnpm
+FROM node:25-bookworm-slim@sha256:81db02c4b671288a03915da9534dbd54f96d0e7c24d80ccc54f5b36b2e684370 AS pnpm
 COPY --from=pnpm-bin /opt/pnpm /opt/pnpm
 RUN for bin in pnpm pnpx; do ln -s "/opt/pnpm/$bin" "/usr/local/bin/$bin"; done
 WORKDIR /app
@@ -43,7 +43,7 @@ RUN --mount=type=cache,id=pnpm-store,target=/var/cache/pnpm \
 		--store-dir /var/cache/pnpm --package-import-method copy
 
 # --- runtime
-FROM node:24-bookworm-slim@sha256:01d566e8d94d8c619591d78652babfccd3c6992a3dffa9ed5ab39e11cf6c70e9
+FROM node:25-bookworm-slim@sha256:81db02c4b671288a03915da9534dbd54f96d0e7c24d80ccc54f5b36b2e684370
 ARG TAGTAPE_VERSION=dev
 LABEL org.opencontainers.image.title="TagTape" \
 	org.opencontainers.image.version="${TAGTAPE_VERSION}"
