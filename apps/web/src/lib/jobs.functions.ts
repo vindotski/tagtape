@@ -5,9 +5,14 @@
  */
 import { albumInputSchema } from "@tagtape/shared";
 import { createServerFn } from "@tanstack/react-start";
-import { getRequest, getRequestIP } from "@tanstack/react-start/server";
+import {
+	appendResponseHeader,
+	getRequest,
+	getRequestIP,
+} from "@tanstack/react-start/server";
 import { z } from "zod";
 import { apiConfigFromEnv, createJob, getJob, getSources } from "./api.server";
+import { backend, ensureGuest } from "./backend.server";
 import { clientAddress } from "./client-ip.server";
 import { proofSchema } from "./pow";
 import { createPowChallenge, verifyPow } from "./pow.server";
@@ -35,8 +40,33 @@ export const startJob = createServerFn({ method: "POST" })
 				retryProof: true,
 			};
 		}
+		const request = getRequest();
+		const client = clientAddress(request.headers, getRequestIP());
+		// Starting an album is the visitor's first write, so this is where a
+		// guest is created (page views never make one). Nothing is stored under
+		// it yet. The proof is spent by now, so a failure asks for a fresh one.
+		let guest: Awaited<ReturnType<typeof ensureGuest>>;
 		try {
-			const client = clientAddress(getRequest().headers, getRequestIP());
+			guest = await ensureGuest(backend(), request, client ?? "local");
+		} catch (error) {
+			console.error("[tagtape] guest account failed", error);
+			return {
+				ok: false as const,
+				message:
+					"Something went wrong starting the conversion. Please try again.",
+				retryProof: true,
+			};
+		}
+		if (!guest.ok) {
+			const minutes = Math.max(1, Math.ceil(guest.retryAfterSeconds / 60));
+			return {
+				ok: false as const,
+				message: `Too many new visitors from your network. Please try again in ${minutes} minute${minutes === 1 ? "" : "s"}.`,
+			};
+		}
+		for (const cookie of guest.cookies)
+			appendResponseHeader("set-cookie", cookie);
+		try {
 			return await createJob(data.album, apiConfigFromEnv(), client);
 		} catch {
 			return { ok: false as const, message: UNREACHABLE };

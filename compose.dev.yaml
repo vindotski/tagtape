@@ -3,6 +3,10 @@
 # bind-mounted, dependencies live in named volumes (Linux builds of native
 # packages never mix with the host's), and ffmpeg comes with the image.
 #
+# Guest accounts: a local Postgres (the same image as Spotcraft's apps server),
+# its `auth` schema migrated by the `migrate` service before the web app starts.
+# `pnpm docker:down -v` also resets the database.
+#
 # Plugins: set TAGTAPE_PLUGINS on the api service (e.g. in an override file).
 name: tagtape-dev
 
@@ -38,12 +42,40 @@ services:
       install:
         condition: service_completed_successfully
 
+  postgres:
+    image: postgres:18.6-trixie@sha256:e3d24f6906d0760bf4da0dae872415391ededefad23fd471c47dc53b0ddf3c42
+    environment:
+      # Dev only: Postgres isn't published, so this never leaves the Docker network.
+      POSTGRES_PASSWORD: dev-postgres-not-secret
+      POSTGRES_DB: tagtape
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres", "-d", "tagtape"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+  migrate:
+    <<: *dev
+    command: node apps/web/scripts/dev-migrate.ts
+    environment:
+      DATABASE_URL: &database-url postgres://postgres:dev-postgres-not-secret@postgres:5432/tagtape
+    depends_on:
+      install:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+
   web:
     <<: *dev
     command: pnpm --filter @tagtape/web exec vite dev --port 3000 --host 0.0.0.0
     environment:
       API_URL: http://api:4000
       API_TOKEN: dev-token-not-secret-0123456789abcdef
+      DATABASE_URL: *database-url
+      AUTH_SECRET: dev-auth-secret-not-secret-0123456789abcdef
+      PUBLIC_URL: http://localhost:${PORT:-3000}
     ports:
       - "127.0.0.1:${PORT:-3000}:3000"
     depends_on:
@@ -51,6 +83,8 @@ services:
         condition: service_completed_successfully
       api:
         condition: service_started
+      migrate:
+        condition: service_completed_successfully
 
 volumes:
   node_modules:
@@ -58,3 +92,4 @@ volumes:
   api_node_modules:
   shared_node_modules:
   pnpm_store:
+  postgres_data:

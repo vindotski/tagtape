@@ -4,6 +4,9 @@ TagTape has one version for the web app and the API, kept in the root `package.j
 
 ## Unreleased
 
+### Added
+- **Guest accounts** from Spotcraft's backend kit (`@spotcraft/kit` 0.2.0). Starting an album gives the visitor a guest account (an httpOnly session cookie, no sign-up). Page views never create one. Nothing is stored under it yet: this is the base for album history. It needs Postgres and `DATABASE_URL`, `AUTH_SECRET` and `PUBLIC_URL`; `pnpm docker:dev` now runs a local Postgres and migrates its `auth` schema.
+
 ## 2.0.0 (2026-11-06)
 
 A complete rewrite of Albumie as **TagTape** ([tagtape.app](https://tagtape.app)).

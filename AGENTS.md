@@ -62,7 +62,7 @@ tanstackIntent:
 
 # TagTape — agent instructions
 
-TagTape turns 1–10 track links plus album details (title, artist, genre, year, cover) into a ZIP of ID3-tagged MP3s laid out as an album, so the tracks sort and display correctly on any plain MP3 player. It is stateless: no accounts, no database. Out of the box it reads direct links to MP3 files; other sources come from plugins. https://tagtape.app
+TagTape turns 1–10 track links plus album details (title, artist, genre, year, cover) into a ZIP of ID3-tagged MP3s laid out as an album, so the tracks sort and display correctly on any plain MP3 player. Visitors get guest accounts (no sign-up) from Spotcraft's backend kit, in Postgres; media is never stored. Out of the box it reads direct links to MP3 files; other sources come from plugins. https://tagtape.app
 
 ## Repo layout
 
@@ -140,6 +140,13 @@ Run `pnpm check`, `pnpm typecheck` and the relevant tests (or `pnpm docker:test`
   - The app container is **read-only**, with a 16 MB `/tmp` tmpfs. Its code is root-owned in the image, and it runs with no capabilities, `no-new-privileges`, and memory/CPU/PID limits. Anything that needs to write to disk will fail there, which is intended.
   - Caddy keeps only `NET_BIND_SERVICE`.
 - **CSP:** the web app sets it per page with a fresh nonce for the router's inline scripts (`src/lib/csp.server.ts`, production builds only). Caddy adds the other security headers. A new third-party script, style, font, image host or connection needs the policy changed on purpose; prefer self-hosting.
+- **Guest accounts** come from Spotcraft's backend kit, `@spotcraft/kit` (`apps/web/src/lib/backend.server.ts`), on Postgres. Keep it the same version as the Spotcraft the app deploys to.
+  - Server-only: never import it from client code. The browser only carries the httpOnly session cookie.
+  - Create guests only on writes (`ensureGuest` in `startJob`, after the proof-of-work). Reads use `currentGuest`, which never creates one.
+  - Env: `DATABASE_URL` (Spotcraft sets it), `AUTH_SECRET` (32+ chars), `PUBLIC_URL`. The backend is created lazily, because `vite build` imports the module without a database.
+  - Spotcraft owns the `auth` schema: never change it. TagTape's tables go in `public`, keyed to `auth.users (id) ON DELETE CASCADE`.
+  - In dev, `compose.dev.yaml` runs Postgres and a `migrate` service (`apps/web/scripts/dev-migrate.ts`) before `web`. On Spotcraft, its agent migrates `auth`.
+  - `pnpm-workspace.yaml` excludes `@spotcraft/kit` (our own project) from `minimumReleaseAge`; its dependencies still wait.
 - **Never write media to disk.** Downloads stream: source → `ffmpeg pipe:1` → ID3 tag + MP3 → streamed ZIP. Only metadata and the cover live in memory, and a TTL sweeper forgets jobs.
   - ffmpeg writes no tags and no Xing header (we write the only tag; a header written before the end of a stream would be wrong), and CBR (VBR is re-encoded to 256 kbps).
   - After any change, check `find /tmp -type f` inside a container *during* and after a download (the e2e test plus a real abort).

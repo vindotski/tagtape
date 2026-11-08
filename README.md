@@ -72,7 +72,7 @@ pnpm docker:dev    # hot reload: web + API in containers, source mounted (Ctrl+C
 pnpm docker:test   # Biome, typecheck and tests, inside the dev container
 ```
 
-Use `PORT=3010 pnpm docker:dev` (or `pnpm docker`) when port 3000 is taken. `docker:dev` keeps dependencies in Docker volumes, so the first start installs them and later starts are quick; `pnpm docker:down -v` resets them. To load a source plugin in dev, layer your own compose file on [`compose.dev.yaml`](compose.dev.yaml) that mounts it and sets `TAGTAPE_PLUGINS` on the `api` service.
+Use `PORT=3010 pnpm docker:dev` (or `pnpm docker`) when port 3000 is taken. `docker:dev` also runs a local Postgres for guest accounts (not published) and migrates it before the web app starts. It keeps dependencies in Docker volumes, so the first start installs them and later starts are quick; `pnpm docker:down -v` resets them. To load a source plugin in dev, layer your own compose file on [`compose.dev.yaml`](compose.dev.yaml) that mounts it and sets `TAGTAPE_PLUGINS` on the `api` service.
 
 Running outside Docker also works (`pnpm install`, ffmpeg on `PATH`, `.env` files from the `.env.example`s, `pnpm dev`), plus the usual scripts:
 
