@@ -186,11 +186,14 @@ jobs:
 
       # main → latest; v1.2.3 → 1.2.3, 1.2, 1; every publish → sha-abc1234.
       # `latest` names main on purpose: dev is the default branch, so
-      # {{is_default_branch}} would never be true here.
+      # {{is_default_branch}} would never be true here. `flavor: latest=false`
+      # stops type=semver from also adding `latest` on version tags.
       - id: meta
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
           images: vindotski/tagtape
+          flavor: |
+            latest=false
           tags: |
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
             type=semver,pattern={{version}}

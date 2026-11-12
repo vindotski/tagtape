@@ -205,7 +205,7 @@ Run `pnpm check`, `pnpm typecheck` and the relevant tests (or `pnpm docker:test`
 - **`publish`** (a job in `ci.yml`) pushes the multi-arch image (amd64 + arm64, built under QEMU) to Docker Hub as `vindotski/tagtape`, with `TAGTAPE_VERSION` from its "Compute version" step:
   - It runs only on pushes to `main` and tags `v*.*.*`, and only after `checks` and `image` pass.
   - Tags: `latest` (main), `X.Y.Z`, `X.Y` and `X` (version tags), plus `sha-<short>`.
-  - `latest` is enabled by `github.ref == 'refs/heads/main'`, not `{{is_default_branch}}` (that's `dev`).
+  - `latest` is enabled by `github.ref == 'refs/heads/main'`, not `{{is_default_branch}}` (that's `dev`), and `flavor: latest=false` keeps `type=semver` from adding it on version tags.
   - It uses the repo variable `DOCKERHUB_USERNAME` and the secret `DOCKERHUB_TOKEN` (a Docker Hub personal access token with Read & Write scope).
   - Never publish from `dev` or from PRs.
 - **`e2e.yml`** runs weekly (and on demand): real public MP3 links converted through the image. Scheduled runs check out `main`, since schedules always start from the default branch (`dev`).
