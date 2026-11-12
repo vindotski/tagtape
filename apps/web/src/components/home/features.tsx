@@ -25,8 +25,8 @@ const FEATURES: { icon: LucideIcon; title: string; text: string }[] = [
 	},
 	{
 		icon: Puzzle,
-		title: "Sources are plugins",
-		text: "Out of the box TagTape reads direct links to MP3 files. Other kinds of links come from source plugins loaded by the server.",
+		title: "Links from many places",
+		text: "TagTape reads direct links to MP3 files, and single tracks from sites yt-dlp can read when the server has it on. Plugins can add more sources.",
 	},
 	{
 		icon: Code,

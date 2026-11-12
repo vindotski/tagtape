@@ -35,16 +35,17 @@ export function Faq() {
 								</span>
 							</span>
 						))}
-						. Each server picks its sources: out of the box that's direct links
-						to MP3 files, and other kinds of links come from plugins.
+						. What works depends on the sources a server runs: direct links to
+						MP3 files, single tracks from sites yt-dlp can read when it's on,
+						and anything plugins add.
 					</>
 				) : (
-					"Direct links to MP3 files, out of the box. Other kinds of links come from source plugins loaded by the server."
+					"Direct links to MP3 files, and single tracks from sites yt-dlp can read when the server has it on. Playlists, live streams and anything behind a login aren't supported. Plugins can add more sources."
 				),
 		},
 		{
 			question: "How big can an album be?",
-			answer: `Up to ${MAX_TRACKS} tracks, each up to ${trackLimit} long, with a cover image of up to ${coverLimit}. Variable-bitrate MP3s are re-encoded at 256 kbps so every player reads their length right.`,
+			answer: `Up to ${MAX_TRACKS} tracks, each up to ${trackLimit} long, with a cover image of up to ${coverLimit}. Anything that isn't a constant-bitrate MP3 is converted to 256 kbps MP3, so every player reads its length right.`,
 		},
 		{
 			question: "What do you keep about me?",
