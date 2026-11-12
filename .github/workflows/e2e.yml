@@ -1,7 +1,10 @@
-name: End-to-end (real MP3 links)
+name: End-to-end (real links)
 
 # Converts public MP3 files through the image weekly (and on demand), with the
 # real ffmpeg and network, so breakage shows up here before users see it.
+# Set the repo variable TAGTAPE_E2E_SITE_URLS (comma-separated, freely licensed
+# track links) to also convert links through yt-dlp. The links stay out of the
+# repo: the core names no sites.
 # Scheduled runs test main (production), even though they start from the
 # default branch (dev); a manual run tests the branch it's started on.
 on:
@@ -51,9 +54,10 @@ jobs:
             -e API_HOST=0.0.0.0 -e API_TOKEN="$TOKEN" tagtape:e2e
           for _ in $(seq 1 30); do curl -sf http://127.0.0.1:4100/health && break; sleep 1; done
 
-      - name: Convert real MP3 links
+      - name: Convert real links
         env:
           TAGTAPE_E2E_URL: http://127.0.0.1:4100
+          TAGTAPE_E2E_SITE_URLS: ${{ vars.TAGTAPE_E2E_SITE_URLS }}
         run: pnpm --filter @tagtape/api exec vitest run src/e2e.test.ts
 
       - name: Container logs

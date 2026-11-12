@@ -8,6 +8,9 @@
  *
  * Converts two public, freely licensed MP3 files through the built-in direct
  * source (needs the network): both are CBR, so they're copied, not re-encoded.
+ *
+ * With TAGTAPE_E2E_SITE_URLS (comma-separated track links, freely licensed,
+ * kept out of the repo), it also converts those through the yt-dlp source.
  */
 import { jobSnapshotSchema } from "@tagtape/shared";
 import NodeID3 from "node-id3";
@@ -17,6 +20,51 @@ import { readZip } from "./test/helpers.ts";
 
 const BASE = process.env.TAGTAPE_E2E_URL;
 const TOKEN = process.env.TAGTAPE_E2E_TOKEN ?? "";
+const SITE_URLS = (process.env.TAGTAPE_E2E_SITE_URLS ?? "")
+	.split(",")
+	.map((url) => url.trim())
+	.filter(Boolean);
+const headers = {
+	authorization: `Bearer ${TOKEN}`,
+	"content-type": "application/json",
+};
+
+/** Starts an album and waits for its check; returns the job id. */
+async function startAndCheck(album: object): Promise<string> {
+	const create = await fetch(`${BASE}/jobs`, {
+		method: "POST",
+		headers,
+		body: JSON.stringify(album),
+	});
+	expect(create.status).toBe(202);
+	const { jobId } = (await create.json()) as { jobId: string };
+	const snapshot = async () =>
+		jobSnapshotSchema.parse(
+			await (await fetch(`${BASE}/jobs/${jobId}`, { headers })).json(),
+		);
+	let current = await snapshot();
+	while (current.status === "queued" || current.status === "probing") {
+		await new Promise((resolve) => setTimeout(resolve, 500));
+		current = await snapshot();
+	}
+	expect(current, JSON.stringify(current)).toMatchObject({
+		status: "ready",
+		downloadReady: true,
+	});
+	return jobId;
+}
+
+/** Our tag is the only one, and the audio is plain MPEG frames with no Xing header. */
+function expectOnlyOurTag(audio: Buffer) {
+	expect(audio[0]).toBe(0xff);
+	expect((audio[1] as number) & 0xe0).toBe(0xe0);
+	expect(audio.subarray(0, 400).includes("Xing")).toBe(false);
+	expect(audio.subarray(0, 400).includes("Info")).toBe(false);
+	// No ID3v1 tag either (it would be the last 128 bytes, starting "TAG").
+	// Searching all the audio for "ID3" would be wrong: those 3 bytes turn
+	// up by chance in megabytes of compressed audio.
+	expect(audio.subarray(-128, -125).toString("latin1")).not.toBe("TAG");
+}
 
 /** MPEG-1 Layer III bitrate table (kbps) by header index. */
 const MP3_BITRATES = [
@@ -54,39 +102,19 @@ describe.skipIf(!BASE)("end to end (real ffmpeg, streamed)", () => {
 	test("MP3 links + cover → streamed ZIP of tagged MP3s", {
 		timeout: 300_000,
 	}, async () => {
-		const headers = {
-			authorization: `Bearer ${TOKEN}`,
-			"content-type": "application/json",
-		};
-		const create = await fetch(`${BASE}/jobs`, {
-			method: "POST",
-			headers,
-			body: JSON.stringify({
-				title: "E2E Album",
-				artist: "Various",
-				year: "2005",
-				genre: "Test",
-				coverUrl:
-					"https://upload.wikimedia.org/wikipedia/commons/a/a9/Example.jpg",
-				tracks: tracks.map(({ title, url }) => ({ title, url })),
-			}),
+		const jobId = await startAndCheck({
+			title: "E2E Album",
+			artist: "Various",
+			year: "2005",
+			genre: "Test",
+			coverUrl:
+				"https://upload.wikimedia.org/wikipedia/commons/a/a9/Example.jpg",
+			tracks: tracks.map(({ title, url }) => ({ title, url })),
 		});
-		expect(create.status).toBe(202);
-		const { jobId } = (await create.json()) as { jobId: string };
-
 		const snapshot = async () =>
 			jobSnapshotSchema.parse(
 				await (await fetch(`${BASE}/jobs/${jobId}`, { headers })).json(),
 			);
-		let current = await snapshot();
-		while (current.status === "queued" || current.status === "probing") {
-			await new Promise((resolve) => setTimeout(resolve, 500));
-			current = await snapshot();
-		}
-		expect(current, JSON.stringify(current)).toMatchObject({
-			status: "ready",
-			downloadReady: true,
-		});
 
 		// The download *is* the conversion. No token: public by design.
 		const started = Date.now();
@@ -125,16 +153,7 @@ describe.skipIf(!BASE)("end to end (real ffmpeg, streamed)", () => {
 				height: 1000,
 			});
 
-			// Our tag is the only one: audio starts straight with an MPEG frame,
-			// with no Xing/Info header (wrong in a stream) and no second ID3 tag.
-			expect(audio[0]).toBe(0xff);
-			expect((audio[1] as number) & 0xe0).toBe(0xe0);
-			expect(audio.subarray(0, 400).includes("Xing")).toBe(false);
-			expect(audio.subarray(0, 400).includes("Info")).toBe(false);
-			// No ID3v1 tag either (it would be the last 128 bytes, starting "TAG").
-			// Searching all the audio for "ID3" would be wrong: those 3 bytes turn
-			// up by chance in megabytes of compressed audio.
-			expect(audio.subarray(-128, -125).toString("latin1")).not.toBe("TAG");
+			expectOnlyOurTag(audio);
 			expect(MP3_BITRATES[(audio[2] as number) >> 4]).toBe(expected.kbps);
 			// CBR: duration follows from size and bitrate.
 			const seconds = (audio.length * 8) / (expected.kbps * 1000);
@@ -149,3 +168,34 @@ describe.skipIf(!BASE)("end to end (real ffmpeg, streamed)", () => {
 		console.info(`streamed ${zip.length} bytes in ${Date.now() - started} ms`);
 	});
 });
+
+describe.skipIf(!BASE || SITE_URLS.length === 0)(
+	"end to end (yt-dlp, real sites)",
+	() => {
+		test("site links → streamed ZIP of tagged MP3s", {
+			timeout: 600_000,
+		}, async () => {
+			const jobId = await startAndCheck({
+				title: "E2E Sites",
+				artist: "Various",
+				tracks: SITE_URLS.map((url, i) => ({ title: `Site ${i + 1}`, url })),
+			});
+			const archive = await fetch(`${BASE}/jobs/${jobId}/archive`);
+			expect(archive.status).toBe(200);
+			const entries = readZip(Buffer.from(await archive.arrayBuffer()));
+			expect(entries.map((e) => e.name)).toEqual(
+				SITE_URLS.map(
+					(_, i) => `${String(i + 1).padStart(2, "0")} - Site ${i + 1}.mp3`,
+				),
+			);
+			for (const entry of entries) {
+				const { tag, audio } = splitTag(entry.data);
+				expect(NodeID3.read(tag)).toMatchObject({ album: "E2E Sites" });
+				expectOnlyOurTag(audio);
+				// Copied MP3 keeps its bitrate; anything else is 256 kbps CBR.
+				expect(MP3_BITRATES[(audio[2] as number) >> 4]).toBeGreaterThan(0);
+				expect(audio.length).toBeGreaterThan(100_000);
+			}
+		});
+	},
+);
