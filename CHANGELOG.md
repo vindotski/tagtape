@@ -4,6 +4,9 @@ TagTape has one version for the web app and the API, kept in the root `package.j
 
 ## Unreleased
 
+### Fixed
+- When a site's anti-bot check or rate limit refuses the server, the track now says so ("The site is refusing this server right now…") instead of claiming it's only for signed-in, paying or subscribed users.
+
 ## 3.1.0 (2026-11-13)
 
 Links from sites through yt-dlp, a home page, albums you can open and make again, and a move to the public domain (the Unlicense).

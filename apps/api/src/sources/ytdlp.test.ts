@@ -142,6 +142,20 @@ describe("describeYtDlpFailure", () => {
 			"ERROR: [example] abc: Unable to download webpage: ('Unable to connect to proxy', OSError('Tunnel connection failed: 403 Forbidden'))",
 			"This link couldn't be reached",
 		],
+		// A site's anti-bot check: the server is refused, whatever the track.
+		// Its wording ends in a cookies hint, which must not read as "members only".
+		[
+			"ERROR: [example] abc: Sign in to confirm you\u2019re not a bot. Use --cookies-from-browser or --cookies for the authentication.",
+			"The site is refusing this server right now (it suspects automated access). Try again later",
+		],
+		[
+			"ERROR: [example] abc: Sign in to confirm you're not a bot",
+			"The site is refusing this server right now (it suspects automated access). Try again later",
+		],
+		[
+			"ERROR: [example] abc: Unable to download webpage: HTTP Error 429: Too Many Requests",
+			"The site is refusing this server right now (it suspects automated access). Try again later",
+		],
 		[
 			"ERROR: [example] abc: Private video. Sign in if you've been granted access",
 			"This track is private",

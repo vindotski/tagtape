@@ -163,6 +163,12 @@ const KNOWN_ERRORS: ReadonlyArray<readonly [RegExp, string]> = [
 		/Tunnel connection failed|ProxyError|Unable to connect to proxy|HTTP Error 403: Forbidden.*proxy/i,
 		"This link couldn't be reached",
 	],
+	// Anti-bot checks and rate limits are about this server, not the track.
+	// Before the sign-in rule below: the bot check also says "Use --cookies".
+	[
+		/confirm you(?:'|\u2019)?re not a (?:ro)?bot|unusual traffic|HTTP Error 429|too many requests/i,
+		"The site is refusing this server right now (it suspects automated access). Try again later",
+	],
 	[/private (?:video|track)|this track is private/i, "This track is private"],
 	// We never try to get around DRM; say so plainly.
 	[
