@@ -89,7 +89,7 @@ describe.skipIf(!adminUrl)("album history (Postgres)", () => {
 		);
 	});
 
-	it("keeps albums from version 1 through version 2, without tracks", async () => {
+	it("keeps albums from version 1 through version 2, without tracks, in order", async () => {
 		// Version 1 only, as a 3.0.0 release left it, with one album in it.
 		await sqlInTestDb(`
 			CREATE TABLE tagtape_migrations (
@@ -100,8 +100,11 @@ describe.skipIf(!adminUrl)("album history (Postgres)", () => {
 		await sqlInTestDb("INSERT INTO tagtape_migrations (version) VALUES (1)");
 		const guest = await newGuest("203.0.113.9");
 		const { rows } = await sqlInTestDb<{ id: string }>(
-			`INSERT INTO albums (user_id, title, artist, genre, year, track_count)
-			 VALUES ($1, 'Old', 'The Example Band', NULL, 2001, 3) RETURNING id`,
+			`INSERT INTO albums (user_id, title, artist, genre, year, track_count, created_at)
+			 VALUES ($1, 'Old', 'The Example Band', NULL, 2001, 3, '2026-11-08T10:00:00Z'),
+			        ($1, 'Older', 'The Example Band', NULL, NULL, 1, '2026-11-08T09:00:00Z'),
+			        ($1, 'Newest', 'The Example Band', NULL, NULL, 2, '2026-11-08T11:00:00Z')
+			 RETURNING id`,
 			[guest],
 		);
 
@@ -114,7 +117,11 @@ describe.skipIf(!adminUrl)("album history (Postgres)", () => {
 			coverUrl: null,
 			tracks: [],
 			complete: false,
+			// Last made when it was made, not when the migration ran.
+			updatedAt: "2026-11-08T10:00:00.000Z",
 		});
+		const list = await listAlbums(backend.db, guest);
+		expect(list.map((a) => a.title)).toEqual(["Newest", "Old", "Older"]);
 	});
 
 	it("migrates once, and again is a no-op", async () => {

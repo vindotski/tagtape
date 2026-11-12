@@ -68,12 +68,15 @@ CREATE INDEX albums_user_id_created_at ON albums (user_id, created_at DESC);`,
 	},
 	{
 		// Full albums, so they can be made again; edits bump updated_at.
+		// Albums from before keep their own date: otherwise they'd all share
+		// the migration's, and lists and the trim would order them at random.
 		version: 2,
 		sql: `
 ALTER TABLE albums
   ADD COLUMN cover_url  text,
   ADD COLUMN tracks     jsonb,
   ADD COLUMN updated_at timestamptz NOT NULL DEFAULT now();
+UPDATE albums SET updated_at = created_at;
 CREATE INDEX albums_user_id_updated_at ON albums (user_id, updated_at DESC);`,
 	},
 ];
