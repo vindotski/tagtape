@@ -300,6 +300,110 @@ describe("source", () => {
 		await check;
 	});
 
+	describe("pausing a site that refused this server", () => {
+		const BOT_CHECK =
+			"WARNING: x\nERROR: [example] abc: Sign in to confirm you\u2019re not a bot. Use --cookies-from-browser or --cookies for the authentication.";
+		const OTHER = "https://other.example.org/track/1";
+
+		/** A source whose yt-dlp is refused on `blockedHost` and works elsewhere. */
+		function setup(blockedHost: string, extra: Partial<YtDlpOptions> = {}) {
+			let clock = 1_000_000;
+			const calls: string[] = [];
+			const warnings: object[] = [];
+			const fakeRun = (async (_bin, args) => {
+				const url = String(args.at(-1));
+				calls.push(url);
+				if (new URL(url).hostname === blockedHost) throw execError(BOT_CHECK);
+				return { stdout: info(), stderr: "" };
+			}) as typeof run;
+			const source = createYtDlpSource({
+				...options,
+				cooldownMs: 10 * 60_000,
+				run: fakeRun,
+				now: () => clock,
+				log: { warn: (obj) => warnings.push(obj) },
+				...extra,
+			});
+			const signal = new AbortController().signal;
+			return {
+				source,
+				calls,
+				warnings,
+				probe: (url: string) => source.probe({ url, signal }),
+				advance: (ms: number) => {
+					clock += ms;
+				},
+			};
+		}
+
+		test("a bot check pauses the site: the next link fails at once", async () => {
+			const t = setup("video.example.com");
+			await expect(t.probe(TRACK)).rejects.toThrow(
+				"The site is refusing this server right now (it suspects automated access). Try again later",
+			);
+			await expect(
+				t.probe("https://video.example.com/watch/other"),
+			).rejects.toThrow("Try again in about 10 minutes");
+			expect(t.calls).toEqual([TRACK]); // yt-dlp wasn't asked again
+			expect(t.warnings).toEqual([
+				{ site: "video.example.com", until: expect.any(String) },
+			]);
+		});
+
+		test("other sites aren't paused, and the pause ends", async () => {
+			const t = setup("video.example.com");
+			await t.probe(TRACK).catch(() => {});
+			await expect(t.probe(OTHER)).resolves.toMatchObject({
+				title: "Night Drive",
+			});
+			t.advance(9 * 60_000 + 30_000);
+			await expect(t.probe(TRACK)).rejects.toThrow(
+				"Try again in about 1 minute",
+			);
+			t.advance(31_000);
+			await expect(t.probe(TRACK)).rejects.toThrow("Try again later");
+			expect(t.calls).toEqual([TRACK, OTHER, TRACK]);
+			expect(t.warnings).toHaveLength(2); // a new pause after the first ended
+		});
+
+		test("www. and m. share the site's pause", async () => {
+			const t = setup("www.video.example.com");
+			await t.probe("https://www.video.example.com/watch/a").catch(() => {});
+			await expect(
+				t.probe("https://m.video.example.com/watch/b"),
+			).rejects.toThrow("Try again in about 10 minutes");
+		});
+
+		test("other failures and a zero cool-down never pause", async () => {
+			const unavailable = (async () => {
+				throw execError("ERROR: [example] abc: Video unavailable");
+			}) as unknown as typeof run;
+			const t = setup("none", { run: unavailable });
+			await t.probe(TRACK).catch(() => {});
+			await expect(t.probe(TRACK)).rejects.toThrow("This track is unavailable");
+
+			const off = setup("video.example.com", { cooldownMs: 0 });
+			await off.probe(TRACK).catch(() => {});
+			await expect(off.probe(TRACK)).rejects.toThrow("Try again later");
+			expect(off.calls).toEqual([TRACK, TRACK]);
+			expect(off.warnings).toEqual([]);
+		});
+
+		test("a download refused by a bot check pauses the site too", async () => {
+			const { fake } = fakeProcesses("", BOT_CHECK);
+			const t = setup("none", { spawnStream: fake });
+			const probed = await t.probe(TRACK);
+			const out = t.source.stream({
+				state: probed.state,
+				signal: new AbortController().signal,
+			});
+			await expect(buffer(out)).rejects.toThrow("Try again later");
+			await expect(t.probe(TRACK)).rejects.toThrow(
+				"Try again in about 10 minutes",
+			);
+		});
+	});
+
 	/** yt-dlp writes `audio` (or fails with `stderr`); ffmpeg copies stdin. */
 	function fakeProcesses(audio: string, failWith?: string) {
 		const commands: string[] = [];

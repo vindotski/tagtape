@@ -64,6 +64,11 @@ export const configSchema = z.object({
 	YTDLP_TIMEOUT_SEC: positiveInt(1800),
 	/** yt-dlp checks at once (~100 MB each). Downloads count under MAX_ACTIVE_STREAMS. */
 	YTDLP_MAX_CHECKS: positiveInt(3),
+	/**
+	 * Seconds a site stays paused after its anti-bot check or rate limit
+	 * refused this server (its links fail at once, saying when to retry). 0 never pauses.
+	 */
+	YTDLP_BLOCK_COOLDOWN_SEC: z.coerce.number().int().min(0).default(600),
 	/** Release of the web + API image (set at Docker build time). */
 	TAGTAPE_VERSION: z.string().min(1).default("dev"),
 });

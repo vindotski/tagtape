@@ -37,10 +37,12 @@ export function Faq() {
 						))}
 						. What works depends on the sources a server runs: direct links to
 						MP3 files, single tracks from sites yt-dlp can read when it's on,
-						and anything plugins add.
+						and anything plugins add. Some sites refuse servers they think are
+						automated; TagTape then says so and leaves that site alone for a few
+						minutes. Direct MP3 links are the most reliable.
 					</>
 				) : (
-					"Direct links to MP3 files, and single tracks from sites yt-dlp can read when the server has it on. Playlists, live streams and anything behind a login aren't supported. Plugins can add more sources."
+					"Direct links to MP3 files, and single tracks from sites yt-dlp can read when the server has it on. Playlists, live streams and anything behind a login aren't supported, and some sites refuse servers they think are automated. Direct MP3 links are the most reliable. Plugins can add more sources."
 				),
 		},
 		{

@@ -12,6 +12,10 @@
  * - At most `maxChecks` yt-dlp checks run at once (each is a Python process
  *   of ~100 MB). Downloads aren't counted: `MAX_ACTIVE_STREAMS` caps them,
  *   and a shared cap would let two long downloads starve every album check.
+ * - When a site's anti-bot check or rate limit refuses this server, that site
+ *   is paused for `cooldownMs`: its links fail at once with a "try again"
+ *   message instead of each asking yt-dlp to be refused again. TagTape never
+ *   uses cookies, accounts, token helpers or rotating proxies to get past it.
  */
 import { isIP } from "node:net";
 import { PassThrough, type Readable } from "node:stream";
@@ -36,6 +40,12 @@ export interface YtDlpOptions {
 	timeoutMs: number;
 	/** yt-dlp checks (probes) running at once. Downloads are capped by the job manager. */
 	maxChecks: number;
+	/** How long a site stays paused after it refused this server; 0 never pauses. */
+	cooldownMs?: number;
+	/** Where the start of a pause is reported (the server's logger). */
+	log?: { warn(obj: object, msg: string): void };
+	/** For tests: the clock. */
+	now?: () => number;
 	/** For tests: replace the process runners. */
 	run?: typeof realRun;
 	spawnStream?: typeof realSpawnStream;
@@ -155,6 +165,12 @@ export function ffmpegArgs(sourceCodec: string | null): string[] {
 
 const UNSUPPORTED = "TagTape can't read tracks from this link";
 
+/** A site's anti-bot check or rate limit: about this server, not the track. */
+const BLOCKED =
+	/confirm you(?:'|\u2019)?re not a (?:ro)?bot|unusual traffic|HTTP Error 429|too many requests/i;
+const BLOCKED_MESSAGE =
+	"The site is refusing this server right now (it suspects automated access). Try again later";
+
 const KNOWN_ERRORS: ReadonlyArray<readonly [RegExp, string]> = [
 	// With `generic` excluded, yt-dlp 2026.10.26 says "No suitable extractor".
 	[/Unsupported URL|No suitable extractor/i, UNSUPPORTED],
@@ -165,10 +181,7 @@ const KNOWN_ERRORS: ReadonlyArray<readonly [RegExp, string]> = [
 	],
 	// Anti-bot checks and rate limits are about this server, not the track.
 	// Before the sign-in rule below: the bot check also says "Use --cookies".
-	[
-		/confirm you(?:'|\u2019)?re not a (?:ro)?bot|unusual traffic|HTTP Error 429|too many requests/i,
-		"The site is refusing this server right now (it suspects automated access). Try again later",
-	],
+	[BLOCKED, BLOCKED_MESSAGE],
 	[/private (?:video|track)|this track is private/i, "This track is private"],
 	// We never try to get around DRM; say so plainly.
 	[
@@ -203,13 +216,32 @@ const KNOWN_ERRORS: ReadonlyArray<readonly [RegExp, string]> = [
 	],
 ];
 
-/** Turns yt-dlp's stderr into a short message that's safe to show users. */
-export function describeYtDlpFailure(stderr: string): string {
+/** yt-dlp's last `ERROR:` line: the one that explains why it stopped. */
+function lastError(stderr: string): string {
 	const errorLines = stderr
 		.split("\n")
 		.map((line) => line.trim())
 		.filter((line) => line.startsWith("ERROR:"));
-	const last = errorLines.at(-1) ?? "";
+	return errorLines.at(-1) ?? "";
+}
+
+/** True when the site refused this server (bot check, rate limit), not the track. */
+export function isBlockedFailure(error: unknown): boolean {
+	const cause = error instanceof UserFacingError ? error.cause : error;
+	return cause instanceof ExecError && BLOCKED.test(lastError(cause.stderr));
+}
+
+/**
+ * Pauses per site, keyed by host (lower-cased, without a leading `www.` or
+ * `m.`). Approximate on purpose: a site's short-link domain counts apart.
+ */
+export function siteKey(url: string): string {
+	return new URL(url).hostname.toLowerCase().replace(/^(?:www|m)\./, "");
+}
+
+/** Turns yt-dlp's stderr into a short message that's safe to show users. */
+export function describeYtDlpFailure(stderr: string): string {
+	const last = lastError(stderr);
 	for (const [pattern, message] of KNOWN_ERRORS) {
 		if (pattern.test(last)) return message;
 	}
@@ -236,6 +268,8 @@ export interface YtDlpState {
 	infoJson: string;
 	/** Codec of the audio that will be fetched, e.g. `opus` or `mp3` (copied as is). */
 	sourceCodec: string | null;
+	/** `siteKey` of the link, so a refused download pauses its site too. */
+	site?: string;
 }
 
 interface YtDlpInfo {
@@ -290,6 +324,39 @@ export function createYtDlpSource(options: YtDlpOptions): Source {
 	const run = options.run ?? realRun;
 	const spawnStream = options.spawnStream ?? realSpawnStream;
 	const checks = new Semaphore(options.maxChecks);
+	const now = options.now ?? Date.now;
+	const cooldownMs = options.cooldownMs ?? 0;
+	/** Site → when it may be tried again. A handful of entries at most. */
+	const pausedUntil = new Map<string, number>();
+
+	function pauseIfBlocked(site: string | undefined, error: unknown): void {
+		if (!site || cooldownMs <= 0 || !isBlockedFailure(error)) return;
+		const at = now();
+		for (const [key, until] of pausedUntil) {
+			if (until <= at) pausedUntil.delete(key);
+		}
+		if (pausedUntil.has(site)) return; // already paused: logged once
+		pausedUntil.set(site, at + cooldownMs);
+		options.log?.warn(
+			{ site, until: new Date(at + cooldownMs).toISOString() },
+			"Site refused this server (bot check or rate limit): pausing it",
+		);
+	}
+
+	/** Throws the "try again" message while a site is paused. */
+	function checkNotPaused(site: string): void {
+		const until = pausedUntil.get(site);
+		if (until === undefined) return;
+		const left = until - now();
+		if (left <= 0) {
+			pausedUntil.delete(site);
+			return;
+		}
+		const minutes = Math.max(1, Math.ceil(left / 60_000));
+		throw new UserFacingError(
+			`The site is refusing this server right now (it suspects automated access). Try again in about ${minutes} minute${minutes === 1 ? "" : "s"}`,
+		);
+	}
 
 	/**
 	 * `yt-dlp | ffmpeg` → MP3 bytes. The returned stream only ends once both
@@ -323,6 +390,7 @@ export function createYtDlpSource(options: YtDlpOptions): Source {
 			if (download.status === "fulfilled" && convert.status === "fulfilled") {
 				out.end();
 			} else if (download.status === "rejected") {
+				pauseIfBlocked(state.site, download.reason);
 				// yt-dlp's reason explains the failure; ffmpeg just saw its input end.
 				out.destroy(
 					asError(toUserFacing(download.reason, "downloading the audio")),
@@ -339,6 +407,8 @@ export function createYtDlpSource(options: YtDlpOptions): Source {
 		name: "sites supported by yt-dlp",
 		match: matchSiteUrl,
 		async probe({ url, signal }) {
+			const site = siteKey(url);
+			checkNotPaused(site);
 			const release = await checks.acquire(signal);
 			let stdout: string;
 			try {
@@ -347,12 +417,14 @@ export function createYtDlpSource(options: YtDlpOptions): Source {
 					timeoutMs: options.timeoutMs,
 				}));
 			} catch (error) {
+				pauseIfBlocked(site, error);
 				throw toUserFacing(error, "reading the track's details");
 			} finally {
 				release();
 			}
 			try {
-				return parseProbe(stdout);
+				const probe = parseProbe(stdout);
+				return { ...probe, state: { ...probe.state, site } };
 			} catch (error) {
 				if (error instanceof UserFacingError) throw error;
 				throw new UserFacingError(UNSUPPORTED, { cause: error });

@@ -4,6 +4,12 @@ TagTape has one version for the web app and the API, kept in the root `package.j
 
 ## Unreleased
 
+### Added
+- **Pausing a site that refuses the server:** after a site's anti-bot check or rate limit, its links fail at once for `YTDLP_BLOCK_COOLDOWN_SEC` (600; 0 turns it off) with when to try again, instead of each starting yt-dlp only to be refused. The API logs `Site refused this server` when a pause starts. TagTape never uses cookies, accounts or rotating proxies to get past such checks.
+
+### Changed
+- The home page says some sites refuse servers they think are automated, and that direct MP3 links are the most reliable.
+
 ### Fixed
 - When a site's anti-bot check or rate limit refuses the server, the track now says so ("The site is refusing this server right now…") instead of claiming it's only for signed-in, paying or subscribed users.
 

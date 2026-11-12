@@ -26,7 +26,7 @@ const FEATURES: { icon: LucideIcon; title: string; text: string }[] = [
 	{
 		icon: Puzzle,
 		title: "Links from many places",
-		text: "TagTape reads direct links to MP3 files, and single tracks from sites yt-dlp can read when the server has it on. Plugins can add more sources.",
+		text: "TagTape reads direct links to MP3 files, and single tracks from sites yt-dlp can read, when the server has it on and the site allows it. Plugins can add more sources.",
 	},
 	{
 		icon: Code,

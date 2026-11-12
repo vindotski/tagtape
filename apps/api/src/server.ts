@@ -48,6 +48,8 @@ const app = await buildApp({
 					proxy: egressProxy.url,
 					timeoutMs: config.YTDLP_TIMEOUT_SEC * 1000,
 					maxChecks: config.YTDLP_MAX_CHECKS,
+					cooldownMs: config.YTDLP_BLOCK_COOLDOWN_SEC * 1000,
+					log,
 				}),
 			);
 		}

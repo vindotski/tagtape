@@ -67,7 +67,7 @@ Push `main` (publishes `latest` and `sha-…`) or tag `vX.Y.Z` (publishes `X.Y.Z
 
 ## 4. Test a real conversion (after moving servers)
 
-Convert a short album from the live site, for example the public sample `https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3`, plus a freely licensed track from a site yt-dlp supports and a link for each source plugin you run. Logs are on the app's page in the dashboard. Some sites block or rate-limit datacenter IPs; if a plugin's source refuses the server, try another region or provider.
+Convert a short album from the live site, for example the public sample `https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3`, plus a freely licensed track from a site yt-dlp supports and a link for each source plugin you run. Logs are on the app's page in the dashboard. Some sites block or rate-limit datacenter IPs, so expect a site's anti-bot check now and then ("The site is refusing this server right now…"). TagTape then leaves that site alone for `YTDLP_BLOCK_COOLDOWN_SEC` (10 minutes) and logs `Site refused this server`; direct MP3 links keep working. TagTape never uses cookies, accounts or rotating proxies to get past these checks. If a plugin's source refuses the server, try another region or provider.
 
 ## Guests and their data
 

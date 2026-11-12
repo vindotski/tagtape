@@ -131,6 +131,7 @@ Run `pnpm check`, `pnpm typecheck` and the relevant tests (or `pnpm docker:test`
     - **Never the `generic` extractor** (`--use-extractors default,-generic`), so arbitrary pages are never read.
     - Every request yt-dlp and its ffmpeg make goes through the **egress proxy** (`lib/egress-proxy.ts`: public addresses, ports 80/443 only).
     - **No cookies, logins or account features, and never anything that gets around DRM** (refuse with a clear message).
+    - **Never get past a site's anti-bot checks or rate limits**: no cookies, accounts, PO-token helpers or rotating/residential proxies. When a site refuses the server ("confirm you're not a bot", unusual traffic, HTTP 429), say so and pause that site for `YTDLP_BLOCK_COOLDOWN_SEC` (600; 0 never pauses): its links then fail at once with when to retry. Datacenter IPs get refused often; direct MP3 links are the reliable path.
     - Single tracks only: playlists and sets are refused. `YTDLP_MAX_CHECKS` caps yt-dlp checks (~100 MB each); downloads count under `MAX_ACTIVE_STREAMS`. Don't put both under one cap: long downloads would starve the checks (`CHECK_TIMEOUT_SEC`).
     - yt-dlp is pinned in `docker/yt-dlp.version` (official onedir release, checksum-verified by `docker/install-ytdlp.sh`). Dependabot can't bump it: bump it when a site breaks or Trivy flags it.
   - The plugin contract (`plugins/api.ts`) depends only on Node's types, so plugins elsewhere can copy it verbatim. Bump `PLUGIN_API_VERSION` for incompatible changes.

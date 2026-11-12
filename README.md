@@ -52,7 +52,7 @@ The web app and the API share **one version**, which lives in the root `package.
 | `PUBLIC_URL` | none | The site's address, e.g. `https://tagtape.app` (http only on localhost). |
 | `PORT` | `3000` | Public port of the web app. |
 | `JOB_TTL_MIN`, `MAX_ACTIVE_STREAMS`, `MAX_QUEUED_STREAMS`, `MAX_ACTIVE_PROBES`, `MAX_QUEUED_JOBS`, `TRACK_CONCURRENCY`, `MAX_DIRECT_MB`, `MAX_DOWNLOADS_PER_JOB`, `MAX_STORED_JOBS`, `CHECK_TIMEOUT_SEC`, `MAX_JOBS_PER_CLIENT_HOUR`, `MAX_CHECKING_JOBS_PER_CLIENT`, `MAX_DOWNLOADS_PER_CLIENT`, `LOG_LEVEL` | see [apps/api/.env.example](apps/api/.env.example) | API tuning. These are passed through. |
-| `YTDLP_BIN` | `/opt/yt-dlp/yt-dlp` | yt-dlp for links from sites; empty turns that source off. Tuning: `YTDLP_MAX_CHECKS` (3 checks at once, ~100 MB each), `YTDLP_TIMEOUT_SEC` (1800), `YTDLP_JS_RUNTIME` (`node`). |
+| `YTDLP_BIN` | `/opt/yt-dlp/yt-dlp` | yt-dlp for links from sites; empty turns that source off. Tuning: `YTDLP_MAX_CHECKS` (3 checks at once, ~100 MB each), `YTDLP_TIMEOUT_SEC` (1800), `YTDLP_JS_RUNTIME` (`node`), `YTDLP_BLOCK_COOLDOWN_SEC` (600: how long a site that refused the server is left alone; 0 never). |
 | `TRUST_PROXY` | off | Set to `1` **only** behind a reverse proxy that sets `X-Forwarded-For` (Spotcraft's Caddy does): per-client limits then use the browser's address. Without a proxy, leave it off, or anyone could pick their address. |
 | `POW_COST` | `2000` | Difficulty of the invisible proof-of-work a browser solves before starting an album. |
 | `API_HOST`, `API_TOKEN` | `127.0.0.1`, random | Set both only to expose the API on purpose, e.g. for the end-to-end test. |
