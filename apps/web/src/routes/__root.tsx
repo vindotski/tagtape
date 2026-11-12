@@ -1,4 +1,10 @@
-import { createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
+import {
+	createRootRoute,
+	HeadContent,
+	Link,
+	Scripts,
+} from "@tanstack/react-router";
+import { buttonVariants } from "#/components/ui/button";
 import { fetchSources } from "#/lib/jobs.functions";
 import appCss from "../styles.css?url";
 
@@ -37,9 +43,17 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 			</head>
 			<body className="min-h-dvh bg-muted antialiased dark:bg-background">
 				<div className="mx-auto flex min-h-dvh max-w-5xl flex-col px-4 sm:px-6">
-					<header className="flex items-center gap-2.5 py-6">
-						<Logo />
-						<span className="text-lg font-bold tracking-tight">TagTape</span>
+					<header className="flex items-center justify-between gap-4 py-6">
+						<Link
+							to="/"
+							className="flex items-center gap-2.5 outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+						>
+							<Logo />
+							<span className="text-lg font-bold tracking-tight">TagTape</span>
+						</Link>
+						<Link to="/new" className={buttonVariants({ variant: "outline" })}>
+							Make an album
+						</Link>
 					</header>
 					<main className="flex-1 pb-16">{children}</main>
 					<footer className="flex flex-wrap gap-x-6 gap-y-2 border-t py-6 text-sm text-muted-foreground">
