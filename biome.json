@@ -1,5 +1,5 @@
 {
-	"$schema": "https://biomejs.dev/schemas/2.4.5/schema.json",
+	"$schema": "https://biomejs.dev/schemas/2.6.4/schema.json",
 	"vcs": {
 		"enabled": true,
 		"clientKind": "git",
@@ -15,7 +15,8 @@
 			"!skills-lock.json",
 			"!**/.cta.json",
 			"!**/routeTree.gen.ts",
-			"!**/src/styles.css"
+			"!**/src/styles.css",
+			"!**/*.md"
 		]
 	},
 	"formatter": {
@@ -32,7 +33,7 @@
 	"linter": {
 		"enabled": true,
 		"rules": {
-			"recommended": true
+			"preset": "recommended"
 		}
 	},
 	"javascript": {
@@ -44,6 +45,9 @@
 		{
 			"includes": ["apps/web/src/components/ui/**"],
 			"linter": {
+				"enabled": false
+			},
+			"assist": {
 				"enabled": false
 			}
 		}
