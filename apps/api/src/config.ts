@@ -62,8 +62,8 @@ export const configSchema = z.object({
 	YTDLP_JS_RUNTIME: z.string().default("node"),
 	/** Kill a single yt-dlp run after this long. */
 	YTDLP_TIMEOUT_SEC: positiveInt(1800),
-	/** yt-dlp processes at once, checks and downloads together (~100 MB each). */
-	YTDLP_MAX_PROCESSES: positiveInt(3),
+	/** yt-dlp checks at once (~100 MB each). Downloads count under MAX_ACTIVE_STREAMS. */
+	YTDLP_MAX_CHECKS: positiveInt(3),
 	/** Release of the web + API image (set at Docker build time). */
 	TAGTAPE_VERSION: z.string().min(1).default("dev"),
 });

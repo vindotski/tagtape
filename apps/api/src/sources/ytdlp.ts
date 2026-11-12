@@ -9,8 +9,9 @@
  * - Every request yt-dlp (and the ffmpeg it starts for HLS) makes goes
  *   through the egress proxy (`lib/egress-proxy.ts`): public addresses only.
  * - No cookies, no logins, and never anything that gets around DRM.
- * - At most `maxProcesses` yt-dlp processes run at once (each is a Python
- *   process of ~100 MB).
+ * - At most `maxChecks` yt-dlp checks run at once (each is a Python process
+ *   of ~100 MB). Downloads aren't counted: `MAX_ACTIVE_STREAMS` caps them,
+ *   and a shared cap would let two long downloads starve every album check.
  */
 import { isIP } from "node:net";
 import { PassThrough, type Readable } from "node:stream";
@@ -33,8 +34,8 @@ export interface YtDlpOptions {
 	proxy: string;
 	/** Kill a single yt-dlp run after this long. */
 	timeoutMs: number;
-	/** yt-dlp processes running at once (checks and downloads together). */
-	maxProcesses: number;
+	/** yt-dlp checks (probes) running at once. Downloads are capped by the job manager. */
+	maxChecks: number;
 	/** For tests: replace the process runners. */
 	run?: typeof realRun;
 	spawnStream?: typeof realSpawnStream;
@@ -282,7 +283,7 @@ export function matchSiteUrl(url: URL): string | null {
 export function createYtDlpSource(options: YtDlpOptions): Source {
 	const run = options.run ?? realRun;
 	const spawnStream = options.spawnStream ?? realSpawnStream;
-	const slots = new Semaphore(options.maxProcesses);
+	const checks = new Semaphore(options.maxChecks);
 
 	/**
 	 * `yt-dlp | ffmpeg` → MP3 bytes. The returned stream only ends once both
@@ -297,13 +298,6 @@ export function createYtDlpSource(options: YtDlpOptions): Source {
 		out.once("close", () => local.abort());
 
 		void (async () => {
-			let release: () => void;
-			try {
-				release = await slots.acquire(signal);
-			} catch (error) {
-				out.destroy(asError(error));
-				return;
-			}
 			const ytDlp = spawnStream(options.bin, streamArgs(options), {
 				stdin: state.infoJson,
 				signal,
@@ -320,7 +314,6 @@ export function createYtDlpSource(options: YtDlpOptions): Source {
 				ytDlp.done,
 				ffmpeg.done,
 			]);
-			release();
 			if (download.status === "fulfilled" && convert.status === "fulfilled") {
 				out.end();
 			} else if (download.status === "rejected") {
@@ -340,7 +333,7 @@ export function createYtDlpSource(options: YtDlpOptions): Source {
 		name: "sites supported by yt-dlp",
 		match: matchSiteUrl,
 		async probe({ url, signal }) {
-			const release = await slots.acquire(signal);
+			const release = await checks.acquire(signal);
 			let stdout: string;
 			try {
 				({ stdout } = await run(options.bin, probeArgs(url, options), {

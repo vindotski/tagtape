@@ -24,7 +24,7 @@ const options: YtDlpOptions = {
 	jsRuntime: "node",
 	proxy: "http://127.0.0.1:9999",
 	timeoutMs: 1000,
-	maxProcesses: 3,
+	maxChecks: 3,
 };
 const TRACK = "https://video.example.com/watch/abc123";
 const after = (args: readonly string[], flag: string) =>
@@ -243,7 +243,7 @@ describe("source", () => {
 		).rejects.toThrow("TagTape can't read tracks from this link");
 	});
 
-	test("no more than maxProcesses yt-dlp runs at once", async () => {
+	test("no more than maxChecks yt-dlp checks at once", async () => {
 		let running = 0;
 		let peak = 0;
 		const fakeRun = (async () => {
@@ -255,7 +255,7 @@ describe("source", () => {
 		}) as unknown as typeof run;
 		const source = createYtDlpSource({
 			...options,
-			maxProcesses: 2,
+			maxChecks: 2,
 			run: fakeRun,
 		});
 		const signal = new AbortController().signal;
@@ -263,6 +263,27 @@ describe("source", () => {
 			Array.from({ length: 5 }, () => source.probe({ url: TRACK, signal })),
 		);
 		expect(peak).toBe(2);
+	});
+
+	test("downloads don't take check slots (long downloads can't starve checks)", async () => {
+		const { fake } = fakeProcesses("mp3 bytes");
+		let finishCheck = () => {};
+		const slowRun = (() =>
+			new Promise((resolve) => {
+				finishCheck = () => resolve({ stdout: info(), stderr: "" });
+			})) as unknown as typeof run;
+		const source = createYtDlpSource({
+			...options,
+			maxChecks: 1,
+			run: slowRun,
+			spawnStream: fake,
+		});
+		const signal = new AbortController().signal;
+		const check = source.probe({ url: TRACK, signal });
+		const out = source.stream({ state, signal });
+		expect((await buffer(out)).toString()).toBe("mp3 bytes");
+		finishCheck();
+		await check;
 	});
 
 	/** yt-dlp writes `audio` (or fails with `stderr`); ffmpeg copies stdin. */

@@ -35,7 +35,7 @@ In the Spotcraft dashboard, **New app**:
 | Tag | a release, e.g. `2.1.0`, or a `sha-abc1234` from `main` |
 | Domain | `tagtape.app` |
 | Container port | `3000` |
-| Memory / CPUs | `1g` / `2` (web, API, up to two conversions and at most `YTDLP_MAX_PROCESSES` yt-dlp runs, ~100 MB each, share them) |
+| Memory / CPUs | `1g` / `2` (web, API, up to `MAX_ACTIVE_STREAMS` (2) conversions and `YTDLP_MAX_CHECKS` (3) yt-dlp checks, ~100 MB each, share them) |
 | Read-only filesystem | on (the default) |
 | Database | ticked: Spotcraft sets `DATABASE_URL`; don't set it yourself |
 

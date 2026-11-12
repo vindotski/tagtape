@@ -10,7 +10,7 @@ TagTape has one version for the web app and the API, kept in the root `package.j
   - Playlists and sets, live streams, and anything behind DRM, a login or a paywall are refused. No cookies are used.
   - Media still never touches the disk: yt-dlp streams into ffmpeg (MP3 copied, anything else 256 kbps CBR).
 - **Egress proxy:** everything yt-dlp (and its ffmpeg) fetches goes through a local proxy that allows only public addresses on ports 80 and 443, redirects and CDN hosts included.
-- `YTDLP_MAX_PROCESSES` (3), `YTDLP_TIMEOUT_SEC` (1800) and `YTDLP_JS_RUNTIME` (`node`).
+- `YTDLP_MAX_CHECKS` (3), `YTDLP_TIMEOUT_SEC` (1800) and `YTDLP_JS_RUNTIME` (`node`).
 
 ## 3.0.0 (2026-11-08)
 

@@ -26,7 +26,7 @@ The second is **sites supported by yt-dlp** ([`src/sources/ytdlp.ts`](src/source
 - **Check:** `yt-dlp --dump-single-json --no-playlist --flat-playlist`. Playlists and sets are refused; so are live streams, tracks of unknown length, and anything behind DRM, a login or a paywall (no cookies are ever used).
 - **Download:** `yt-dlp --load-info-json - -o -` (the check's JSON on stdin, so no second metadata fetch) piped into ffmpeg: MP3 audio is copied, anything else re-encoded to 256 kbps CBR, never DASH (it would need temporary files). HLS goes through ffmpeg.
 - **Egress proxy** ([`src/lib/egress-proxy.ts`](src/lib/egress-proxy.ts)): yt-dlp fetches links itself, so the API starts a forward proxy on a random `127.0.0.1` port and gives it to yt-dlp (`--proxy`, which yt-dlp hands on to its ffmpeg). Every connection, redirects and CDN hosts included, must resolve to a public address on port 80 or 443.
-- **Costs:** at most `YTDLP_MAX_PROCESSES` yt-dlp processes (checks and downloads together, ~100 MB each), each killed after `YTDLP_TIMEOUT_SEC`. The image uses yt-dlp's onedir release, which never unpacks to `/tmp`; `--no-cache-dir` keeps it off the disk.
+- **Costs:** at most `YTDLP_MAX_CHECKS` yt-dlp checks plus one yt-dlp per active download (`MAX_ACTIVE_STREAMS`), ~100 MB each, each killed after `YTDLP_TIMEOUT_SEC`. The image uses yt-dlp's onedir release, which never unpacks to `/tmp`; `--no-cache-dir` keeps it off the disk.
 
 ## How a job runs
 

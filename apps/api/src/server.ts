@@ -47,7 +47,7 @@ const app = await buildApp({
 					jsRuntime: config.YTDLP_JS_RUNTIME,
 					proxy: egressProxy.url,
 					timeoutMs: config.YTDLP_TIMEOUT_SEC * 1000,
-					maxProcesses: config.YTDLP_MAX_PROCESSES,
+					maxChecks: config.YTDLP_MAX_CHECKS,
 				}),
 			);
 		}

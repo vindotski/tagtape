@@ -131,7 +131,7 @@ Run `pnpm check`, `pnpm typecheck` and the relevant tests (or `pnpm docker:test`
     - **Never the `generic` extractor** (`--use-extractors default,-generic`), so arbitrary pages are never read.
     - Every request yt-dlp and its ffmpeg make goes through the **egress proxy** (`lib/egress-proxy.ts`: public addresses, ports 80/443 only).
     - **No cookies, logins or account features, and never anything that gets around DRM** (refuse with a clear message).
-    - Single tracks only: playlists and sets are refused. `YTDLP_MAX_PROCESSES` caps yt-dlp runs (~100 MB each).
+    - Single tracks only: playlists and sets are refused. `YTDLP_MAX_CHECKS` caps yt-dlp checks (~100 MB each); downloads count under `MAX_ACTIVE_STREAMS`. Don't put both under one cap: long downloads would starve the checks (`CHECK_TIMEOUT_SEC`).
     - yt-dlp is pinned in `docker/yt-dlp.version` (official onedir release, checksum-verified by `docker/install-ytdlp.sh`). Dependabot can't bump it: bump it when a site breaks or Trivy flags it.
   - The plugin contract (`plugins/api.ts`) depends only on Node's types, so plugins elsewhere can copy it verbatim. Bump `PLUGIN_API_VERSION` for incompatible changes.
 - **The core names no sites** (what kept youtube-dl on GitHub): yt-dlp is a generic engine, and no code, tests, docs, examples or screenshots name third-party sites or link to plugin repositories. Test data uses made-up names on `example.com` hosts, never commercial songs; real-site e2e links live in a CI variable, never in the repo.
