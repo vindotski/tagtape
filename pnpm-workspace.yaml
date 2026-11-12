@@ -29,3 +29,10 @@ catalog:
   typescript: ^7.0.2
   vitest: ^5.1.0
   zod: ^4.6.7
+
+# Security overrides, each scoped to the vulnerable range only. Remove one
+# once the dependency that pins the old version allows the fixed release.
+overrides:
+  # GHSA-g3hv-75wg-m249 (DoS), via shadcn → ts-morph → @ts-morph/common,
+  # which still asks for minimatch ^10.
+  'minimatch@>=7 <11.0.1': ^11.0.1

@@ -221,6 +221,7 @@ Run `pnpm check`, `pnpm typecheck` and the relevant tests (or `pnpm docker:test`
 - **pnpm supply chain** (`pnpm-workspace.yaml`): `minimumReleaseAge`, `trustPolicy: no-downgrade`, `blockExoticSubdeps` and `strictDepBuilds` are written out explicitly.
   - The root `@types/node` (catalog) exists so vitest's optional peer resolves to Node 26 types. Without it, pnpm auto-installs an old `@types/node` for `packages/shared`, which trips `trustPolicy`.
   - If `trustPolicy` flags a package, find out why before adding an exception.
+  - Security fixes for transitive packages go in `overrides:` in `pnpm-workspace.yaml`, scoped to the vulnerable range (`'pkg@<fixed': ^fixed`), with a comment naming the advisory and when to remove it.
 - Actions are pinned to commit SHAs, with the version in a comment. To update one, resolve the new tag's SHA with `git ls-remote`, and prefer releases that are at least a few days old.
 - Lint workflows locally with `docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.7`.
 
