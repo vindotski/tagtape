@@ -35,7 +35,7 @@ const TRACK_LABELS: Record<TrackStatus, string> = {
 
 /** Shown while the download runs: closing the tab stops the conversion. */
 const KEEP_OPEN =
-	"Tracks are converted while your browser downloads the ZIP. Keep this tab open until it finishes; nothing is stored on our side.";
+	"Tracks are converted while your browser downloads the ZIP. Keep this tab open until it finishes. The music is never stored on our side.";
 
 interface JobProgressProps {
 	jobId: string;
