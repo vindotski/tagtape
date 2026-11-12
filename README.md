@@ -111,7 +111,7 @@ The contract, with every rule a plugin must follow (strict link matching, no she
 
 [Ivan Vinski](https://www.vin.ski) – ivan@vin.ski
 
-Released under the [MIT License](LICENSE).
+Released into the public domain under [the Unlicense](LICENSE).
 
 That covers TagTape's own code. Third-party software keeps its own license: the Docker image bundles ffmpeg (LGPL/GPL), Node.js (MIT) and yt-dlp (Unlicense, with bundled libraries under their own licenses).
 

@@ -1,7 +1,7 @@
 {
 	"name": "@tagtape/web",
 	"private": true,
-	"license": "MIT",
+	"license": "Unlicense",
 	"type": "module",
 	"imports": {
 		"#/*": "./src/*"
