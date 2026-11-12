@@ -155,7 +155,8 @@ export function ffmpegArgs(sourceCodec: string | null): string[] {
 const UNSUPPORTED = "TagTape can't read tracks from this link";
 
 const KNOWN_ERRORS: ReadonlyArray<readonly [RegExp, string]> = [
-	[/Unsupported URL/i, UNSUPPORTED],
+	// With `generic` excluded, yt-dlp 2026.10.26 says "No suitable extractor".
+	[/Unsupported URL|No suitable extractor/i, UNSUPPORTED],
 	// The egress proxy refused a private address or an unusual port.
 	[
 		/Tunnel connection failed|ProxyError|Unable to connect to proxy|HTTP Error 403: Forbidden.*proxy/i,

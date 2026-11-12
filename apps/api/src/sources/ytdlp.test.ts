@@ -133,6 +133,11 @@ describe("describeYtDlpFailure", () => {
 			"ERROR: Unsupported URL: https://example.com/page",
 			"TagTape can't read tracks from this link",
 		],
+		// Real wording with --use-extractors default,-generic (yt-dlp 2026.10.26):
+		[
+			"ERROR: No suitable extractor found for URL https://example.com/page",
+			"TagTape can't read tracks from this link",
+		],
 		[
 			"ERROR: [example] abc: Unable to download webpage: ('Unable to connect to proxy', OSError('Tunnel connection failed: 403 Forbidden'))",
 			"This link couldn't be reached",
