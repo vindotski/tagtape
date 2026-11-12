@@ -41,7 +41,7 @@ The running version shows in the web app's footer, and the internal API reports 
 The web app and the API share **one version**, which lives in the root `package.json`. See [CHANGELOG.md](CHANGELOG.md).
 
 1. Bump `"version"` in the root `package.json` and add a `CHANGELOG.md` entry, then commit.
-2. Once that commit is on `main`, run `git tag vX.Y.Z && git push origin vX.Y.Z`. CI refuses a tag that doesn't match `package.json`, and then publishes `X.Y.Z`, `X.Y`, `X` and `latest`.
+2. Once that commit is on `main`, run `git tag vX.Y.Z && git push origin vX.Y.Z`. CI refuses a tag that doesn't match `package.json`, and then publishes `X.Y.Z`, `X.Y` and `X` (`latest` comes from the push to `main`).
 
 ### Configuration
 

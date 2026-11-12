@@ -88,7 +88,7 @@ How the parts talk to each other: the browser only ever talks to the web app. Se
   - **2.0.0 was released on 2026-11-06, 3.0.0 (guest accounts, Spotcraft) on 2026-11-08.** From now on:
     - New work goes under `## Unreleased` in `CHANGELOG.md`, without a version bump.
     - At release time the user picks the version (semver: fixes → patch, features → minor, breaking changes → major). Bump `package.json`, rename `## Unreleased` to the version and date, commit, merge to `main`, and the user tags `vX.Y.Z`.
-  - **Branches:** `dev` is the working branch. Pushing `main` publishes `latest` and `sha-…` to Docker Hub; tagging `vX.Y.Z` publishes `X.Y.Z`, `X.Y` and `X`. Only the user merges, pushes and tags.
+  - **Branches:** `dev` is the working branch and GitHub's default branch (PRs target it); `main` is production. Pushing `main` publishes `latest` and `sha-…` to Docker Hub; tagging `vX.Y.Z` publishes `X.Y.Z`, `X.Y` and `X`. Only the user merges, pushes and tags.
 - Keep web and API changes that depend on each other in the same release.
 
 ## Commands (pnpm only)
@@ -205,9 +205,10 @@ Run `pnpm check`, `pnpm typecheck` and the relevant tests (or `pnpm docker:test`
 - **`publish`** (a job in `ci.yml`) pushes the multi-arch image (amd64 + arm64, built under QEMU) to Docker Hub as `vindotski/tagtape`, with `TAGTAPE_VERSION` from its "Compute version" step:
   - It runs only on pushes to `main` and tags `v*.*.*`, and only after `checks` and `image` pass.
   - Tags: `latest` (main), `X.Y.Z`, `X.Y` and `X` (version tags), plus `sha-<short>`.
+  - `latest` is enabled by `github.ref == 'refs/heads/main'`, not `{{is_default_branch}}` (that's `dev`).
   - It uses the repo variable `DOCKERHUB_USERNAME` and the secret `DOCKERHUB_TOKEN` (a Docker Hub personal access token with Read & Write scope).
   - Never publish from `dev` or from PRs.
-- **`e2e.yml`** runs weekly (and on demand): real public MP3 links converted through the image.
+- **`e2e.yml`** runs weekly (and on demand): real public MP3 links converted through the image. Scheduled runs check out `main`, since schedules always start from the default branch (`dev`).
 - **Image scan:** the `image` job runs Trivy (the `aquasec/trivy` CLI image, pinned by digest, not an action). Fixable HIGH/CRITICAL vulnerabilities fail the build. The runtime image has no npm/npx/corepack/yarn (removed in the `Dockerfile`), so their bundled dependencies can't be flagged or abused.
 - **Base images** (`node`, `ghcr.io/pnpm/pnpm`) are pinned by digest, with the tag kept for readability, in the `Dockerfile` and `docker/dev.Dockerfile`. Don't use a build `ARG` or `COPY --from=<image>` for them: Dependabot can't update those.
 - **Dependabot** (`.github/dependabot.yml`) opens weekly grouped PRs against `dev` for actions, npm and the Docker bases, with a 7-day cooldown.
