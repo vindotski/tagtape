@@ -53,6 +53,17 @@ export const configSchema = z.object({
 	 */
 	TAGTAPE_PLUGINS: z.string().default(""),
 	FFMPEG_BIN: z.string().min(1).default("ffmpeg"),
+	/**
+	 * yt-dlp binary for the built-in site source (every extractor except
+	 * "generic"). Empty disables it; the Docker image sets it.
+	 */
+	YTDLP_BIN: z.string().default(""),
+	/** Runtime for sites' JavaScript challenges (`--js-runtimes`); empty disables it. */
+	YTDLP_JS_RUNTIME: z.string().default("node"),
+	/** Kill a single yt-dlp run after this long. */
+	YTDLP_TIMEOUT_SEC: positiveInt(1800),
+	/** yt-dlp processes at once, checks and downloads together (~100 MB each). */
+	YTDLP_MAX_PROCESSES: positiveInt(3),
 	/** Release of the web + API image (set at Docker build time). */
 	TAGTAPE_VERSION: z.string().min(1).default("dev"),
 });
