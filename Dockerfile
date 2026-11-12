@@ -14,7 +14,7 @@
 FROM ghcr.io/pnpm/pnpm:12@sha256:6999b0d11d81065126ef0a226705b9d22eb9b552830d782505043d280c46ff00 AS pnpm-bin
 
 # --- shared base with pnpm (its own image, not Corepack: see the pnpm skill)
-FROM node:25-bookworm-slim@sha256:81db02c4b671288a03915da9534dbd54f96d0e7c24d80ccc54f5b36b2e684370 AS pnpm
+FROM node:26-bookworm-slim@sha256:5df79989ed685e09f0a98019db4cebfb22fb9df1a53c0161664a011f7ff6b0f1 AS pnpm
 COPY --from=pnpm-bin /opt/pnpm /opt/pnpm
 RUN for bin in pnpm pnpx; do ln -s "/opt/pnpm/$bin" "/usr/local/bin/$bin"; done
 WORKDIR /app
@@ -45,13 +45,13 @@ RUN --mount=type=cache,id=pnpm-store,target=/var/cache/pnpm \
 
 # --- yt-dlp: the official onedir release, checksum-verified (see the script).
 # Bump it in docker/yt-dlp.version (Dependabot can't).
-FROM node:25-bookworm-slim@sha256:81db02c4b671288a03915da9534dbd54f96d0e7c24d80ccc54f5b36b2e684370 AS ytdlp
+FROM node:26-bookworm-slim@sha256:5df79989ed685e09f0a98019db4cebfb22fb9df1a53c0161664a011f7ff6b0f1 AS ytdlp
 COPY docker/install-ytdlp.sh docker/yt-dlp.version /dl/
 RUN sh /dl/install-ytdlp.sh "" /opt/yt-dlp \
 	&& rm -rf /var/lib/apt/lists/*
 
 # --- runtime
-FROM node:25-bookworm-slim@sha256:81db02c4b671288a03915da9534dbd54f96d0e7c24d80ccc54f5b36b2e684370
+FROM node:26-bookworm-slim@sha256:5df79989ed685e09f0a98019db4cebfb22fb9df1a53c0161664a011f7ff6b0f1
 ARG TAGTAPE_VERSION=dev
 LABEL org.opencontainers.image.title="TagTape" \
 	org.opencontainers.image.version="${TAGTAPE_VERSION}"

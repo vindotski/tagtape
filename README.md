@@ -59,7 +59,7 @@ The web app and the API share **one version**, which lives in the root `package.
 
 ## Development
 
-pnpm monorepo. Requires Node 24+ and pnpm 12.
+pnpm monorepo. Requires Node 26+ and pnpm 12.
 
 | Path | What |
 |---|---|

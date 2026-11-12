@@ -12,6 +12,9 @@ TagTape has one version for the web app and the API, kept in the root `package.j
 - **Egress proxy:** everything yt-dlp (and its ffmpeg) fetches goes through a local proxy that allows only public addresses on ports 80 and 443, redirects and CDN hosts included.
 - `YTDLP_MAX_CHECKS` (3), `YTDLP_TIMEOUT_SEC` (1800) and `YTDLP_JS_RUNTIME` (`node`).
 
+### Changed
+- **Node 26 LTS:** the image and dev container run on Node 26 (was 24), with TypeScript 7 and Biome 2.6 for development.
+
 ## 3.0.0 (2026-11-08)
 
 Guest accounts with album history, and hosting on [Spotcraft](https://spotcraft.dev).

@@ -3,7 +3,7 @@
 # compose.dev.yaml), so nothing needs to be installed on the host.
 # Same pinned bases as the production Dockerfile (Dependabot keeps them current).
 FROM ghcr.io/pnpm/pnpm:12@sha256:6999b0d11d81065126ef0a226705b9d22eb9b552830d782505043d280c46ff00 AS pnpm-bin
-FROM node:25-bookworm-slim@sha256:81db02c4b671288a03915da9534dbd54f96d0e7c24d80ccc54f5b36b2e684370
+FROM node:26-bookworm-slim@sha256:5df79989ed685e09f0a98019db4cebfb22fb9df1a53c0161664a011f7ff6b0f1
 RUN apt-get update \
 	&& apt-get install -y --no-install-recommends ffmpeg ca-certificates \
 	&& rm -rf /var/lib/apt/lists/*

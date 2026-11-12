@@ -63,7 +63,7 @@ Jobs live in memory (metadata and cover only), and a sweeper forgets them `JOB_T
 
 ## Development
 
-The service runs on Node 24+ native TypeScript type stripping, with no build step. It needs `ffmpeg` on `PATH`, and yt-dlp for the site source (`YTDLP_BIN`; `pnpm docker:dev` has both):
+The service runs on Node 26+ native TypeScript type stripping, with no build step. It needs `ffmpeg` on `PATH`, and yt-dlp for the site source (`YTDLP_BIN`; `pnpm docker:dev` has both):
 
 ```bash
 brew install ffmpeg
@@ -78,7 +78,7 @@ All configuration comes from environment variables; see [.env.example](.env.exam
 
 The API ships inside the single TagTape image (web app + API, one version), built from the repo root's [`Dockerfile`](../../Dockerfile). There, it listens on `127.0.0.1:4000`, and only the web app reaches it. See the root [README](../../README.md#run-it) for tags and settings.
 
-The image bundles Node 24, ffmpeg (Debian) and yt-dlp (`/opt/yt-dlp`, pinned in `docker/yt-dlp.version`). It runs as the non-root `node` user, with `tini` as PID 1. To add sources, build an image `FROM` it that copies plugin modules in and sets `TAGTAPE_PLUGINS`.
+The image bundles Node 26, ffmpeg (Debian) and yt-dlp (`/opt/yt-dlp`, pinned in `docker/yt-dlp.version`). It runs as the non-root `node` user, with `tini` as PID 1. To add sources, build an image `FROM` it that copies plugin modules in and sets `TAGTAPE_PLUGINS`.
 
 ## End-to-end test
 

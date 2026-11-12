@@ -219,7 +219,7 @@ Run `pnpm check`, `pnpm typecheck` and the relevant tests (or `pnpm docker:test`
 - **Base images** (`node`, `ghcr.io/pnpm/pnpm`) are pinned by digest, with the tag kept for readability, in the `Dockerfile` and `docker/dev.Dockerfile`. Don't use a build `ARG` or `COPY --from=<image>` for them: Dependabot can't update those.
 - **Dependabot** (`.github/dependabot.yml`) opens weekly grouped PRs against `dev` for actions, npm and the Docker bases, with a 7-day cooldown.
 - **pnpm supply chain** (`pnpm-workspace.yaml`): `minimumReleaseAge`, `trustPolicy: no-downgrade`, `blockExoticSubdeps` and `strictDepBuilds` are written out explicitly.
-  - The root `@types/node` (catalog) exists so vitest's optional peer resolves to Node 24 types. Without it, pnpm auto-installs an old `@types/node` for `packages/shared`, which trips `trustPolicy`.
+  - The root `@types/node` (catalog) exists so vitest's optional peer resolves to Node 26 types. Without it, pnpm auto-installs an old `@types/node` for `packages/shared`, which trips `trustPolicy`.
   - If `trustPolicy` flags a package, find out why before adding an exception.
 - Actions are pinned to commit SHAs, with the version in a comment. To update one, resolve the new tag's SHA with `git ls-remote`, and prefer releases that are at least a few days old.
 - Lint workflows locally with `docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.7`.
