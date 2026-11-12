@@ -5,7 +5,8 @@
 #
 # Inside: web (TanStack Start via srvx) on :3000, API (Fastify, ffmpeg) on
 # 127.0.0.1:4000, both started by docker/start.mjs under tini. Out of the box
-# it reads direct MP3 links; images built FROM this one can add source plugins
+# it reads direct MP3 links and, with yt-dlp, links from any site yt-dlp has
+# an extractor for; images built FROM this one can add source plugins
 # (TAGTAPE_PLUGINS).
 
 # Base images are pinned by digest (the tag is kept for readability);
@@ -42,6 +43,13 @@ RUN --mount=type=cache,id=pnpm-store,target=/var/cache/pnpm \
 		--filter "@tagtape/api..." --filter "@tagtape/web..." \
 		--store-dir /var/cache/pnpm --package-import-method copy
 
+# --- yt-dlp: the official onedir release, checksum-verified (see the script).
+# Bump it in docker/yt-dlp.version (Dependabot can't).
+FROM node:24-bookworm-slim@sha256:01d566e8d94d8c619591d78652babfccd3c6992a3dffa9ed5ab39e11cf6c70e9 AS ytdlp
+COPY docker/install-ytdlp.sh docker/yt-dlp.version /dl/
+RUN sh /dl/install-ytdlp.sh "" /opt/yt-dlp \
+	&& rm -rf /var/lib/apt/lists/*
+
 # --- runtime
 FROM node:24-bookworm-slim@sha256:01d566e8d94d8c619591d78652babfccd3c6992a3dffa9ed5ab39e11cf6c70e9
 ARG TAGTAPE_VERSION=dev
@@ -66,10 +74,12 @@ COPY packages/shared/src packages/shared/src
 COPY apps/api/src apps/api/src
 COPY --from=build /app/apps/web/dist apps/web/dist
 COPY docker/start.mjs docker/start.mjs
+COPY --from=ytdlp /opt/yt-dlp /opt/yt-dlp
 
 ENV PORT=3000 \
 	TAGTAPE_VERSION=${TAGTAPE_VERSION} \
-	FFMPEG_BIN=/usr/bin/ffmpeg
+	FFMPEG_BIN=/usr/bin/ffmpeg \
+	YTDLP_BIN=/opt/yt-dlp/yt-dlp
 USER node
 EXPOSE 3000
 # Spotcraft's deploy waits for this check (up to 120 s) before it counts the

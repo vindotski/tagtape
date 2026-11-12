@@ -1,4 +1,4 @@
-# Development image for `pnpm docker:dev`: Node, pnpm and ffmpeg, nothing else.
+# Development image for `pnpm docker:dev`: Node, pnpm, ffmpeg and yt-dlp.
 # The source is bind-mounted and dependencies live in named volumes (see
 # compose.dev.yaml), so nothing needs to be installed on the host.
 # Same pinned bases as the production Dockerfile (Dependabot keeps them current).
@@ -9,6 +9,11 @@ RUN apt-get update \
 	&& rm -rf /var/lib/apt/lists/*
 COPY --from=pnpm-bin /opt/pnpm /opt/pnpm
 RUN for bin in pnpm pnpx; do ln -s "/opt/pnpm/$bin" "/usr/local/bin/$bin"; done
+# The same pinned yt-dlp as the production image.
+COPY docker/install-ytdlp.sh docker/yt-dlp.version /dl/
+RUN sh /dl/install-ytdlp.sh "" /opt/yt-dlp \
+	&& rm -rf /var/lib/apt/lists/* /dl
 ENV PNPM_STORE_DIR=/pnpm-store \
+	YTDLP_BIN=/opt/yt-dlp/yt-dlp \
 	CI=true
 WORKDIR /app

@@ -1,7 +1,7 @@
 # Hot-reload development in Docker: `pnpm docker:dev` (stop: Ctrl+C, then
 # `pnpm docker:down`). Nothing is installed on the host: the source is
 # bind-mounted, dependencies live in named volumes (Linux builds of native
-# packages never mix with the host's), and ffmpeg comes with the image.
+# packages never mix with the host's), and ffmpeg and yt-dlp come with the image.
 #
 # Guest accounts: a local Postgres (the same image as Spotcraft's apps server),
 # its `auth` schema migrated by the `migrate` service before the web app starts.
