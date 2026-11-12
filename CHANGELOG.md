@@ -4,7 +4,7 @@ TagTape has one version for the web app and the API, kept in the root `package.j
 
 ## Unreleased
 
-## 3.1.0 (2026-11-12)
+## 3.1.0 (2026-11-13)
 
 Links from sites through yt-dlp, a home page, albums you can open and make again, and a move to the public domain (the Unlicense).
 
