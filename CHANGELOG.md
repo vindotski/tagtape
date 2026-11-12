@@ -4,9 +4,11 @@ TagTape has one version for the web app and the API, kept in the root `package.j
 
 ## Unreleased
 
-### Changed
-- **Relicensed from MIT to [the Unlicense](https://unlicense.org)**: TagTape's own code is now in the public domain. Third-party software in the image keeps its own license.
-- The footer links to the source on GitHub instead of naming the author.
+## 3.1.0 (2026-11-12)
+
+Links from sites through yt-dlp, a home page, albums you can open and make again, and a move to the public domain (the Unlicense).
+
+**Upgrade notes:** nothing to configure. The album form moved from `/` to `/new` (the home page links to it). TagTape migrates its own tables on first use; the change only adds columns, so a 3.0.0 container keeps working while the deploy rolls over. From this release, albums are stored with their track links and cover link, never the music or images.
 
 ### Added
 - **Links from sites:** TagTape now reads single tracks from any site [yt-dlp](https://github.com/yt-dlp/yt-dlp) has an extractor for, built in. The image bundles yt-dlp 2026.10.26 (`YTDLP_BIN`; empty turns it off). MP3 links still go to the direct source first.
@@ -19,6 +21,8 @@ TagTape has one version for the web app and the API, kept in the root `package.j
 - **Albums you can make again:** `/albums` lists your albums, and opening one (`/albums/<id>`) loads it into the editor to change it and convert it again, or to delete it.
 
 ### Changed
+- **Relicensed from MIT to [the Unlicense](https://unlicense.org)**: TagTape's own code is now in the public domain. Third-party software in the image keeps its own license.
+- The footer links to the source on GitHub instead of naming the author.
 - **Node 26 LTS:** the image and dev container run on Node 26 (was 24), with TypeScript 7 and Biome 2.6 for development.
 - **TagTape now keeps your albums in full** (details, track titles and links, the cover's link) so they can be made again; before, only the album details were kept. The music and images are still never stored. Albums saved before this open without their tracks.
 - The album form moved to `/new`.

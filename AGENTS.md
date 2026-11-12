@@ -81,11 +81,11 @@ How the parts talk to each other: the browser only ever talks to the web app. Se
 - If either app exits, the container stops.
 - `API_HOST` and `API_TOKEN` exist only to expose the API on purpose (the e2e test).
 - **Versioning:**
-  - **One version** for web + API: the root `package.json` `"version"` (currently 3.0.0; 1.0.0 was the PHP app).
+  - **One version** for web + API: the root `package.json` `"version"` (currently 3.1.0; 1.0.0 was the PHP app).
   - CI computes `TAGTAPE_VERSION`: `X.Y.Z` on a `vX.Y.Z` tag (it must match `package.json`, or the publish fails), or `X.Y.Z+main.<sha>` on main. It's passed to the Docker build.
   - The web footer shows it (`__APP_VERSION__`, via `define` in `vite.config.ts`), and the API's `/health` reports it.
   - Release: bump `package.json`, add an entry to `CHANGELOG.md`, commit, then the user tags `vX.Y.Z` on main.
-  - **2.0.0 was released on 2026-11-06, 3.0.0 (guest accounts, Spotcraft) on 2026-11-08.** From now on:
+  - **2.0.0 was released on 2026-11-06, 3.0.0 (guest accounts, Spotcraft) on 2026-11-08, 3.1.0 (links from sites, saved albums, home page) on 2026-11-12.** From now on:
     - New work goes under `## Unreleased` in `CHANGELOG.md`, without a version bump.
     - At release time the user picks the version (semver: fixes → patch, features → minor, breaking changes → major). Bump `package.json`, rename `## Unreleased` to the version and date, commit, merge to `main`, and the user tags `vX.Y.Z`.
   - **Branches:** `dev` is the working branch and GitHub's default branch (PRs target it); `main` is production. Pushing `main` publishes `latest` and `sha-…` to Docker Hub; tagging `vX.Y.Z` publishes `X.Y.Z`, `X.Y` and `X`. Only the user merges, pushes and tags.

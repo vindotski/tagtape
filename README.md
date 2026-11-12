@@ -7,7 +7,7 @@
 
 Paste up to 10 track links (one track each, up to 2 hours long), add the album title, artist, year, genre and a cover image, and download a ZIP of MP3s with every tag filled in and the tracks numbered in your order. The albums show up properly on any plain MP3 player.
 
-**No music is stored on the server:** tracks convert while the ZIP streams to your browser. TagTape only remembers the album details (title, artist, genre, year, track count) so it can list "Your albums" for your browser, under a guest account with no sign-up.
+**No music is stored on the server:** tracks convert while the ZIP streams to your browser. TagTape remembers each album as you typed it (details, track titles and links, the cover's link) so you can open it from "Your albums" and make it again, under a guest account with no sign-up. Albums can be deleted.
 
 TagTape reads **direct links to MP3 files** and, through [yt-dlp](https://github.com/yt-dlp/yt-dlp), **single tracks from any site yt-dlp supports**. More kinds of links can be added with [source plugins](#sources-and-plugins).
 
@@ -31,10 +31,10 @@ The image needs a Postgres database for guest accounts and album history (`DATAB
 | Tag | Published from |
 |---|---|
 | `latest` | every push to `main` |
-| `3.0.0`, `3.0`, `3` | the git tag `v3.0.0` |
+| `3.1.0`, `3.1`, `3` | the git tag `v3.1.0` |
 | `sha-abc1234` | every publish (immutable; use it to pin a deployment) |
 
-The running version shows in the web app's footer, and the internal API reports it on `/health`. Builds from `main` carry build metadata, e.g. `3.0.0+main.abc1234`. To build the image yourself, run `docker build -t tagtape .`
+The running version shows in the web app's footer, and the internal API reports it on `/health`. Builds from `main` carry build metadata, e.g. `3.1.0+main.abc1234`. To build the image yourself, run `docker build -t tagtape .`
 
 ### Releasing
 
