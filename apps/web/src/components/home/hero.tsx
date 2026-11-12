@@ -1,5 +1,12 @@
 import { Link } from "@tanstack/react-router";
-import { ArrowRight, Disc3, FileArchive, Music } from "lucide-react";
+import { ArrowRight, Music } from "lucide-react";
+import { AlbumCover } from "#/components/album/album-cover";
+import {
+	AlbumHeader,
+	AlbumShell,
+	albumFileName,
+	albumMeta,
+} from "#/components/album/album-shell";
 import { buttonVariants } from "#/components/ui/button";
 
 // Made-up names only: the example must never look like a real release.
@@ -45,32 +52,28 @@ export function Hero() {
 
 /** A picture of what you get: an album folder with numbered, tagged files. */
 function ExampleAlbum() {
+	const title = "Harbour Lights";
+	const artist = "The Lamplighters";
 	return (
-		<div
+		<AlbumShell
 			aria-hidden="true"
-			className="border bg-card text-card-foreground shadow-sm select-none"
+			fileName={albumFileName(artist, title)}
+			className="select-none"
 		>
-			<div className="flex items-center gap-2 border-b px-4 py-2.5 text-sm text-muted-foreground">
-				<FileArchive className="size-4" />
-				<span className="truncate">The Lamplighters - Harbour Lights.zip</span>
-			</div>
-			<div className="flex gap-4 p-4">
-				<div className="grid size-24 shrink-0 place-items-center bg-primary text-primary-foreground sm:size-28">
-					<Disc3 className="size-12" strokeWidth={1.25} />
-				</div>
-				<div className="min-w-0 text-sm">
-					<p className="font-heading text-lg font-semibold">Harbour Lights</p>
-					<p className="text-muted-foreground">The Lamplighters</p>
-					<p className="mt-2 text-xs text-muted-foreground">
-						Indie · 2026 · {EXAMPLE_TRACKS.length} tracks
-					</p>
-				</div>
-			</div>
+			<AlbumHeader cover={<AlbumCover title={title} />}>
+				<p className="font-heading text-lg font-semibold sm:text-2xl">
+					{title}
+				</p>
+				<p className="text-muted-foreground">{artist}</p>
+				<p className="mt-2 text-xs text-muted-foreground">
+					{albumMeta(["Indie", 2026, `${EXAMPLE_TRACKS.length} tracks`])}
+				</p>
+			</AlbumHeader>
 			<ol className="border-t">
 				{EXAMPLE_TRACKS.map((track, i) => (
 					<li
 						key={track.title}
-						className="flex items-center gap-3 border-b px-4 py-2 text-sm last:border-b-0"
+						className="flex items-center gap-3 border-b px-4 py-2.5 text-sm last:border-b-0"
 					>
 						<Music className="size-4 shrink-0 text-primary" />
 						<span className="min-w-0 flex-1 truncate">
@@ -82,6 +85,6 @@ function ExampleAlbum() {
 					</li>
 				))}
 			</ol>
-		</div>
+		</AlbumShell>
 	);
 }

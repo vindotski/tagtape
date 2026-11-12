@@ -1,16 +1,15 @@
-import { CircleAlert } from "lucide-react";
+import { CircleAlert, Download, ImageIcon, ImagePlus } from "lucide-react";
 import { useState } from "react";
+import { AlbumCover } from "#/components/album/album-cover";
+import {
+	AlbumFooter,
+	AlbumHeader,
+	AlbumShell,
+	albumFileName,
+} from "#/components/album/album-shell";
 import { Alert, AlertDescription } from "#/components/ui/alert";
 import { Button } from "#/components/ui/button";
-import {
-	Card,
-	CardContent,
-	CardDescription,
-	CardFooter,
-	CardHeader,
-	CardTitle,
-} from "#/components/ui/card";
-import { FieldDescription, FieldGroup } from "#/components/ui/field";
+import { FieldDescription } from "#/components/ui/field";
 import { Spinner } from "#/components/ui/spinner";
 import {
 	type AlbumDraft,
@@ -23,7 +22,7 @@ import {
 import { startJob } from "#/lib/jobs.functions";
 import { usePow } from "#/lib/use-pow";
 import { TextField } from "./text-field";
-import { TrackList } from "./track-list";
+import { TrackLimitsNote, TrackList } from "./track-list";
 
 interface AlbumFormProps {
 	draft: AlbumDraft;
@@ -43,6 +42,10 @@ export function AlbumForm({
 	const [formError, setFormError] = useState<string>();
 	const [submitting, setSubmitting] = useState(false);
 	const takeProof = usePow();
+	const [coverOpen, setCoverOpen] = useState(false);
+	// Always shown once it has something to show (a link, or an error about it).
+	const coverShown =
+		coverOpen || draft.coverUrl !== "" || errors.coverUrl !== undefined;
 
 	const update = (patch: Partial<AlbumDraft>, clear: string[] = []) => {
 		onDraftChange({ ...draft, ...patch });
@@ -102,65 +105,105 @@ export function AlbumForm({
 		}
 	}
 
+	const trackCount = `${draft.tracks.length} ${draft.tracks.length === 1 ? "track" : "tracks"}`;
+
 	return (
-		<form
-			noValidate
-			onSubmit={handleSubmit}
-			className="grid items-start gap-6 lg:grid-cols-[22rem_1fr]"
-		>
-			<Card role="region" aria-labelledby="album-heading">
-				<CardHeader>
-					<CardTitle>
-						<h2 id="album-heading">Album</h2>
-					</CardTitle>
-					<CardDescription>Written into every track's tags.</CardDescription>
-				</CardHeader>
-				<CardContent>
-					<FieldGroup className="gap-5">
-						<TextField
-							id="title"
-							label="Album title"
-							value={draft.title}
-							onChange={(title) => update({ title }, ["title"])}
-							error={errors.title}
+		<form noValidate onSubmit={handleSubmit}>
+			<AlbumShell
+				role="region"
+				aria-labelledby="album-heading"
+				fileName={albumFileName(draft.artist, draft.title)}
+			>
+				<h2 id="album-heading" className="sr-only">
+					Album
+				</h2>
+				<AlbumHeader
+					cover={
+						<CoverButton
+							title={draft.title}
+							hasCover={draft.coverUrl !== ""}
+							expanded={coverShown}
 							disabled={submitting}
-							maxLength={60}
-							autoComplete="off"
+							onPress={() => {
+								setCoverOpen(true);
+								// Straight to the field it reveals.
+								requestAnimationFrame(() =>
+									document.getElementById("coverUrl")?.focus(),
+								);
+							}}
 						/>
+					}
+				>
+					<p className="mb-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
+						Album
+					</p>
+					<TextField
+						id="title"
+						label="Album title"
+						variant="inline"
+						placeholder="Album title"
+						value={draft.title}
+						onChange={(title) => update({ title }, ["title"])}
+						error={errors.title}
+						disabled={submitting}
+						maxLength={60}
+						autoComplete="off"
+						inputClassName="font-heading text-2xl font-semibold tracking-tight sm:text-3xl md:text-3xl"
+					/>
+					<TextField
+						id="artist"
+						label="Artist"
+						variant="inline"
+						placeholder="Artist"
+						value={draft.artist}
+						onChange={(artist) => update({ artist }, ["artist"])}
+						error={errors.artist}
+						disabled={submitting}
+						maxLength={60}
+						autoComplete="off"
+						className="mt-1"
+						inputClassName="text-base text-muted-foreground focus-visible:text-foreground md:text-lg"
+					/>
+					<div className="mt-2 flex flex-wrap items-start gap-x-2 text-xs text-muted-foreground">
 						<TextField
-							id="artist"
-							label="Artist"
-							value={draft.artist}
-							onChange={(artist) => update({ artist }, ["artist"])}
-							error={errors.artist}
+							id="genre"
+							label="Genre (optional)"
+							variant="inline"
+							placeholder="Genre"
+							value={draft.genre}
+							onChange={(genre) => update({ genre }, ["genre"])}
+							error={errors.genre}
 							disabled={submitting}
-							maxLength={60}
-							autoComplete="off"
+							maxLength={30}
+							className="w-20 sm:w-28"
+							inputClassName="text-xs md:text-xs"
 						/>
-						<div className="grid grid-cols-[1fr_6rem] gap-3">
-							<TextField
-								id="genre"
-								label="Genre"
-								optional
-								value={draft.genre}
-								onChange={(genre) => update({ genre }, ["genre"])}
-								error={errors.genre}
-								disabled={submitting}
-								maxLength={30}
-							/>
-							<TextField
-								id="year"
-								label="Year"
-								optional
-								inputMode="numeric"
-								placeholder="1987"
-								value={draft.year}
-								onChange={(year) => update({ year }, ["year"])}
-								error={errors.year}
-								disabled={submitting}
-								maxLength={4}
-							/>
-						</div>
+						<span aria-hidden="true" className="py-0.5">
+							·
+						</span>
+						<TextField
+							id="year"
+							label="Year (optional)"
+							variant="inline"
+							inputMode="numeric"
+							placeholder="Year"
+							value={draft.year}
+							onChange={(year) => update({ year }, ["year"])}
+							error={errors.year}
+							disabled={submitting}
+							maxLength={4}
+							className="w-12"
+							inputClassName="text-xs tabular-nums md:text-xs"
+						/>
+						<span aria-hidden="true" className="py-0.5">
+							·
+						</span>
+						<span className="py-0.5">{trackCount}</span>
+					</div>
+				</AlbumHeader>
+
+				{coverShown && (
+					<div className="border-t px-4 py-4 sm:px-6">
 						<TextField
 							id="coverUrl"
 							label="Cover image URL"
@@ -172,15 +215,14 @@ export function AlbumForm({
 							onChange={(coverUrl) => update({ coverUrl }, ["coverUrl"])}
 							error={errors.coverUrl}
 							disabled={submitting}
+							className="max-w-xl"
 						/>
-						<FieldDescription className="-mt-3">
+						<FieldDescription className="mt-2">
 							Covers are cropped to a 1000×1000 square. Up to 5 MB.
 						</FieldDescription>
-					</FieldGroup>
-				</CardContent>
-			</Card>
+					</div>
+				)}
 
-			<Card role="region" aria-labelledby="tracks-heading">
 				<TrackList
 					tracks={draft.tracks}
 					errors={errors}
@@ -204,20 +246,70 @@ export function AlbumForm({
 					}
 				/>
 
-				<CardFooter className="flex-col items-stretch gap-3 border-t sm:flex-row sm:items-center sm:justify-end">
-					{formError && (
-						<Alert variant="destructive" role="alert" className="sm:mr-auto">
-							<CircleAlert aria-hidden="true" />
-							<AlertDescription>{formError}</AlertDescription>
-						</Alert>
-					)}
-					<Button type="submit" size="lg" isPending={submitting}>
-						{submitting && <Spinner aria-hidden="true" />}
-						{submitting ? "Starting…" : "Convert & download"}
-					</Button>
-				</CardFooter>
-			</Card>
+				<AlbumFooter className="border-t-0">
+					<TrackLimitsNote />
+					<div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
+						{formError && (
+							<Alert variant="destructive" role="alert">
+								<CircleAlert aria-hidden="true" />
+								<AlertDescription>{formError}</AlertDescription>
+							</Alert>
+						)}
+						<Button
+							type="submit"
+							size="lg"
+							isPending={submitting}
+							className="shrink-0"
+						>
+							{submitting ? (
+								<Spinner aria-hidden="true" />
+							) : (
+								<Download aria-hidden="true" />
+							)}
+							{submitting ? "Starting…" : "Convert & download"}
+						</Button>
+					</div>
+				</AlbumFooter>
+			</AlbumShell>
 		</form>
+	);
+}
+
+/** The cover tile doubles as the button that shows the cover image field. */
+function CoverButton({
+	title,
+	hasCover,
+	expanded,
+	disabled,
+	onPress,
+}: {
+	title: string;
+	hasCover: boolean;
+	expanded: boolean;
+	disabled: boolean;
+	onPress: () => void;
+}) {
+	return (
+		<button
+			type="button"
+			onClick={onPress}
+			disabled={disabled}
+			aria-expanded={expanded}
+			aria-controls={expanded ? "coverUrl" : undefined}
+			aria-label={hasCover ? "Change the cover image" : "Add a cover image"}
+			className="group/cover relative shrink-0 self-start outline-none focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50"
+		>
+			<AlbumCover title={title} />
+			<span className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-1 bg-background/80 py-1 text-xs text-foreground opacity-0 transition-opacity group-hover/cover:opacity-100 group-focus-visible/cover:opacity-100">
+				<ImagePlus className="size-3.5" aria-hidden="true" />
+				{hasCover ? "Change cover" : "Add cover"}
+			</span>
+			{hasCover && (
+				<span className="absolute top-1 right-1 grid size-5 place-items-center bg-background/80 text-primary">
+					<ImageIcon className="size-3.5" aria-hidden="true" />
+				</span>
+			)}
+		</button>
 	);
 }
 

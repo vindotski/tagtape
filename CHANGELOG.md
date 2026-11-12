@@ -16,6 +16,7 @@ TagTape has one version for the web app and the API, kept in the root `package.j
 ### Changed
 - **Node 26 LTS:** the image and dev container run on Node 26 (was 24), with TypeScript 7 and Biome 2.6 for development.
 - The album form and "Your albums" moved to `/new`.
+- `/new` looks like an album in a music app: edit the title, artist, genre and year in place over a cover tile, tracks are playlist rows, the conversion plays out in the same album view, and "Your albums" is a grid of album tiles.
 
 ## 3.0.0 (2026-11-08)
 

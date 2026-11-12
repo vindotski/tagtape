@@ -57,6 +57,7 @@ function NewAlbum() {
 			) : (
 				<JobProgress
 					jobId={phase.jobId}
+					album={draft}
 					onEdit={(trackErrors) =>
 						setPhase({
 							kind: "edit",
