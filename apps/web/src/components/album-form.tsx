@@ -29,13 +29,16 @@ interface AlbumFormProps {
 	onDraftChange: (draft: AlbumDraft) => void;
 	/** Errors from a previous attempt, e.g. per-track problems the API found. */
 	initialErrors?: FieldErrors;
-	onStarted: (jobId: string) => void;
+	/** The stored album being made again, if any: it's updated, not duplicated. */
+	albumId?: string | undefined;
+	onStarted: (jobId: string, albumId: string | undefined) => void;
 }
 
 export function AlbumForm({
 	draft,
 	onDraftChange,
 	initialErrors,
+	albumId,
 	onStarted,
 }: AlbumFormProps) {
 	const [errors, setErrors] = useState<FieldErrors>(initialErrors ?? {});
@@ -84,16 +87,16 @@ export function AlbumForm({
 			// A proof-of-work keeps scripts from starting albums in bulk; it's
 			// usually solved already, in the background, while the form was filled in.
 			let response = await startJob({
-				data: { album: result.input, proof: await takeProof() },
+				data: { album: result.input, proof: await takeProof(), albumId },
 			});
 			if (!response.ok && response.retryProof) {
 				// Expired or used up (e.g. the server restarted): one fresh try.
 				response = await startJob({
-					data: { album: result.input, proof: await takeProof() },
+					data: { album: result.input, proof: await takeProof(), albumId },
 				});
 			}
 			if (response.ok) {
-				onStarted(response.jobId);
+				onStarted(response.jobId, response.albumId);
 				return;
 			}
 			setFormError(response.message);

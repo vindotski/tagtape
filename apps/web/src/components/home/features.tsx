@@ -15,13 +15,13 @@ const FEATURES: { icon: LucideIcon; title: string; text: string }[] = [
 	},
 	{
 		icon: UserRound,
-		title: "No sign-up",
-		text: "Your first album gives this browser a guest account, so you can see the albums you've made. There's no email or password to hand over.",
+		title: "No sign-up, albums kept",
+		text: "Your first album gives this browser a guest account. Your albums are kept there, so you can open one, change it and make it again. There's no email or password to hand over.",
 	},
 	{
 		icon: ShieldCheck,
 		title: "Your music is never stored",
-		text: "Tracks stream straight through the converter into your ZIP. Nothing is written to disk, and only the album details are kept, never the links or the audio.",
+		text: "Tracks stream straight through the converter into your ZIP, and nothing is written to disk. TagTape keeps only what you typed (album details, track links, the cover's link), and you can delete any album.",
 	},
 	{
 		icon: Puzzle,

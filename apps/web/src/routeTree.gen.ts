@@ -11,6 +11,8 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as NewRouteImport } from './routes/new'
+import { Route as AlbumsIndexRouteImport } from './routes/albums.index'
+import { Route as AlbumsAlbumIdRouteImport } from './routes/albums.$albumId'
 import { Route as DownloadJobIdRouteImport } from './routes/download.$jobId'
 
 const IndexRoute = IndexRouteImport.update({
@@ -23,6 +25,16 @@ const NewRoute = NewRouteImport.update({
   path: '/new',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AlbumsIndexRoute = AlbumsIndexRouteImport.update({
+  id: '/albums/',
+  path: '/albums/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AlbumsAlbumIdRoute = AlbumsAlbumIdRouteImport.update({
+  id: '/albums/$albumId',
+  path: '/albums/$albumId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DownloadJobIdRoute = DownloadJobIdRouteImport.update({
   id: '/download/$jobId',
   path: '/download/$jobId',
@@ -32,31 +44,45 @@ const DownloadJobIdRoute = DownloadJobIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/new': typeof NewRoute
+  '/albums/$albumId': typeof AlbumsAlbumIdRoute
   '/download/$jobId': typeof DownloadJobIdRoute
+  '/albums/': typeof AlbumsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/new': typeof NewRoute
+  '/albums/$albumId': typeof AlbumsAlbumIdRoute
   '/download/$jobId': typeof DownloadJobIdRoute
+  '/albums': typeof AlbumsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/new': typeof NewRoute
+  '/albums/$albumId': typeof AlbumsAlbumIdRoute
   '/download/$jobId': typeof DownloadJobIdRoute
+  '/albums/': typeof AlbumsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/new' | '/download/$jobId'
+  fullPaths: '/' | '/new' | '/albums/$albumId' | '/download/$jobId' | '/albums/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/new' | '/download/$jobId'
-  id: '__root__' | '/' | '/new' | '/download/$jobId'
+  to: '/' | '/new' | '/albums/$albumId' | '/download/$jobId' | '/albums'
+  id:
+    | '__root__'
+    | '/'
+    | '/new'
+    | '/albums/$albumId'
+    | '/download/$jobId'
+    | '/albums/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   NewRoute: typeof NewRoute
+  AlbumsAlbumIdRoute: typeof AlbumsAlbumIdRoute
   DownloadJobIdRoute: typeof DownloadJobIdRoute
+  AlbumsIndexRoute: typeof AlbumsIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -75,6 +101,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof NewRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/albums/': {
+      id: '/albums/'
+      path: '/albums'
+      fullPath: '/albums/'
+      preLoaderRoute: typeof AlbumsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/albums/$albumId': {
+      id: '/albums/$albumId'
+      path: '/albums/$albumId'
+      fullPath: '/albums/$albumId'
+      preLoaderRoute: typeof AlbumsAlbumIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/download/$jobId': {
       id: '/download/$jobId'
       path: '/download/$jobId'
@@ -88,7 +128,9 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   NewRoute: NewRoute,
+  AlbumsAlbumIdRoute: AlbumsAlbumIdRoute,
   DownloadJobIdRoute: DownloadJobIdRoute,
+  AlbumsIndexRoute: AlbumsIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -49,7 +49,7 @@ export function Faq() {
 		{
 			question: "What do you keep about me?",
 			answer:
-				"When you start your first album, this browser gets a guest account: a cookie, no email or password. TagTape keeps the details of your recent albums (title, artist, genre, year, track count) so you can see them again. Track links, covers and music are never stored.",
+				"When you start your first album, this browser gets a guest account: a cookie, no email or password. TagTape keeps the albums you make, as you typed them (details, track titles and links, the cover's link), so you can open one and make it again. You can delete any of them. The music and the cover image itself are never stored.",
 		},
 		{
 			question: "Is it free?",

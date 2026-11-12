@@ -1,4 +1,5 @@
 import { type AlbumInput, albumInputSchema } from "@tagtape/shared";
+import type { StoredAlbum } from "./albums";
 
 /** What the form edits. Tracks carry a client-only `key` for React and drag-and-drop. */
 export interface TrackDraft {
@@ -29,6 +30,27 @@ export function emptyDraft(): AlbumDraft {
 		year: "",
 		coverUrl: "",
 		tracks: [{ key: "track-initial", title: "", url: "" }],
+	};
+}
+
+/**
+ * A stored album, ready to edit. Keys are derived from positions so the
+ * server and the browser render the same markup.
+ */
+export function draftFromAlbum(album: StoredAlbum): AlbumDraft {
+	const tracks = album.tracks.map(({ title, url }, i) => ({
+		key: `stored-${i}`,
+		title,
+		url,
+	}));
+	return {
+		title: album.title,
+		artist: album.artist,
+		genre: album.genre ?? "",
+		year: album.year === null ? "" : String(album.year),
+		coverUrl: album.coverUrl ?? "",
+		tracks:
+			tracks.length > 0 ? tracks : [{ key: "stored-0", title: "", url: "" }],
 	};
 }
 

@@ -51,9 +51,20 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 							<Logo />
 							<span className="text-lg font-bold tracking-tight">TagTape</span>
 						</Link>
-						<Link to="/new" className={buttonVariants({ variant: "outline" })}>
-							Make an album
-						</Link>
+						<nav aria-label="Main" className="flex items-center gap-1">
+							<Link
+								to="/albums"
+								className={buttonVariants({ variant: "ghost" })}
+							>
+								Your albums
+							</Link>
+							<Link
+								to="/new"
+								className={buttonVariants({ variant: "outline" })}
+							>
+								Make an album
+							</Link>
+						</nav>
 					</header>
 					<main className="flex-1 pb-16">{children}</main>
 					<footer className="flex flex-wrap gap-x-6 gap-y-2 border-t py-6 text-sm text-muted-foreground">

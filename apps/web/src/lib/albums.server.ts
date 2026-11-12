@@ -1,28 +1,29 @@
 /**
- * Album history: the details of the albums a guest has started, so the page
- * can list them. Only what the visitor typed about the album is kept: never
- * track links, track titles, the cover or any media.
+ * Album history: the albums a guest has started, kept in full so they can be
+ * opened and made again. What the visitor typed is stored (details, track
+ * titles and links, the cover's link); never any audio or image.
  *
  * TagTape owns `public` in its database and migrates it itself, on first use
  * (Spotcraft only migrates the `auth` schema). Rows belong to a guest in
  * `auth.users` and go with it when it's deleted.
  */
-import type { Album } from "@tagtape/shared";
-import { desc, eq, sql } from "drizzle-orm";
+import { type Album, type Track, trackInputSchema } from "@tagtape/shared";
+import { and, desc, eq, sql } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import {
 	integer,
+	jsonb,
 	pgTable,
 	smallint,
 	text,
 	timestamp,
 	uuid,
 } from "drizzle-orm/pg-core";
-import type { AlbumSummary } from "./albums";
+import { z } from "zod";
+import { type AlbumSummary, HISTORY_LIMIT, type StoredAlbum } from "./albums";
 import { backend } from "./backend.server";
 
-/** How many albums a guest keeps; older ones are dropped as new ones come. */
-export const HISTORY_LIMIT = 50;
+export { HISTORY_LIMIT } from "./albums";
 
 export const albums = pgTable("albums", {
 	id: uuid().primaryKey().defaultRandom(),
@@ -33,7 +34,13 @@ export const albums = pgTable("albums", {
 	genre: text(),
 	year: smallint(),
 	trackCount: integer("track_count").notNull(),
+	coverUrl: text("cover_url"),
+	// NULL for albums recorded before migration 2, when links weren't kept.
+	tracks: jsonb().$type<Track[]>(),
 	createdAt: timestamp("created_at", { withTimezone: true })
+		.notNull()
+		.defaultNow(),
+	updatedAt: timestamp("updated_at", { withTimezone: true })
 		.notNull()
 		.defaultNow(),
 });
@@ -58,6 +65,16 @@ CREATE TABLE albums (
   created_at  timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX albums_user_id_created_at ON albums (user_id, created_at DESC);`,
+	},
+	{
+		// Full albums, so they can be made again; edits bump updated_at.
+		version: 2,
+		sql: `
+ALTER TABLE albums
+  ADD COLUMN cover_url  text,
+  ADD COLUMN tracks     jsonb,
+  ADD COLUMN updated_at timestamptz NOT NULL DEFAULT now();
+CREATE INDEX albums_user_id_updated_at ON albums (user_id, updated_at DESC);`,
 	},
 ];
 
@@ -109,55 +126,131 @@ export function database(): Promise<Database> {
 	return ready;
 }
 
-/** Records a started album and keeps only the guest's newest `HISTORY_LIMIT`. */
+/**
+ * Records a started album and returns its id. With `albumId` (an album the
+ * visitor reopened) that album is updated, if it's theirs; otherwise a new
+ * one is added. Only the guest's newest `HISTORY_LIMIT` are kept.
+ */
 export async function recordAlbum(
 	db: Database,
 	userId: string,
 	album: Album,
-): Promise<void> {
-	await db.transaction(async (tx) => {
-		await tx.insert(albums).values({
-			userId,
-			title: album.title,
-			artist: album.artist,
-			genre: album.genre ?? null,
-			year: album.year === undefined ? null : Number(album.year),
-			trackCount: album.tracks.length,
-		});
+	albumId?: string,
+): Promise<string> {
+	const values = {
+		title: album.title,
+		artist: album.artist,
+		genre: album.genre ?? null,
+		year: album.year === undefined ? null : Number(album.year),
+		trackCount: album.tracks.length,
+		coverUrl: album.coverUrl ?? null,
+		tracks: album.tracks.map(({ title, url }) => ({ title, url })),
+	};
+	return db.transaction(async (tx) => {
+		let id: string | undefined;
+		if (albumId) {
+			const updated = await tx
+				.update(albums)
+				.set({ ...values, updatedAt: sql`now()` })
+				.where(and(eq(albums.id, albumId), eq(albums.userId, userId)))
+				.returning({ id: albums.id });
+			id = updated[0]?.id;
+		}
+		if (!id) {
+			const inserted = await tx
+				.insert(albums)
+				.values({ userId, ...values })
+				.returning({ id: albums.id });
+			id = inserted[0]?.id as string;
+		}
 		await tx.execute(sql`
 			DELETE FROM albums
 			WHERE user_id = ${userId}
 			  AND id NOT IN (
 				SELECT id FROM albums
 				WHERE user_id = ${userId}
-				ORDER BY created_at DESC, id
+				ORDER BY updated_at DESC, id
 				LIMIT ${HISTORY_LIMIT}
 			  )`);
+		return id;
 	});
 }
 
-/** The guest's albums, newest first. */
+const summaryColumns = {
+	id: albums.id,
+	title: albums.title,
+	artist: albums.artist,
+	genre: albums.genre,
+	year: albums.year,
+	trackCount: albums.trackCount,
+	createdAt: albums.createdAt,
+	updatedAt: albums.updatedAt,
+};
+
+function toSummary(
+	row: {
+		[K in keyof typeof summaryColumns]: (typeof albums.$inferSelect)[K];
+	},
+): AlbumSummary {
+	return {
+		...row,
+		createdAt: row.createdAt.toISOString(),
+		updatedAt: row.updatedAt.toISOString(),
+	};
+}
+
+/** The guest's albums, most recently made first (no links: the list doesn't need them). */
 export async function listAlbums(
 	db: Database,
 	userId: string,
 	limit = 20,
 ): Promise<AlbumSummary[]> {
 	const rows = await db
-		.select({
-			id: albums.id,
-			title: albums.title,
-			artist: albums.artist,
-			genre: albums.genre,
-			year: albums.year,
-			trackCount: albums.trackCount,
-			createdAt: albums.createdAt,
-		})
+		.select(summaryColumns)
 		.from(albums)
 		.where(eq(albums.userId, userId))
-		.orderBy(desc(albums.createdAt), albums.id)
+		.orderBy(desc(albums.updatedAt), albums.id)
 		.limit(limit);
-	return rows.map((row) => ({
-		...row,
-		createdAt: row.createdAt.toISOString(),
-	}));
+	return rows.map(toSummary);
+}
+
+const storedTracksSchema = z.array(trackInputSchema).min(1);
+
+/** One of the guest's albums in full, or null if it isn't theirs (or is gone). */
+export async function getAlbum(
+	db: Database,
+	userId: string,
+	id: string,
+): Promise<StoredAlbum | null> {
+	const [row] = await db
+		.select({
+			...summaryColumns,
+			coverUrl: albums.coverUrl,
+			tracks: albums.tracks,
+		})
+		.from(albums)
+		.where(and(eq(albums.id, id), eq(albums.userId, userId)));
+	if (!row) return null;
+	const { coverUrl, tracks, ...summary } = row;
+	// Rows from before migration 2 have no tracks; treat odd data the same way.
+	const parsed = storedTracksSchema.safeParse(tracks);
+	return {
+		...toSummary(summary),
+		coverUrl,
+		tracks: parsed.success ? parsed.data : [],
+		complete: parsed.success,
+	};
+}
+
+/** Deletes one of the guest's albums; false if it wasn't theirs. */
+export async function deleteAlbum(
+	db: Database,
+	userId: string,
+	id: string,
+): Promise<boolean> {
+	const deleted = await db
+		.delete(albums)
+		.where(and(eq(albums.id, id), eq(albums.userId, userId)))
+		.returning({ id: albums.id });
+	return deleted.length > 0;
 }

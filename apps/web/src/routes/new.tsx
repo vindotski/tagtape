@@ -1,33 +1,22 @@
 import { MAX_TRACKS } from "@tagtape/shared";
-import { createFileRoute, useRouter } from "@tanstack/react-router";
-import { useState } from "react";
-import { AlbumForm } from "#/components/album-form";
-import { JobProgress } from "#/components/job-progress";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { AlbumWorkspace } from "#/components/album-workspace";
 import { RecentAlbums } from "#/components/recent-albums";
-import {
-	type AlbumDraft,
-	emptyDraft,
-	type FieldErrors,
-} from "#/lib/album-draft";
+import { buttonVariants } from "#/components/ui/button";
+import { emptyDraft } from "#/lib/album-draft";
 import { fetchAlbums } from "#/lib/jobs.functions";
+
+/** How many of the visitor's albums this page shows; /albums has them all. */
+const RECENT = 10;
 
 export const Route = createFileRoute("/new")({
 	head: () => ({ meta: [{ title: "Make an album · TagTape" }] }),
-	loader: () => fetchAlbums(),
+	loader: () => fetchAlbums({ data: { limit: RECENT } }),
 	component: NewAlbum,
 });
 
-type Phase =
-	| { kind: "edit"; errors?: FieldErrors }
-	| { kind: "job"; jobId: string };
-
 function NewAlbum() {
-	// The draft lives here so going back from a failed job keeps everything filled in.
-	const [draft, setDraft] = useState<AlbumDraft>(emptyDraft);
-	const [phase, setPhase] = useState<Phase>({ kind: "edit" });
 	const albums = Route.useLoaderData();
-	const router = useRouter();
-
 	return (
 		<>
 			<section className="mb-10 max-w-2xl">
@@ -41,42 +30,24 @@ function NewAlbum() {
 				</p>
 			</section>
 
-			{phase.kind === "edit" ? (
-				<AlbumForm
-					// Remount with fresh errors whenever we come back from a job.
-					key={JSON.stringify(phase.errors ?? {})}
-					draft={draft}
-					onDraftChange={setDraft}
-					initialErrors={phase.errors}
-					onStarted={(jobId) => {
-						setPhase({ kind: "job", jobId });
-						// The new album (and, on a first visit, the new guest) shows up below.
-						void router.invalidate();
-					}}
-				/>
-			) : (
-				<JobProgress
-					jobId={phase.jobId}
-					album={draft}
-					onEdit={(trackErrors) =>
-						setPhase({
-							kind: "edit",
-							errors: Object.fromEntries(
-								Object.entries(trackErrors).map(([index, message]) => [
-									`tracks.${index}.url`,
-									message,
-								]),
-							),
-						})
+			<AlbumWorkspace initialDraft={emptyDraft()} />
+
+			{albums.length > 0 && (
+				<RecentAlbums
+					albums={albums}
+					className="mt-12"
+					action={
+						albums.length >= RECENT && (
+							<Link
+								to="/albums"
+								className={buttonVariants({ variant: "ghost", size: "sm" })}
+							>
+								See all
+							</Link>
+						)
 					}
-					onStartOver={() => {
-						setDraft(emptyDraft());
-						setPhase({ kind: "edit" });
-					}}
 				/>
 			)}
-
-			<RecentAlbums albums={albums} />
 		</>
 	);
 }

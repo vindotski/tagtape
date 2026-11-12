@@ -1,6 +1,9 @@
+import { Link } from "@tanstack/react-router";
+import type { ReactNode } from "react";
 import { AlbumCover } from "#/components/album/album-cover";
 import { albumMeta } from "#/components/album/album-shell";
 import type { AlbumSummary } from "#/lib/albums";
+import { cn } from "#/lib/utils";
 
 // A fixed locale and time zone, so the server and browser render the same text.
 const dateFormat = new Intl.DateTimeFormat("en", {
@@ -8,26 +11,67 @@ const dateFormat = new Intl.DateTimeFormat("en", {
 	timeZone: "UTC",
 });
 
-/** The albums this browser's guest has started, newest first, as a library shelf. */
-export function RecentAlbums({ albums }: { albums: AlbumSummary[] }) {
-	if (albums.length === 0) return null;
+/** The visitor's albums under a "Your albums" heading (the /new page). */
+export function RecentAlbums({
+	albums,
+	action,
+	className,
+}: {
+	albums: AlbumSummary[];
+	/** Shown next to the heading, e.g. a "See all" link. */
+	action?: ReactNode;
+	className?: string;
+}) {
 	return (
-		<section className="mt-12" aria-labelledby="recent-albums-title">
-			<h2
-				id="recent-albums-title"
-				className="font-heading text-xl font-bold tracking-tight sm:text-2xl"
-			>
-				Your albums
-			</h2>
+		<section className={className} aria-labelledby="recent-albums-title">
+			<div className="flex items-baseline justify-between gap-4">
+				<h2
+					id="recent-albums-title"
+					className="font-heading text-xl font-bold tracking-tight sm:text-2xl"
+				>
+					Your albums
+				</h2>
+				{action}
+			</div>
 			<p className="mt-1 text-sm text-muted-foreground">
-				Albums you've started in this browser. Only the album details are kept,
-				never the links or the music.
+				Open one to edit it or make it again. The music is never stored.
 			</p>
-			<ul className="mt-6 grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 lg:grid-cols-5">
-				{albums.map((album) => (
-					<li key={album.id} className="min-w-0">
-						<AlbumCover title={album.title} size="fill" />
-						<p className="mt-2 truncate font-semibold" title={album.title}>
+			<AlbumGrid albums={albums} className="mt-6" />
+		</section>
+	);
+}
+
+/** A library shelf of album tiles, each opening its album. */
+export function AlbumGrid({
+	albums,
+	className,
+}: {
+	albums: AlbumSummary[];
+	className?: string;
+}) {
+	return (
+		<ul
+			className={cn(
+				"grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 lg:grid-cols-5",
+				className,
+			)}
+		>
+			{albums.map((album) => (
+				<li key={album.id} className="min-w-0">
+					<Link
+						to="/albums/$albumId"
+						params={{ albumId: album.id }}
+						className="group/tile block outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+					>
+						<AlbumCover
+							title={album.title}
+							size="fill"
+							className="transition-opacity group-hover/tile:opacity-90"
+						/>
+						<p
+							className="mt-2 truncate font-semibold underline-offset-4 group-hover/tile:underline"
+							title={album.title}
+						>
 							{album.title}
 						</p>
 						<p
@@ -43,12 +87,12 @@ export function RecentAlbums({ albums }: { albums: AlbumSummary[] }) {
 							])}
 						</p>
 						<p className="text-xs text-muted-foreground">
-							<span className="sr-only">Started </span>
-							{dateFormat.format(new Date(album.createdAt))}
+							<span className="sr-only">Last made </span>
+							{dateFormat.format(new Date(album.updatedAt))}
 						</p>
-					</li>
-				))}
-			</ul>
-		</section>
+					</Link>
+				</li>
+			))}
+		</ul>
 	);
 }

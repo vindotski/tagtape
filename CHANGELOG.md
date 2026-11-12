@@ -12,10 +12,12 @@ TagTape has one version for the web app and the API, kept in the root `package.j
 - **Egress proxy:** everything yt-dlp (and its ffmpeg) fetches goes through a local proxy that allows only public addresses on ports 80 and 443, redirects and CDN hosts included.
 - `YTDLP_MAX_CHECKS` (3), `YTDLP_TIMEOUT_SEC` (1800) and `YTDLP_JS_RUNTIME` (`node`).
 - **Home page:** `/` now explains TagTape (how it works, what it keeps, which links work, FAQ) with a "Make an album" button.
+- **Albums you can make again:** `/albums` lists your albums, and opening one (`/albums/<id>`) loads it into the editor to change it and convert it again, or to delete it.
 
 ### Changed
 - **Node 26 LTS:** the image and dev container run on Node 26 (was 24), with TypeScript 7 and Biome 2.6 for development.
-- The album form and "Your albums" moved to `/new`.
+- **TagTape now keeps your albums in full** (details, track titles and links, the cover's link) so they can be made again; before, only the album details were kept. The music and images are still never stored. Albums saved before this open without their tracks.
+- The album form moved to `/new`.
 - `/new` looks like an album in a music app: edit the title, artist, genre and year in place over a cover tile, tracks are playlist rows, the conversion plays out in the same album view, and "Your albums" is a grid of album tiles.
 
 ## 3.0.0 (2026-11-08)
