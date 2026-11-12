@@ -68,15 +68,6 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 					</header>
 					<main className="flex-1 pb-16">{children}</main>
 					<footer className="flex flex-wrap gap-x-6 gap-y-2 border-t py-6 text-sm text-muted-foreground">
-						<span>
-							Made by{" "}
-							<a
-								href="https://www.vin.ski"
-								className="underline-offset-4 hover:underline"
-							>
-								Ivan Vinski
-							</a>
-						</span>
 						<a
 							href="https://github.com/vindotski/tagtape"
 							className="underline-offset-4 hover:underline"

@@ -6,6 +6,7 @@ TagTape has one version for the web app and the API, kept in the root `package.j
 
 ### Changed
 - **Relicensed from MIT to [the Unlicense](https://unlicense.org)**: TagTape's own code is now in the public domain. Third-party software in the image keeps its own license.
+- The footer links to the source on GitHub instead of naming the author.
 
 ### Added
 - **Links from sites:** TagTape now reads single tracks from any site [yt-dlp](https://github.com/yt-dlp/yt-dlp) has an extractor for, built in. The image bundles yt-dlp 2026.10.26 (`YTDLP_BIN`; empty turns it off). MP3 links still go to the direct source first.
