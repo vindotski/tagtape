@@ -4,6 +4,14 @@ TagTape has one version for the web app and the API, kept in the root `package.j
 
 ## Unreleased
 
+### Added
+- **Links from sites:** TagTape now reads single tracks from any site [yt-dlp](https://github.com/yt-dlp/yt-dlp) has an extractor for, built in. The image bundles yt-dlp 2026.10.26 (`YTDLP_BIN`; empty turns it off). MP3 links still go to the direct source first.
+  - yt-dlp never uses its `generic` extractor, so arbitrary web pages are never read. A link no extractor claims fails the check with a clear message.
+  - Playlists and sets, live streams, and anything behind DRM, a login or a paywall are refused. No cookies are used.
+  - Media still never touches the disk: yt-dlp streams into ffmpeg (MP3 copied, anything else 256 kbps CBR).
+- **Egress proxy:** everything yt-dlp (and its ffmpeg) fetches goes through a local proxy that allows only public addresses on ports 80 and 443, redirects and CDN hosts included.
+- `YTDLP_MAX_PROCESSES` (3), `YTDLP_TIMEOUT_SEC` (1800) and `YTDLP_JS_RUNTIME` (`node`).
+
 ## 3.0.0 (2026-11-08)
 
 Guest accounts with album history, and hosting on [Spotcraft](https://spotcraft.dev).

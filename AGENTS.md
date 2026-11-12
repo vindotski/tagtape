@@ -62,7 +62,7 @@ tanstackIntent:
 
 # TagTape — agent instructions
 
-TagTape turns 1–10 track links plus album details (title, artist, genre, year, cover) into a ZIP of ID3-tagged MP3s laid out as an album, so the tracks sort and display correctly on any plain MP3 player. Visitors get guest accounts (no sign-up) from Spotcraft's backend kit, stored in Postgres; media is never stored. Out of the box it reads direct links to MP3 files; other sources come from plugins. https://tagtape.app
+TagTape turns 1–10 track links plus album details (title, artist, genre, year, cover) into a ZIP of ID3-tagged MP3s laid out as an album, so the tracks sort and display correctly on any plain MP3 player. Visitors get guest accounts (no sign-up) from Spotcraft's backend kit, stored in Postgres; media is never stored. Out of the box it reads direct links to MP3 files and, through yt-dlp, single tracks from any site yt-dlp has an extractor for; more sources can come from plugins. https://tagtape.app
 
 ## Repo layout
 
@@ -124,11 +124,17 @@ Run `pnpm check`, `pnpm typecheck` and the relevant tests (or `pnpm docker:test`
 
 - **Biome** is the only linter and formatter. Don't add ESLint or Prettier.
 - **TypeScript strict.** Validate input with **zod** schemas from `@tagtape/shared`, and use the same schema on the client and the server.
-- **External binaries** (ffmpeg, and whatever plugins run) are spawned with an **argument array, never a shell string**. TagTape v1 (the 2020 PHP app, at tag `v1.0.0`) had a shell injection bug from building a command string.
-- **Tracks come from source plugins** (`apps/api/src/plugins/api.ts`), loaded from `TAGTAPE_PLUGINS` at startup. A link is accepted only if a loaded source's strict `match()` claims it; the shared schema only checks that it's an http(s) URL.
-- **The core is site-neutral.** It contains no site-specific sources: no code, tests, docs, examples or screenshots that name third-party sites, and it never references or links to any plugin repository. Site sources live outside this repo as plugins. Test data uses made-up names on `example.com` hosts, never commercial songs.
+- **External binaries** (ffmpeg, yt-dlp, and whatever plugins run) are spawned with an **argument array, never a shell string**. TagTape v1 (the 2020 PHP app, at tag `v1.0.0`) had a shell injection bug from building a command string.
+- **Tracks come from sources** (`Source` in `apps/api/src/plugins/api.ts`), tried in order: plugins from `TAGTAPE_PLUGINS`, then the built-in `direct`, then the built-in `ytdlp`. A link is accepted only if a source's `match()` claims it; the shared schema only checks that it's an http(s) URL.
+  - `direct` (`sources/direct.ts`): http(s) links whose path ends in `.mp3`. It reads only the head of the file to check it (`sources/mp3.ts`).
+  - `ytdlp` (`sources/ytdlp.ts`, on when `YTDLP_BIN` is set, as in the image): any other public link; yt-dlp decides at the check. Keep these rules:
+    - **Never the `generic` extractor** (`--use-extractors default,-generic`), so arbitrary pages are never read.
+    - Every request yt-dlp and its ffmpeg make goes through the **egress proxy** (`lib/egress-proxy.ts`: public addresses, ports 80/443 only).
+    - **No cookies, logins or account features, and never anything that gets around DRM** (refuse with a clear message).
+    - Single tracks only: playlists and sets are refused. `YTDLP_MAX_PROCESSES` caps yt-dlp runs (~100 MB each).
+    - yt-dlp is pinned in `docker/yt-dlp.version` (official onedir release, checksum-verified by `docker/install-ytdlp.sh`). Dependabot can't bump it: bump it when a site breaks or Trivy flags it.
   - The plugin contract (`plugins/api.ts`) depends only on Node's types, so plugins elsewhere can copy it verbatim. Bump `PLUGIN_API_VERSION` for incompatible changes.
-  - The built-in `direct` source (`sources/direct.ts`) is always tried last: http(s) links whose path ends in `.mp3`. It reads only the head of the file to check it (`sources/mp3.ts`).
+- **The core names no sites** (what kept youtube-dl on GitHub): yt-dlp is a generic engine, and no code, tests, docs, examples or screenshots name third-party sites or link to plugin repositories. Test data uses made-up names on `example.com` hosts, never commercial songs; real-site e2e links live in a CI variable, never in the repo.
   - UI copy reads the source names from the API (`GET /sources`, via the root route's loader), so don't hard-code them.
 - **Abuse limits:**
   - **Per-client limits live in the API** (`jobs/manager.ts`), keyed by the `x-tagtape-client` header the web app sets (`lib/client.ts`: IPv4 as is, IPv6 per /64, missing = `local`).

@@ -337,7 +337,7 @@ export function createYtDlpSource(options: YtDlpOptions): Source {
 
 	return {
 		id: "ytdlp",
-		name: "Most video and audio sites (yt-dlp)",
+		name: "sites supported by yt-dlp",
 		match: matchSiteUrl,
 		async probe({ url, signal }) {
 			const release = await slots.acquire(signal);

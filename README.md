@@ -9,7 +9,7 @@ Paste up to 10 track links (one track each, up to 2 hours long), add the album t
 
 **No music is stored on the server:** tracks convert while the ZIP streams to your browser. TagTape only remembers the album details (title, artist, genre, year, track count) so it can list "Your albums" for your browser, under a guest account with no sign-up.
 
-Out of the box, TagTape reads **direct links to MP3 files**. Other kinds of links can be added with [source plugins](#sources-and-plugins).
+TagTape reads **direct links to MP3 files** and, through [yt-dlp](https://github.com/yt-dlp/yt-dlp), **single tracks from any site yt-dlp supports**. More kinds of links can be added with [source plugins](#sources-and-plugins).
 
 Built with [TanStack Start](https://tanstack.com/start), with a Fastify service running ffmpeg. Version 1 was a 2020 Symfony/PHP app called Albumie; its code is preserved at the [`v1.0.0`](https://github.com/vindotski/tagtape/tree/v1.0.0) tag.
 
@@ -52,6 +52,7 @@ The web app and the API share **one version**, which lives in the root `package.
 | `PUBLIC_URL` | none | The site's address, e.g. `https://tagtape.app` (http only on localhost). |
 | `PORT` | `3000` | Public port of the web app. |
 | `JOB_TTL_MIN`, `MAX_ACTIVE_STREAMS`, `MAX_QUEUED_STREAMS`, `MAX_ACTIVE_PROBES`, `MAX_QUEUED_JOBS`, `TRACK_CONCURRENCY`, `MAX_DIRECT_MB`, `MAX_DOWNLOADS_PER_JOB`, `MAX_STORED_JOBS`, `CHECK_TIMEOUT_SEC`, `MAX_JOBS_PER_CLIENT_HOUR`, `MAX_CHECKING_JOBS_PER_CLIENT`, `MAX_DOWNLOADS_PER_CLIENT`, `LOG_LEVEL` | see [apps/api/.env.example](apps/api/.env.example) | API tuning. These are passed through. |
+| `YTDLP_BIN` | `/opt/yt-dlp/yt-dlp` | yt-dlp for links from sites; empty turns that source off. Tuning: `YTDLP_MAX_PROCESSES` (3, ~100 MB each), `YTDLP_TIMEOUT_SEC` (1800), `YTDLP_JS_RUNTIME` (`node`). |
 | `TRUST_PROXY` | off | Set to `1` **only** behind a reverse proxy that sets `X-Forwarded-For` (Spotcraft's Caddy does): per-client limits then use the browser's address. Without a proxy, leave it off, or anyone could pick their address. |
 | `POW_COST` | `2000` | Difficulty of the invisible proof-of-work a browser solves before starting an album. |
 | `API_HOST`, `API_TOKEN` | `127.0.0.1`, random | Set both only to expose the API on purpose, e.g. for the end-to-end test. |
@@ -91,7 +92,10 @@ Web routes live in `apps/web/src/routes`. TanStack Router regenerates `routeTree
 
 ## Sources and plugins
 
-A **source** turns one kind of link into MP3 audio: it claims links (`match`), checks a track (`probe`) and streams it (`stream`). TagTape does everything else: limits, the cover, the ID3 tags, the streamed ZIP and the queue. The built-in source reads direct links to MP3 files.
+A **source** turns one kind of link into MP3 audio: it claims links (`match`), checks a track (`probe`) and streams it (`stream`). TagTape does everything else: limits, the cover, the ID3 tags, the streamed ZIP and the queue. Sources are tried in order: plugins, then the two built-in ones:
+
+- **MP3 links:** http(s) links whose path ends in `.mp3`.
+- **Sites supported by yt-dlp:** any other public link, if one of yt-dlp's extractors claims it (checked when the album is checked). The image bundles yt-dlp (`YTDLP_BIN`; empty disables it). TagTape never uses yt-dlp's `generic` extractor, so it doesn't read arbitrary web pages; all of yt-dlp's traffic goes through a local proxy that refuses private network addresses; playlists, logins and DRM-protected media are refused.
 
 More sources come from **plugins**: ES modules (TypeScript works, thanks to Node's type stripping) listed in `TAGTAPE_PLUGINS`, comma-separated. To use one, build your own image on top of TagTape's:
 
@@ -101,7 +105,7 @@ COPY --chown=node:node my-plugin/ /app/plugins/my-plugin/
 ENV TAGTAPE_PLUGINS=/app/plugins/my-plugin/index.ts
 ```
 
-The contract, with every rule a plugin must follow (strict link matching, no shell, nothing written to disk), is in [`apps/api/src/plugins/api.ts`](apps/api/src/plugins/api.ts). It depends only on Node's types, so a plugin can copy it for type checking. Plugins get TagTape's helpers (the no-shell process runner, the error types, ffmpeg's path) through a context object. You're responsible for the plugins you run and for the terms of the sites they read from.
+The contract, with every rule a plugin must follow (strict link matching, no shell, nothing written to disk), is in [`apps/api/src/plugins/api.ts`](apps/api/src/plugins/api.ts). It depends only on Node's types, so a plugin can copy it for type checking. Plugins get TagTape's helpers (the no-shell process runner, the error types, ffmpeg's path) through a context object. You're responsible for the plugins you run, and for the terms of the sites TagTape reads from (built in or through plugins).
 
 ## Meta
 
@@ -109,6 +113,6 @@ The contract, with every rule a plugin must follow (strict link matching, no she
 
 Released under the [MIT License](LICENSE).
 
-That covers TagTape's own code. Third-party software keeps its own license: the Docker image bundles ffmpeg (LGPL/GPL) and Node.js (MIT).
+That covers TagTape's own code. Third-party software keeps its own license: the Docker image bundles ffmpeg (LGPL/GPL), Node.js (MIT) and yt-dlp (Unlicense, with bundled libraries under their own licenses).
 
 [https://github.com/vindotski/tagtape](https://github.com/vindotski/tagtape)

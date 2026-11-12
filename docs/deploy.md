@@ -35,7 +35,7 @@ In the Spotcraft dashboard, **New app**:
 | Tag | a release, e.g. `2.1.0`, or a `sha-abc1234` from `main` |
 | Domain | `tagtape.app` |
 | Container port | `3000` |
-| Memory / CPUs | `1g` / `2` (web, API and up to two ffmpeg conversions share them) |
+| Memory / CPUs | `1g` / `2` (web, API, up to two conversions and at most `YTDLP_MAX_PROCESSES` yt-dlp runs, ~100 MB each, share them) |
 | Read-only filesystem | on (the default) |
 | Database | ticked: Spotcraft sets `DATABASE_URL`; don't set it yourself |
 
@@ -67,7 +67,7 @@ Push `main` (publishes `latest` and `sha-…`) or tag `vX.Y.Z` (publishes `X.Y.Z
 
 ## 4. Test a real conversion (after moving servers)
 
-Convert a short album from the live site, for example the public sample `https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3`, plus a link for each source plugin you run. Logs are on the app's page in the dashboard. Some sites block or rate-limit datacenter IPs; if a plugin's source refuses the server, try another region or provider.
+Convert a short album from the live site, for example the public sample `https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3`, plus a freely licensed track from a site yt-dlp supports and a link for each source plugin you run. Logs are on the app's page in the dashboard. Some sites block or rate-limit datacenter IPs; if a plugin's source refuses the server, try another region or provider.
 
 ## Guests and their data
 

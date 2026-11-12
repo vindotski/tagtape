@@ -1,6 +1,6 @@
 # @tagtape/api
 
-The Fastify service that turns track links into a ZIP of tagged MP3s, using ffmpeg. Out of the box it reads direct links to MP3 files; source plugins can add more. **Nothing is stored:** tracks convert *while* the ZIP streams to the browser. The TagTape web app is its only client. It calls the API from server functions with a bearer token, and proxies the download as `/download/:id`.
+The Fastify service that turns track links into a ZIP of tagged MP3s, using ffmpeg. It reads direct links to MP3 files and, through yt-dlp, single tracks from any site yt-dlp supports; source plugins can add more. **Nothing is stored:** tracks convert *while* the ZIP streams to the browser. The TagTape web app is its only client. It calls the API from server functions with a bearer token, and proxies the download as `/download/:id`.
 
 ## Endpoints
 
@@ -10,16 +10,23 @@ The Fastify service that turns track links into a ZIP of tagged MP3s, using ffmp
 | GET | `/jobs/:id` | Bearer | `JobSnapshot`: status (`queued → probing → ready → streaming → done`, or `failed`), per-track status and errors, and `downloadReady`. Poll it. |
 | GET | `/jobs/:id/archive` | public | **The download is the conversion.** Streams the ZIP as tracks convert (no `content-length`). `404` if the job is unknown or not checked yet, `409` if this album is already downloading, `410` once it was downloaded `MAX_DOWNLOADS_PER_JOB` times, `429` if downloads are full. Can be repeated (it converts again) until `JOB_TTL_MIN` after the check. |
 | GET | `/sources` | Bearer | `{ sources: [{ id, name }] }`: the loaded sources, in matching order. The web app shows their names. |
-| GET | `/health` | public | Checks that ffmpeg and every source's tools run; reports the image `version` and `versions`. Returns `503` if they don't. |
+| GET | `/health` | public | Checks that ffmpeg and every source's tools (yt-dlp included) run; reports the image `version` and `versions`. Returns `503` if they don't. |
 
 ## Sources and plugins
 
 Where tracks come from is pluggable. A **source** claims links (`match`), reads a track's details (`probe`) and streams it as untagged MP3 (`stream`); the core does everything else (limits, cover, tags, the ZIP, the queue). Sources come from plugin modules listed in `TAGTAPE_PLUGINS` (comma-separated paths), loaded at startup: an invalid plugin stops the API from starting. The contract, with every rule a plugin must follow, is in [`src/plugins/api.ts`](src/plugins/api.ts).
 
-One source is built in and always tried last: **direct links to MP3 files** ([`src/sources/direct.ts`](src/sources/direct.ts)), for http(s) links whose path ends in `.mp3`.
+Two sources are built in and tried after the plugins' sources, in this order. The first is **direct links to MP3 files** ([`src/sources/direct.ts`](src/sources/direct.ts)), for http(s) links whose path ends in `.mp3`:
 - The check reads only the ID3 tag and a few KB after it ([`src/sources/mp3.ts`](src/sources/mp3.ts)): enough to prove it's MPEG audio and to get the length from the Xing/Info or VBRI header, or from size ÷ bitrate.
 - The download goes through ffmpeg with `-f mp3` (anything else fails) and no tags. CBR files are copied; VBR files are re-encoded to 256 kbps CBR, because a streamed file can't carry a correct VBR header.
 - Requests go through `lib/http.ts`: public addresses only (checked for IP literals too, on every redirect), a fresh connection each time, a 30 s connect timeout and the `MAX_DIRECT_MB` cap. A connection that drops mid-file fails the track instead of passing it as complete.
+
+The second is **sites supported by yt-dlp** ([`src/sources/ytdlp.ts`](src/sources/ytdlp.ts)), on when `YTDLP_BIN` is set (the image sets it). It claims any other public link (no IP literals, no single-label or `.localhost`/`.local`/`.internal` hosts), and yt-dlp decides at the check:
+- **Every extractor except `generic`** (`--use-extractors default,-generic`): links no extractor claims fail the check with "TagTape can't read tracks from this link", and arbitrary pages are never read.
+- **Check:** `yt-dlp --dump-single-json --no-playlist --flat-playlist`. Playlists and sets are refused; so are live streams, tracks of unknown length, and anything behind DRM, a login or a paywall (no cookies are ever used).
+- **Download:** `yt-dlp --load-info-json - -o -` (the check's JSON on stdin, so no second metadata fetch) piped into ffmpeg: MP3 audio is copied, anything else re-encoded to 256 kbps CBR, never DASH (it would need temporary files). HLS goes through ffmpeg.
+- **Egress proxy** ([`src/lib/egress-proxy.ts`](src/lib/egress-proxy.ts)): yt-dlp fetches links itself, so the API starts a forward proxy on a random `127.0.0.1` port and gives it to yt-dlp (`--proxy`, which yt-dlp hands on to its ffmpeg). Every connection, redirects and CDN hosts included, must resolve to a public address on port 80 or 443.
+- **Costs:** at most `YTDLP_MAX_PROCESSES` yt-dlp processes (checks and downloads together, ~100 MB each), each killed after `YTDLP_TIMEOUT_SEC`. The image uses yt-dlp's onedir release, which never unpacks to `/tmp`; `--no-cache-dir` keeps it off the disk.
 
 ## How a job runs
 
@@ -56,7 +63,7 @@ Jobs live in memory (metadata and cover only), and a sweeper forgets them `JOB_T
 
 ## Development
 
-The service runs on Node 24+ native TypeScript type stripping, with no build step. It needs `ffmpeg` on `PATH`:
+The service runs on Node 24+ native TypeScript type stripping, with no build step. It needs `ffmpeg` on `PATH`, and yt-dlp for the site source (`YTDLP_BIN`; `pnpm docker:dev` has both):
 
 ```bash
 brew install ffmpeg
@@ -71,7 +78,7 @@ All configuration comes from environment variables; see [.env.example](.env.exam
 
 The API ships inside the single TagTape image (web app + API, one version), built from the repo root's [`Dockerfile`](../../Dockerfile). There, it listens on `127.0.0.1:4000`, and only the web app reaches it. See the root [README](../../README.md#run-it) for tags and settings.
 
-The image bundles Node 24 and ffmpeg (Debian). It runs as the non-root `node` user, with `tini` as PID 1. To add sources, build an image `FROM` it that copies plugin modules in and sets `TAGTAPE_PLUGINS`.
+The image bundles Node 24, ffmpeg (Debian) and yt-dlp (`/opt/yt-dlp`, pinned in `docker/yt-dlp.version`). It runs as the non-root `node` user, with `tini` as PID 1. To add sources, build an image `FROM` it that copies plugin modules in and sets `TAGTAPE_PLUGINS`.
 
 ## End-to-end test
 
