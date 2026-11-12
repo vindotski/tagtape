@@ -27,6 +27,10 @@ updates:
       minor-and-patch:
         update-types: [minor, patch]
     open-pull-requests-limit: 5
+    # @types/node follows the Node major the image runs: bump them together.
+    ignore:
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
 
   # Base images pinned by digest: the production and dev Dockerfiles.
   # (Postgres in the compose files and CI follows Spotcraft's apps server
@@ -38,6 +42,11 @@ updates:
       interval: weekly
     cooldown:
       default-days: 7
+    # Node majors are chosen on purpose (LTS only, with @types/node);
+    # Dependabot still refreshes the digest within the pinned major.
+    ignore:
+      - dependency-name: node
+        update-types: ["version-update:semver-major"]
     groups:
       base-images:
         patterns: ["*"]

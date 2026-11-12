@@ -217,7 +217,7 @@ Run `pnpm check`, `pnpm typecheck` and the relevant tests (or `pnpm docker:test`
 - **`e2e.yml`** runs weekly (and on demand): real public MP3 links converted through the image. Scheduled runs check out `main`, since schedules always start from the default branch (`dev`).
 - **Image scan:** the `image` job runs Trivy (the `aquasec/trivy` CLI image, pinned by digest, not an action). Fixable HIGH/CRITICAL vulnerabilities fail the build. The runtime image has no npm/npx/corepack/yarn (removed in the `Dockerfile`), so their bundled dependencies can't be flagged or abused.
 - **Base images** (`node`, `ghcr.io/pnpm/pnpm`) are pinned by digest, with the tag kept for readability, in the `Dockerfile` and `docker/dev.Dockerfile`. Don't use a build `ARG` or `COPY --from=<image>` for them: Dependabot can't update those.
-- **Dependabot** (`.github/dependabot.yml`) opens weekly grouped PRs against `dev` for actions, npm and the Docker bases, with a 7-day cooldown.
+- **Dependabot** (`.github/dependabot.yml`) opens weekly grouped PRs against `dev` for actions, npm and the Docker bases, with a 7-day cooldown. It skips Node and `@types/node` majors: move both to the next LTS on purpose.
 - **pnpm supply chain** (`pnpm-workspace.yaml`): `minimumReleaseAge`, `trustPolicy: no-downgrade`, `blockExoticSubdeps` and `strictDepBuilds` are written out explicitly.
   - The root `@types/node` (catalog) exists so vitest's optional peer resolves to Node 26 types. Without it, pnpm auto-installs an old `@types/node` for `packages/shared`, which trips `trustPolicy`.
   - If `trustPolicy` flags a package, find out why before adding an exception.
