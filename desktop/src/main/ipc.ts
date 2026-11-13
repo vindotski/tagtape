@@ -29,7 +29,7 @@ export interface IpcContext {
 }
 
 type Handlers = {
-	[K in keyof Omit<TagTapeApi, "version">]: (
+	[K in keyof Omit<TagTapeApi, "version" | "platform">]: (
 		...args: unknown[]
 	) => ReturnType<TagTapeApi[K]>;
 };

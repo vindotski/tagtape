@@ -133,10 +133,22 @@
   body {
     @apply bg-background text-foreground;
     }
-  button:not(:disabled), [role="button"]:not(:disabled) {
-    cursor: pointer;
+  /* A desktop app, not a page: the arrow everywhere, and no rubber-band
+     scrolling of the window itself. */
+  a, button, [role="button"] {
+    cursor: default;
     }
   html {
     @apply font-sans;
+    overscroll-behavior: none;
     }
+}
+
+/* Dragging these moves the window; the controls inside them still work. */
+.app-drag {
+  -webkit-app-region: drag;
+}
+.app-drag :is(a, button, input, [role="button"]),
+.app-no-drag {
+  -webkit-app-region: no-drag;
 }

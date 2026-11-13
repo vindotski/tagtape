@@ -1,11 +1,24 @@
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { app, BrowserWindow, dialog, session, shell } from "electron";
+import {
+	app,
+	BrowserWindow,
+	dialog,
+	nativeTheme,
+	screen,
+	session,
+	shell,
+} from "electron";
 import { createTagTape, type TagTape } from "../core/index.ts";
 import { binaryPaths } from "../core/lib/binaries.ts";
 import { pluginPaths } from "../core/plugins/loader.ts";
 import { registerIpc } from "./ipc.ts";
 import { openLibrary } from "./library.ts";
+import {
+	readWindowState,
+	restoreWindowState,
+	writeWindowState,
+} from "./window-state.ts";
 
 const here = fileURLToPath(new URL(".", import.meta.url));
 
@@ -28,14 +41,63 @@ function isExternalLink(url: string): boolean {
 	}
 }
 
+const DEFAULT_SIZE = { width: 1080, height: 860 };
+const MINIMUM_SIZE = { width: 720, height: 560 };
+/** The strip at the top of the page that stands in for the title bar. */
+const TITLE_BAR_HEIGHT = 44;
+
+/** The page's own background, so the window never flashes another colour. */
+const windowColors = () =>
+	nativeTheme.shouldUseDarkColors
+		? { background: "#0b0b09", symbols: "#fbfbf9" }
+		: { background: "#f5f5f2", symbols: "#0b0b09" };
+
+/**
+ * The page draws the top of the window itself. macOS keeps its traffic
+ * lights over it and Windows its three buttons; Linux keeps the system's
+ * title bar, since window managers differ too much to stand in for.
+ */
+function titleBar(): Electron.BrowserWindowConstructorOptions {
+	const colors = windowColors();
+	if (process.platform === "darwin") {
+		return {
+			titleBarStyle: "hiddenInset",
+			trafficLightPosition: { x: 16, y: 15 },
+		};
+	}
+	if (process.platform === "win32") {
+		return {
+			titleBarStyle: "hidden",
+			titleBarOverlay: {
+				color: colors.background,
+				symbolColor: colors.symbols,
+				height: TITLE_BAR_HEIGHT,
+			},
+		};
+	}
+	return {};
+}
+
 function createWindow(): BrowserWindow {
+	const stateFile = join(app.getPath("userData"), "window.json");
+	const state = restoreWindowState(
+		readWindowState(stateFile),
+		screen.getAllDisplays().map((display) => display.workArea),
+		DEFAULT_SIZE,
+		MINIMUM_SIZE,
+	);
 	const created = new BrowserWindow({
-		width: 1080,
-		height: 860,
-		minWidth: 420,
-		minHeight: 560,
+		width: state.width,
+		height: state.height,
+		...(state.x !== undefined && state.y !== undefined
+			? { x: state.x, y: state.y }
+			: {}),
+		minWidth: MINIMUM_SIZE.width,
+		minHeight: MINIMUM_SIZE.height,
 		show: false,
 		title: "TagTape",
+		backgroundColor: windowColors().background,
+		...titleBar(),
 		webPreferences: {
 			preload: join(here, "../preload/index.cjs"),
 			contextIsolation: true,
@@ -45,7 +107,21 @@ function createWindow(): BrowserWindow {
 			spellcheck: false,
 		},
 	});
+	if (state.maximized) created.maximize();
 	created.once("ready-to-show", () => created.show());
+
+	// Light or dark changed while open: the parts the page doesn't draw follow.
+	const followTheme = () => {
+		const colors = windowColors();
+		created.setBackgroundColor(colors.background);
+		if (process.platform === "win32") {
+			created.setTitleBarOverlay({
+				color: colors.background,
+				symbolColor: colors.symbols,
+			});
+		}
+	};
+	nativeTheme.on("updated", followTheme);
 
 	// The window shows the app and nothing else: links open in the browser,
 	// and nothing can navigate the window away or open another one.
@@ -71,11 +147,16 @@ function createWindow(): BrowserWindow {
 	// stays open until the user has confirmed: "Keep going" must leave them a
 	// window to keep going in.
 	created.on("close", (event) => {
+		writeWindowState(stateFile, {
+			...created.getNormalBounds(),
+			maximized: created.isMaximized(),
+		});
 		if (quitting) return;
 		event.preventDefault();
 		void quitIfConfirmed();
 	});
 	created.on("closed", () => {
+		nativeTheme.off("updated", followTheme);
 		if (window === created) window = undefined;
 	});
 	return created;

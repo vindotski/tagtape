@@ -1,76 +1,63 @@
-import { createRootRoute, Link, Outlet } from "@tanstack/react-router";
-import { buttonVariants } from "#/components/ui/button";
-import { appVersion, fetchSources } from "#/lib/bridge";
+import { createRootRoute, Outlet, useLocation } from "@tanstack/react-router";
+import { AppSidebar } from "#/components/app-sidebar";
+import { appPlatform, fetchAlbums, fetchSources } from "#/lib/bridge";
+import { cn } from "#/lib/utils";
+
+/** How many albums the sidebar lists; the library has them all. */
+const RECENT = 8;
 
 export const Route = createRootRoute({
-	// Which links the app accepts: its built-in sources, plus any plugins.
-	loader: () => fetchSources(),
+	// Which links the app accepts (its built-in sources, plus any plugins), and
+	// the albums made most recently. Both reload when the router is invalidated.
+	loader: async () => {
+		const [sources, recent] = await Promise.all([
+			fetchSources(),
+			fetchAlbums(RECENT),
+		]);
+		return { sources, recent };
+	},
 	component: Root,
 });
 
-function Root() {
-	return (
-		<div className="mx-auto flex min-h-dvh max-w-5xl flex-col px-4 sm:px-6">
-			<header className="flex items-center justify-between gap-4 py-6">
-				<Link
-					to="/"
-					className="flex items-center gap-2.5 outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-				>
-					<Logo />
-					<span className="text-lg font-bold tracking-tight">TagTape</span>
-				</Link>
-				<nav aria-label="Main" className="flex items-center gap-1">
-					<Link to="/albums" className={buttonVariants({ variant: "ghost" })}>
-						Your albums
-					</Link>
-					<Link to="/" className={buttonVariants({ variant: "outline" })}>
-						Make an album
-					</Link>
-				</nav>
-			</header>
-			<main className="flex-1 pb-16">
-				<Outlet />
-			</main>
-			<footer className="flex flex-wrap gap-x-6 gap-y-2 border-t py-6 text-sm text-muted-foreground">
-				{/* Opens in the browser: the window itself never leaves the app. */}
-				<a
-					href="https://github.com/vindotski/tagtape"
-					target="_blank"
-					rel="noreferrer"
-					className="underline-offset-4 hover:underline"
-				>
-					Source on GitHub
-				</a>
-				<a
-					href="https://github.com/vindotski/tagtape/blob/main/CHANGELOG.md"
-					target="_blank"
-					rel="noreferrer"
-					className="ml-auto tabular-nums underline-offset-4 hover:underline"
-				>
-					v{appVersion()}
-				</a>
-			</footer>
-		</div>
-	);
+/** What the strip at the top of the window says. */
+function screenName(path: string): string {
+	if (path === "/") return "New album";
+	if (path === "/albums") return "Library";
+	if (path.startsWith("/albums/")) return "Album";
+	return "TagTape";
 }
 
-/** A cassette tape: two reels and a label. */
-function Logo() {
+/**
+ * The whole window: the sidebar, a strip that stands in for the title bar
+ * (it moves the window), and the screen itself, which scrolls on its own.
+ */
+function Root() {
+	const { recent } = Route.useLoaderData();
+	const path = useLocation({ select: (location) => location.pathname });
 	return (
-		<svg viewBox="0 0 32 32" className="size-8 text-primary" aria-hidden="true">
-			<rect x="2" y="7" width="28" height="18" rx="3" fill="currentColor" />
-			<rect
-				x="6"
-				y="10"
-				width="20"
-				height="9"
-				rx="1.5"
-				fill="white"
-				opacity="0.92"
-			/>
-			<circle cx="11.5" cy="14.5" r="2.5" fill="currentColor" />
-			<circle cx="20.5" cy="14.5" r="2.5" fill="currentColor" />
-			<path d="M9 25l2-4h10l2 4" fill="white" opacity="0.5" />
-		</svg>
+		<div className="flex h-dvh overflow-hidden select-none">
+			<AppSidebar recent={recent} />
+			<div className="flex min-w-0 flex-1 flex-col bg-muted dark:bg-background">
+				<header
+					className={cn(
+						"app-drag flex h-11 shrink-0 items-center border-b px-6",
+						// Windows draws its three buttons over the right end.
+						appPlatform() === "win32" && "pr-36",
+					)}
+				>
+					<p className="truncate text-sm font-medium" aria-hidden="true">
+						{screenName(path)}
+					</p>
+				</header>
+				<main
+					className="min-h-0 flex-1 overflow-y-auto"
+					data-scroll-restoration-id="screen"
+				>
+					<div className="mx-auto max-w-5xl px-6 py-6">
+						<Outlet />
+					</div>
+				</main>
+			</div>
+		</div>
 	);
 }

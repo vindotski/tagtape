@@ -5,6 +5,7 @@ import { CHANNELS, type TagTapeApi } from "../ipc.ts";
 // objects, just these calls. `__APP_VERSION__` is inlined at build time.
 const api: TagTapeApi = {
 	version: __APP_VERSION__,
+	platform: process.platform,
 	sources: () => ipcRenderer.invoke(CHANNELS.sources),
 	startJob: (input) => ipcRenderer.invoke(CHANNELS.startJob, input),
 	job: (id) => ipcRenderer.invoke(CHANNELS.job, id),

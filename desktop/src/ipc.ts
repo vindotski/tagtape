@@ -41,8 +41,10 @@ export interface StoredAlbum extends AlbumSummary {
 }
 
 export interface TagTapeApi {
-	/** The app's version, for the footer. */
+	/** The app's version. */
 	version: string;
+	/** `process.platform`: the page leaves room for that system's window buttons. */
+	platform: string;
 	sources(): Promise<SourceInfo[]>;
 	/** Starts an album; `albumId` is the stored album being made again, if any. */
 	startJob(input: {

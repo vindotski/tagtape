@@ -18,6 +18,9 @@ declare global {
 
 export const appVersion = (): string => window.tagtape.version;
 
+/** Which system's window buttons the page must leave room for. */
+export const appPlatform = (): string => window.tagtape.platform;
+
 /** The kinds of links this app accepts; an empty list if that can't be read. */
 export const fetchSources = (): Promise<SourceInfo[]> =>
 	window.tagtape.sources().catch(() => []);

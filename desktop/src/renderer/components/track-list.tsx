@@ -144,7 +144,7 @@ export function TrackList({
 
 /** "One track per link, up to 2 hours each. Works with …", for the album footer. */
 export function TrackLimitsNote() {
-	const sources = rootRoute.useLoaderData();
+	const { sources } = rootRoute.useLoaderData();
 	return (
 		<p className="text-xs text-muted-foreground">
 			One track per link, up to {limitText} each.
