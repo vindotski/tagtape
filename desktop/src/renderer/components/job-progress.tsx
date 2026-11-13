@@ -2,6 +2,7 @@ import {
 	isJobFinished,
 	type JobSnapshot,
 	type JobStatus,
+	jobProgress,
 	type TrackSnapshot,
 	type TrackStatus,
 } from "@tagtape/shared";
@@ -224,19 +225,11 @@ function Panel({
 }
 
 function ProgressBar({ job }: { job: JobSnapshot }) {
-	const { tracks, status } = job;
-	if (status === "failed") return null;
-	const done = tracks.filter((track) => track.status === "done").length;
-	const percent =
-		status === "done"
-			? 100
-			: status === "streaming"
-				? Math.round((done / tracks.length) * 95)
-				: 0;
+	if (job.status === "failed") return null;
 	return (
 		<Progress
 			aria-label="Overall progress"
-			value={percent}
+			value={jobProgress(job)}
 			// A sliver of bar shows that something is happening before the first track is done.
 			className="[&_[data-slot=progress-indicator]]:min-w-[4%]"
 		/>

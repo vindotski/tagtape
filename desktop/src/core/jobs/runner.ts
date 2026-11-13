@@ -17,6 +17,8 @@ import type { Job, TrackState } from "./store.ts";
 export interface RunnerContext {
 	pipeline: Pipeline;
 	trackConcurrency: number;
+	/** Called after a job's status, or one of its tracks', has changed. */
+	changed?: (job: Job) => void;
 	log: {
 		warn: (obj: object, msg: string) => void;
 		error: (obj: object, msg: string) => void;
@@ -31,6 +33,7 @@ export interface RunnerContext {
 export async function probeJob(job: Job, ctx: RunnerContext): Promise<boolean> {
 	const { signal } = job.controller;
 	job.status = "probing";
+	ctx.changed?.(job);
 
 	const probes = await mapLimit(
 		job.tracks,
@@ -98,6 +101,7 @@ export async function saveJob(
 	signal: AbortSignal,
 ): Promise<boolean> {
 	job.status = "streaming";
+	ctx.changed?.(job);
 	const total = job.tracks.length;
 	const folder = await createAlbumFolder(
 		job.destination,
@@ -106,6 +110,7 @@ export async function saveJob(
 	const written: string[] = [];
 	for (const track of job.tracks) {
 		track.status = "converting";
+		ctx.changed?.(job);
 		const tag = createTag({
 			title: track.title,
 			artist: job.album.artist,
@@ -132,6 +137,7 @@ export async function saveJob(
 				),
 			);
 			track.status = "done";
+			ctx.changed?.(job);
 		} catch (error) {
 			if (!signal.aborted) {
 				track.status = "error";

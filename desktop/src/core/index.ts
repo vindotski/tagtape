@@ -43,6 +43,16 @@ export interface TagTape {
 	getJob(id: string): JobSnapshot | undefined;
 	/** Stops a job; whatever it wrote is removed. False if it already ended. */
 	cancelJob(id: string): boolean;
+	/**
+	 * Calls `listener` on every change to a job, the last time when it has
+	 * ended. Returns the unsubscribe.
+	 */
+	subscribe(listener: (job: JobSnapshot) => void): () => void;
+	/**
+	 * The job's cover as a square JPEG, while the job holds it: from the end of
+	 * the check until the listeners have heard that the job ended.
+	 */
+	jobCover(id: string): Uint8Array | undefined;
 	/** True while any album is being checked or saved. */
 	busy(): boolean;
 	/** Versions of ffmpeg and of each source; rejects when a binary doesn't run. */
@@ -172,6 +182,8 @@ export function fromPipeline(
 			return job ? toSnapshot(job) : undefined;
 		},
 		cancelJob: (id) => jobs.cancel(id),
+		subscribe: (listener) => jobs.subscribe((job) => listener(toSnapshot(job))),
+		jobCover: (id) => jobs.get(id)?.cover,
 		busy: () => jobs.busy,
 		versions: () => pipeline.versions(),
 		close: () => jobs.close(),

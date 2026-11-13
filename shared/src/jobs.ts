@@ -47,6 +47,19 @@ export const jobSnapshotSchema = z.object({
 });
 export type JobSnapshot = z.infer<typeof jobSnapshotSchema>;
 
+/**
+ * How far along a job is, 0 to 100, for a progress bar. Checking counts as 0;
+ * saved tracks fill up to 95, and only a finished album is 100.
+ */
+export function jobProgress(
+	job: Pick<JobSnapshot, "status" | "tracks">,
+): number {
+	if (job.status === "done") return 100;
+	if (job.status !== "streaming" || job.tracks.length === 0) return 0;
+	const done = job.tracks.filter((track) => track.status === "done").length;
+	return Math.round((done / job.tracks.length) * 95);
+}
+
 /** Statuses where nothing more will happen. */
 export function isJobFinished(status: JobStatus): boolean {
 	return status === "done" || status === "failed";

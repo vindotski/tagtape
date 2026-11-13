@@ -121,6 +121,54 @@ describe("job lifecycle", () => {
 		expect(pipeline.streamed).toEqual([canonical(1), canonical(2)]);
 	});
 
+	test("listeners hear every change, and can take the cover as it ends", async () => {
+		const { tagtape } = start();
+		const seen: string[] = [];
+		let cover: Uint8Array | undefined;
+		const stop = tagtape.subscribe((job) => {
+			const done = job.tracks.filter((t) => t.status === "done").length;
+			seen.push(`${job.status}:${done}`);
+			if (job.status === "done") cover = tagtape.jobCover(job.id);
+		});
+		const id = jobId(
+			tagtape.createJob(
+				{ ...album(), coverUrl: "https://img.example.com/c.jpg" },
+				destination,
+			),
+		);
+		await tagtape.jobs.settled();
+
+		// Consecutive repeats (a track starting) don't matter here.
+		expect(seen.filter((entry, i) => entry !== seen[i - 1])).toEqual([
+			"queued:0",
+			"probing:0",
+			"queued:0",
+			"streaming:0",
+			"streaming:1",
+			"streaming:2",
+			"done:2",
+		]);
+		expect(cover).toEqual(Buffer.from("jpeg"));
+		// The job lets go of the cover once the listeners have heard.
+		expect(tagtape.jobCover(id)).toBeUndefined();
+
+		stop();
+		tagtape.createJob(album(), destination);
+		await tagtape.jobs.settled();
+		expect(seen.at(-1)).toBe("done:2");
+		expect(seen.filter((entry) => entry === "done:2")).toHaveLength(1);
+	});
+
+	test("a listener that throws doesn't break the album", async () => {
+		const { tagtape } = start();
+		tagtape.subscribe(() => {
+			throw new Error("listener bug");
+		});
+		const id = jobId(tagtape.createJob(album(), destination));
+		await tagtape.jobs.settled();
+		expect(tagtape.getJob(id)?.status).toBe("done");
+	});
+
 	test("making the same album again gets its own folder", async () => {
 		const { tagtape } = start();
 		tagtape.createJob(album(), destination);

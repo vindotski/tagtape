@@ -45,6 +45,7 @@ export class JobManager {
 	readonly #probeSlots: Semaphore;
 	readonly #streamSlots: Semaphore;
 	readonly #running = new Set<Promise<void>>();
+	readonly #listeners = new Set<(job: Job) => void>();
 	#sweeper: NodeJS.Timeout | undefined;
 
 	constructor(options: JobManagerOptions) {
@@ -100,8 +101,19 @@ export class JobManager {
 			controller: new AbortController(),
 		};
 		this.#jobs.set(job.id, job);
+		this.#notify(job);
 		this.#track(this.#run(job));
 		return { kind: "ok", job };
+	}
+
+	/**
+	 * Calls `listener` whenever a job's status, or one of its tracks', changes.
+	 * The last call for a job is the one where it has ended; its cover is still
+	 * in memory during that call and gone right after. Returns the unsubscribe.
+	 */
+	subscribe(listener: (job: Job) => void): () => void {
+		this.#listeners.add(listener);
+		return () => this.#listeners.delete(listener);
 	}
 
 	get(id: string): Job | undefined {
@@ -158,12 +170,14 @@ export class JobManager {
 		const context = {
 			pipeline: this.#options.pipeline,
 			trackConcurrency: this.#options.trackConcurrency,
+			changed: (changed: Job) => this.#notify(changed),
 			log: this.#options.log,
 		};
 		try {
 			if (!(await this.#check(job, context))) return;
 			// Checked; now wait for a turn to convert.
 			job.status = "queued";
+			this.#notify(job);
 			const release = await this.#streamSlots.acquire(signal);
 			try {
 				this.#options.log.info({ jobId: job.id }, "Saving started");
@@ -193,6 +207,7 @@ export class JobManager {
 				);
 			}
 			job.finishedAt = this.#now();
+			this.#notify(job);
 			// The cover isn't needed any more.
 			delete job.cover;
 			this.#options.log.info(
@@ -231,6 +246,20 @@ export class JobManager {
 		job.error = message;
 		for (const track of job.tracks) {
 			if (track.status === "converting") track.status = "queued";
+		}
+	}
+
+	/** A listener that throws must never break a job. */
+	#notify(job: Job): void {
+		for (const listener of this.#listeners) {
+			try {
+				listener(job);
+			} catch (error) {
+				this.#options.log.error(
+					{ err: error, jobId: job.id },
+					"A job listener failed",
+				);
+			}
 		}
 	}
 
