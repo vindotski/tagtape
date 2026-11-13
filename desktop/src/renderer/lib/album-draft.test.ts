@@ -10,7 +10,7 @@ const stored: StoredAlbum = {
 	year: 2026,
 	trackCount: 2,
 	hasCover: false,
-	saved: false,
+	folder: "never",
 	createdAt: "2026-11-12T10:00:00.000Z",
 	updatedAt: "2026-11-12T10:00:00.000Z",
 	coverUrl: "https://example.com/cover.jpg",

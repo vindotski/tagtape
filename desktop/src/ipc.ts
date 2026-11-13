@@ -36,9 +36,15 @@ export interface AlbumSummary {
 export interface StoredAlbum extends AlbumSummary {
 	coverUrl: string | null;
 	tracks: { title: string; url: string }[];
-	/** The album's folder is known and still where it was saved. */
-	saved: boolean;
+	/**
+	 * The album's folder: still where it was saved, gone from there (moved,
+	 * renamed or deleted), or never saved (the album didn't finish).
+	 */
+	folder: "saved" | "missing" | "never";
 }
+
+/** What was picked from an album's right-click menu. */
+export type AlbumMenuChoice = "open" | "folder" | "again" | "delete";
 
 export interface TagTapeApi {
 	/** The app's version. */
@@ -63,6 +69,11 @@ export interface TagTapeApi {
 	showAlbumFolder(albumId: string): Promise<boolean>;
 	/** The album's small cover as a `data:` URL, or null without one. */
 	albumCover(albumId: string): Promise<string | null>;
+	/**
+	 * Pops up the album's menu at the pointer; resolves to what was picked, or
+	 * null. "delete" has already been confirmed and "folder" already shown.
+	 */
+	albumMenu(albumId: string): Promise<AlbumMenuChoice | null>;
 	albums(limit: number): Promise<AlbumSummary[]>;
 	album(id: string): Promise<StoredAlbum | null>;
 	removeAlbum(id: string): Promise<boolean>;
@@ -79,6 +90,7 @@ export const CHANNELS = {
 	showJobFolder: "tagtape:show-job-folder",
 	showAlbumFolder: "tagtape:show-album-folder",
 	albumCover: "tagtape:album-cover",
+	albumMenu: "tagtape:album-menu",
 	albums: "tagtape:albums",
 	album: "tagtape:album",
 	removeAlbum: "tagtape:remove-album",

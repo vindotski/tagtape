@@ -1,10 +1,11 @@
 import { stat } from "node:fs/promises";
 import { isJobFinished } from "@tagtape/shared";
-import { type BrowserWindow, dialog, ipcMain, shell } from "electron";
+import { type BrowserWindow, dialog, ipcMain, Menu, shell } from "electron";
 import { z } from "zod";
 import type { TagTape } from "../core/index.ts";
 import { thumbnail } from "../core/pipeline/cover.ts";
 import {
+	type AlbumMenuChoice,
 	CHANNELS,
 	type FieldErrors,
 	type StartJobResult,
@@ -188,6 +189,48 @@ export function registerIpc(ctx: IpcContext): void {
 			return cover && `data:image/jpeg;base64,${cover.toString("base64")}`;
 		},
 
+		async albumMenu(albumId) {
+			const parsed = idSchema.safeParse(albumId);
+			const window = ctx.window();
+			if (!parsed.success || !window) return null;
+			const stored = await ctx.library.get(parsed.data);
+			if (!stored) return null;
+			const saved =
+				stored.folder !== undefined && (await isFolder(stored.folder));
+
+			const choice = await new Promise<AlbumMenuChoice | null>((resolve) => {
+				// A click resolves at once. Closing the menu resolves to nothing, a
+				// moment later: on some systems "closed" arrives before the click.
+				const pick = (value: AlbumMenuChoice) => () => resolve(value);
+				Menu.buildFromTemplate([
+					{ label: "Open", click: pick("open") },
+					{ label: "Show in Folder", enabled: saved, click: pick("folder") },
+					{ label: "Edit and Make Again", click: pick("again") },
+					{ type: "separator" },
+					{ label: "Delete from Library…", click: pick("delete") },
+				]).popup({
+					window,
+					callback: () => setTimeout(() => resolve(null), 200),
+				});
+			});
+
+			if (choice === "folder" && stored.folder) {
+				await shell.openPath(stored.folder);
+			}
+			if (choice === "delete") {
+				const { response } = await dialog.showMessageBox(window, {
+					type: "warning",
+					buttons: ["Cancel", "Delete"],
+					defaultId: 0,
+					cancelId: 0,
+					message: `Delete “${stored.title}” from the library?`,
+					detail: "The album's folder and its MP3s stay where they are.",
+				});
+				if (response !== 1) return null;
+			}
+			return choice;
+		},
+
 		async albums(limit) {
 			const parsed = limitSchema.safeParse(limit);
 			if (!parsed.success) return [];
@@ -208,7 +251,12 @@ export function registerIpc(ctx: IpcContext): void {
 			return {
 				...album,
 				hasCover: hasCover === true,
-				saved: folder !== undefined && (await isFolder(folder)),
+				folder:
+					folder === undefined
+						? "never"
+						: (await isFolder(folder))
+							? "saved"
+							: "missing",
 			};
 		},
 

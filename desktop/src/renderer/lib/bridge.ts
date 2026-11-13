@@ -3,6 +3,7 @@
 // the names the components always used.
 import type { JobSnapshot } from "@tagtape/shared";
 import type {
+	AlbumMenuChoice,
 	AlbumSummary,
 	SourceInfo,
 	StartJobResult,
@@ -55,6 +56,9 @@ export const showAlbumFolder = (albumId: string): Promise<boolean> =>
 
 export const fetchAlbumCover = (albumId: string): Promise<string | null> =>
 	window.tagtape.albumCover(albumId).catch(() => null);
+
+export const albumMenu = (albumId: string): Promise<AlbumMenuChoice | null> =>
+	window.tagtape.albumMenu(albumId).catch(() => null);
 
 export const fetchAlbums = (limit: number): Promise<AlbumSummary[]> =>
 	window.tagtape.albums(limit).catch(() => []);

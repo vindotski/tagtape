@@ -11,7 +11,8 @@
 import { Route as rootRouteImport } from "./routes/__root";
 import { Route as IndexRouteImport } from "./routes/index";
 import { Route as AlbumsIndexRouteImport } from "./routes/albums.index";
-import { Route as AlbumsAlbumIdRouteImport } from "./routes/albums.$albumId";
+import { Route as AlbumsAlbumIdIndexRouteImport } from "./routes/albums.$albumId.index";
+import { Route as AlbumsAlbumIdEditRouteImport } from "./routes/albums.$albumId.edit";
 
 const IndexRoute = IndexRouteImport.update({
   id: "/",
@@ -23,40 +24,54 @@ const AlbumsIndexRoute = AlbumsIndexRouteImport.update({
   path: "/albums/",
   getParentRoute: () => rootRouteImport,
 } as any);
-const AlbumsAlbumIdRoute = AlbumsAlbumIdRouteImport.update({
-  id: "/albums/$albumId",
-  path: "/albums/$albumId",
+const AlbumsAlbumIdIndexRoute = AlbumsAlbumIdIndexRouteImport.update({
+  id: "/albums/$albumId/",
+  path: "/albums/$albumId/",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const AlbumsAlbumIdEditRoute = AlbumsAlbumIdEditRouteImport.update({
+  id: "/albums/$albumId/edit",
+  path: "/albums/$albumId/edit",
   getParentRoute: () => rootRouteImport,
 } as any);
 
 export interface FileRoutesByFullPath {
   "/": typeof IndexRoute;
-  "/albums/$albumId": typeof AlbumsAlbumIdRoute;
   "/albums/": typeof AlbumsIndexRoute;
+  "/albums/$albumId/edit": typeof AlbumsAlbumIdEditRoute;
+  "/albums/$albumId/": typeof AlbumsAlbumIdIndexRoute;
 }
 export interface FileRoutesByTo {
   "/": typeof IndexRoute;
-  "/albums/$albumId": typeof AlbumsAlbumIdRoute;
   "/albums": typeof AlbumsIndexRoute;
+  "/albums/$albumId/edit": typeof AlbumsAlbumIdEditRoute;
+  "/albums/$albumId": typeof AlbumsAlbumIdIndexRoute;
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport;
   "/": typeof IndexRoute;
-  "/albums/$albumId": typeof AlbumsAlbumIdRoute;
   "/albums/": typeof AlbumsIndexRoute;
+  "/albums/$albumId/edit": typeof AlbumsAlbumIdEditRoute;
+  "/albums/$albumId/": typeof AlbumsAlbumIdIndexRoute;
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath;
-  fullPaths: "/" | "/albums/$albumId" | "/albums/";
+  fullPaths: "/" | "/albums/" | "/albums/$albumId/edit" | "/albums/$albumId/";
   fileRoutesByTo: FileRoutesByTo;
-  to: "/" | "/albums/$albumId" | "/albums";
-  id: "__root__" | "/" | "/albums/$albumId" | "/albums/";
+  to: "/" | "/albums" | "/albums/$albumId/edit" | "/albums/$albumId";
+  id:
+    | "__root__"
+    | "/"
+    | "/albums/"
+    | "/albums/$albumId/edit"
+    | "/albums/$albumId/";
   fileRoutesById: FileRoutesById;
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute;
-  AlbumsAlbumIdRoute: typeof AlbumsAlbumIdRoute;
   AlbumsIndexRoute: typeof AlbumsIndexRoute;
+  AlbumsAlbumIdEditRoute: typeof AlbumsAlbumIdEditRoute;
+  AlbumsAlbumIdIndexRoute: typeof AlbumsAlbumIdIndexRoute;
 }
 
 declare module "@tanstack/react-router" {
@@ -75,11 +90,18 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof AlbumsIndexRouteImport;
       parentRoute: typeof rootRouteImport;
     };
-    "/albums/$albumId": {
-      id: "/albums/$albumId";
+    "/albums/$albumId/": {
+      id: "/albums/$albumId/";
       path: "/albums/$albumId";
-      fullPath: "/albums/$albumId";
-      preLoaderRoute: typeof AlbumsAlbumIdRouteImport;
+      fullPath: "/albums/$albumId/";
+      preLoaderRoute: typeof AlbumsAlbumIdIndexRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/albums/$albumId/edit": {
+      id: "/albums/$albumId/edit";
+      path: "/albums/$albumId/edit";
+      fullPath: "/albums/$albumId/edit";
+      preLoaderRoute: typeof AlbumsAlbumIdEditRouteImport;
       parentRoute: typeof rootRouteImport;
     };
   }
@@ -87,8 +109,9 @@ declare module "@tanstack/react-router" {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AlbumsAlbumIdRoute: AlbumsAlbumIdRoute,
   AlbumsIndexRoute: AlbumsIndexRoute,
+  AlbumsAlbumIdEditRoute: AlbumsAlbumIdEditRoute,
+  AlbumsAlbumIdIndexRoute: AlbumsAlbumIdIndexRoute,
 };
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
