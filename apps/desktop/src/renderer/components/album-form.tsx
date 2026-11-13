@@ -40,6 +40,8 @@ interface AlbumFormProps {
 	/** The stored album being made again, if any: it's updated, not duplicated. */
 	albumId?: string | undefined;
 	onStarted: (jobId: string, albumId: string | undefined) => void;
+	/** Told when the album is being sent to the app, and when that has settled. */
+	onSubmittingChange?: (submitting: boolean) => void;
 }
 
 export function AlbumForm({
@@ -48,6 +50,7 @@ export function AlbumForm({
 	initialErrors,
 	albumId,
 	onStarted,
+	onSubmittingChange,
 }: AlbumFormProps) {
 	const [errors, setErrors] = useState<FieldErrors>(initialErrors ?? {});
 	const [formError, setFormError] = useState<string>();
@@ -129,6 +132,7 @@ export function AlbumForm({
 			return;
 		}
 		setSubmitting(true);
+		onSubmittingChange?.(true);
 		try {
 			const response = await startJob({ album: result.input, albumId });
 			if (response.ok) {
@@ -140,6 +144,7 @@ export function AlbumForm({
 		} catch {
 			setFormError("Something went wrong. Please try again.");
 		} finally {
+			onSubmittingChange?.(false);
 			setSubmitting(false);
 		}
 	}

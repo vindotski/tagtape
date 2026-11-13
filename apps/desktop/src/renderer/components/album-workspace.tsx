@@ -1,6 +1,6 @@
 import { isJobFinished } from "@tagtape/shared";
 import { useRouter } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AlbumForm } from "#/components/album-form";
 import { JobProgress } from "#/components/job-progress";
 import {
@@ -37,6 +37,9 @@ export function AlbumWorkspace({
 	// Goes up with each fresh start, so the form forgets its own state too.
 	const [generation, setGeneration] = useState(0);
 	const router = useRouter();
+	// The album is on its way to the app (between Make album and the job's
+	// id coming back). A ref: the menu must see it at once, not a render later.
+	const starting = useRef(false);
 
 	// File > New Album while this is the new-album screen: an empty editor,
 	// unless an album is being made. That one stays on screen, since this is
@@ -44,6 +47,9 @@ export function AlbumWorkspace({
 	useEffect(
 		() =>
 			onNewAlbum(() => {
+				// Starting counts as being made: clearing the draft now would
+				// leave the job that is about to appear without its album.
+				if (starting.current) return;
 				const fresh = () => {
 					setDraft(emptyDraft());
 					setAlbumId(undefined);
@@ -69,6 +75,9 @@ export function AlbumWorkspace({
 				onDraftChange={setDraft}
 				initialErrors={phase.errors}
 				albumId={albumId}
+				onSubmittingChange={(submitting) => {
+					starting.current = submitting;
+				}}
 				onStarted={(jobId, savedId) => {
 					setPhase({ kind: "job", jobId });
 					if (savedId) setAlbumId(savedId);
