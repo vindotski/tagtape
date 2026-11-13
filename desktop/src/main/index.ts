@@ -4,8 +4,8 @@ import { app, BrowserWindow, dialog, session, shell } from "electron";
 import { createTagTape, type TagTape } from "../core/index.ts";
 import { binaryPaths } from "../core/lib/binaries.ts";
 import { pluginPaths } from "../core/plugins/loader.ts";
-import { emptyHistory } from "./history.ts";
 import { registerIpc } from "./ipc.ts";
+import { openLibrary } from "./library.ts";
 
 const here = fileURLToPath(new URL(".", import.meta.url));
 
@@ -17,7 +17,6 @@ const log = {
 
 let window: BrowserWindow | undefined;
 let tagtape: TagTape | undefined;
-let destination = "";
 let quitting = false;
 
 function isExternalLink(url: string): boolean {
@@ -92,8 +91,6 @@ async function confirmQuit(): Promise<boolean> {
 }
 
 async function start(): Promise<void> {
-	destination = app.getPath("downloads");
-
 	// No page ever gets a permission (camera, notifications, …). The page's
 	// content security policy is a <meta> tag added at build time.
 	session.defaultSession.setPermissionRequestHandler((_contents, _name, done) =>
@@ -119,12 +116,9 @@ async function start(): Promise<void> {
 
 	registerIpc({
 		tagtape,
-		history: emptyHistory(),
+		library: openLibrary(join(app.getPath("userData"), "library.json")),
 		window: () => window,
-		destination: () => destination,
-		setDestination: (folder) => {
-			destination = folder;
-		},
+		defaultDestination: app.getPath("downloads"),
 		log,
 	});
 

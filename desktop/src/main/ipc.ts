@@ -8,7 +8,7 @@ import {
 	type StartJobResult,
 	type TagTapeApi,
 } from "../ipc.ts";
-import type { AlbumHistory } from "./history.ts";
+import type { Library } from "./library.ts";
 
 const idSchema = z.uuid();
 const startSchema = z.object({
@@ -19,11 +19,10 @@ const limitSchema = z.int().min(1).max(100);
 
 export interface IpcContext {
 	tagtape: TagTape;
-	history: AlbumHistory;
+	library: Library;
 	window: () => BrowserWindow | undefined;
-	/** The folder albums are saved in, and how it's changed. */
-	destination: () => string;
-	setDestination: (folder: string) => void;
+	/** Where albums go until the user picks a folder (Downloads). */
+	defaultDestination: string;
 	log: { error(obj: object, msg: string): void };
 }
 
@@ -38,6 +37,19 @@ type Handlers = {
  * is validated here: the page is never trusted to send the right shape.
  */
 export function registerIpc(ctx: IpcContext): void {
+	/** The remembered folder, if it still exists; otherwise the default. */
+	async function destination(): Promise<string> {
+		const remembered = await ctx.library.destination().catch(() => undefined);
+		if (remembered) {
+			const exists = await stat(remembered).then(
+				(info) => info.isDirectory(),
+				() => false,
+			);
+			if (exists) return remembered;
+		}
+		return ctx.defaultDestination;
+	}
+
 	const handlers: Handlers = {
 		sources: async () => ctx.tagtape.sources(),
 
@@ -51,7 +63,7 @@ export function registerIpc(ctx: IpcContext): void {
 			}
 			const outcome = ctx.tagtape.createJob(
 				parsed.data.album,
-				ctx.destination(),
+				await destination(),
 			);
 			if (outcome.kind === "invalid") {
 				const fieldErrors: FieldErrors = {};
@@ -70,7 +82,7 @@ export function registerIpc(ctx: IpcContext): void {
 			// History is a convenience: the album still starts if this fails.
 			let albumId: string | undefined;
 			try {
-				albumId = await ctx.history.record(outcome.album, parsed.data.albumId);
+				albumId = await ctx.library.record(outcome.album, parsed.data.albumId);
 			} catch (error) {
 				ctx.log.error({ err: error }, "Recording the album failed");
 			}
@@ -89,13 +101,13 @@ export function registerIpc(ctx: IpcContext): void {
 			return parsed.success ? ctx.tagtape.cancelJob(parsed.data) : false;
 		},
 
-		destination: async () => ctx.destination(),
+		destination,
 
 		async chooseDestination() {
 			const window = ctx.window();
 			const options = {
 				title: "Where should albums be saved?",
-				defaultPath: ctx.destination(),
+				defaultPath: await destination(),
 				properties: ["openDirectory", "createDirectory"] as Array<
 					"openDirectory" | "createDirectory"
 				>,
@@ -104,8 +116,13 @@ export function registerIpc(ctx: IpcContext): void {
 				? await dialog.showOpenDialog(window, options)
 				: await dialog.showOpenDialog(options);
 			const folder = result.filePaths[0];
-			if (!result.canceled && folder) ctx.setDestination(folder);
-			return ctx.destination();
+			if (!result.canceled && folder) {
+				await ctx.library.setDestination(folder).catch((error: unknown) => {
+					ctx.log.error({ err: error }, "Remembering the folder failed");
+				});
+				return folder;
+			}
+			return destination();
 		},
 
 		// By job id, never by path: the page can't make the app open arbitrary files.
@@ -127,7 +144,7 @@ export function registerIpc(ctx: IpcContext): void {
 			const parsed = limitSchema.safeParse(limit);
 			if (!parsed.success) return [];
 			try {
-				return await ctx.history.list(parsed.data);
+				return await ctx.library.list(parsed.data);
 			} catch (error) {
 				ctx.log.error({ err: error }, "Reading the album history failed");
 				return [];
@@ -136,12 +153,12 @@ export function registerIpc(ctx: IpcContext): void {
 
 		async album(id) {
 			const parsed = idSchema.safeParse(id);
-			return parsed.success ? ctx.history.get(parsed.data) : null;
+			return parsed.success ? ctx.library.get(parsed.data) : null;
 		},
 
 		async removeAlbum(id) {
 			const parsed = idSchema.safeParse(id);
-			return parsed.success ? ctx.history.remove(parsed.data) : false;
+			return parsed.success ? ctx.library.remove(parsed.data) : false;
 		},
 	};
 

@@ -1,0 +1,146 @@
+import { randomUUID } from "node:crypto";
+import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { dirname } from "node:path";
+import type { Album } from "@tagtape/shared";
+import { z } from "zod";
+import type { AlbumSummary, StoredAlbum } from "../ipc.ts";
+
+/** How many albums are remembered; older ones are dropped as new ones come. */
+export const HISTORY_LIMIT = 50;
+
+const storedAlbumSchema = z.object({
+	id: z.uuid(),
+	title: z.string(),
+	artist: z.string(),
+	genre: z.string().nullable(),
+	year: z.number().nullable(),
+	trackCount: z.number(),
+	createdAt: z.string(),
+	updatedAt: z.string(),
+	coverUrl: z.string().nullable(),
+	tracks: z.array(z.object({ title: z.string(), url: z.string() })),
+});
+
+const fileSchema = z.object({
+	version: z.literal(1),
+	/** The folder albums are saved in; unset until the user picks one. */
+	destination: z.string().optional(),
+	albums: z.array(storedAlbumSchema),
+});
+type LibraryFile = z.infer<typeof fileSchema>;
+
+/**
+ * What TagTape remembers on this computer, in one small JSON file: the albums
+ * as they were typed (details, track titles and links, the cover's URL), so
+ * they can be opened and made again, and where albums are saved. Never media
+ * or images.
+ */
+export interface Library {
+	/** Stores a started album, or updates `albumId`; resolves to its id. */
+	record(album: Album, albumId: string | undefined): Promise<string>;
+	/** Most recently made first. */
+	list(limit: number): Promise<AlbumSummary[]>;
+	get(id: string): Promise<StoredAlbum | null>;
+	remove(id: string): Promise<boolean>;
+	destination(): Promise<string | undefined>;
+	setDestination(folder: string): Promise<void>;
+}
+
+export function openLibrary(
+	file: string,
+	options: { now?: () => Date } = {},
+): Library {
+	const now = options.now ?? (() => new Date());
+	let cache: LibraryFile | undefined;
+	// One change at a time, so two quick saves can't interleave.
+	let queue: Promise<unknown> = Promise.resolve();
+
+	async function load(): Promise<LibraryFile> {
+		if (cache) return cache;
+		try {
+			cache = fileSchema.parse(JSON.parse(await readFile(file, "utf8")));
+		} catch {
+			// Missing, unreadable or from a future version: start empty. The old
+			// file is only replaced when something is saved.
+			cache = { version: 1, albums: [] };
+		}
+		return cache;
+	}
+
+	/** Applies `change` and writes the file atomically (a temp file, renamed). */
+	function update<T>(change: (data: LibraryFile) => T): Promise<T> {
+		const run = queue.then(async () => {
+			const data = await load();
+			const result = change(data);
+			await mkdir(dirname(file), { recursive: true });
+			const temp = `${file}.${process.pid}.tmp`;
+			await writeFile(temp, JSON.stringify(data, null, "\t"), { mode: 0o600 });
+			await rename(temp, file);
+			return result;
+		});
+		queue = run.catch(() => {});
+		return run;
+	}
+
+	const summary = ({
+		coverUrl: _coverUrl,
+		tracks: _tracks,
+		...rest
+	}: StoredAlbum): AlbumSummary => rest;
+
+	return {
+		record(album, albumId) {
+			return update((data) => {
+				const at = now().toISOString();
+				const existing = albumId
+					? data.albums.find((stored) => stored.id === albumId)
+					: undefined;
+				const stored: StoredAlbum = {
+					id: existing?.id ?? randomUUID(),
+					title: album.title,
+					artist: album.artist,
+					genre: album.genre ?? null,
+					year: album.year ? Number(album.year) : null,
+					trackCount: album.tracks.length,
+					createdAt: existing?.createdAt ?? at,
+					updatedAt: at,
+					coverUrl: album.coverUrl ?? null,
+					tracks: album.tracks.map(({ title, url }) => ({ title, url })),
+				};
+				data.albums = [
+					stored,
+					...data.albums.filter((other) => other.id !== stored.id),
+				].slice(0, HISTORY_LIMIT);
+				return stored.id;
+			});
+		},
+
+		async list(limit) {
+			const { albums } = await load();
+			return albums.slice(0, limit).map(summary);
+		},
+
+		async get(id) {
+			const { albums } = await load();
+			return albums.find((stored) => stored.id === id) ?? null;
+		},
+
+		remove(id) {
+			return update((data) => {
+				const before = data.albums.length;
+				data.albums = data.albums.filter((stored) => stored.id !== id);
+				return data.albums.length < before;
+			});
+		},
+
+		async destination() {
+			return (await load()).destination;
+		},
+
+		async setDestination(folder) {
+			await update((data) => {
+				data.destination = folder;
+			});
+		},
+	};
+}
