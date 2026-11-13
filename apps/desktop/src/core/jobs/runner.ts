@@ -110,8 +110,13 @@ export async function saveJob(
 			albumFolderName(job.album.artist, job.album.title),
 		);
 	} catch (error) {
+		// A full disk is not fixed by another folder on it: say which it is.
 		throw new UserFacingError(
-			"TagTape can't write to the save folder. Choose another one and try again.",
+			`${diskProblem(error) ?? "TagTape can't write to the save folder"}. ${
+				(error as NodeJS.ErrnoException | null)?.code === "ENOSPC"
+					? "Free some space and try again."
+					: "Choose another one and try again."
+			}`,
 			{ cause: error },
 		);
 	}
