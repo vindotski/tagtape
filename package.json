@@ -11,6 +11,7 @@
 	"scripts": {
 		"dev": "pnpm --filter @tagtape/desktop dev",
 		"build": "pnpm --recursive --if-present run build",
+		"package": "pnpm binaries && pnpm --filter @tagtape/desktop run package",
 		"binaries": "node desktop/scripts/fetch-binaries.mjs",
 		"typecheck": "pnpm --recursive run typecheck",
 		"test": "pnpm --recursive --if-present run test",

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+	<title>TagTape</title>
+	<!-- The cassette from the app's header, on the theme's green. -->
+	<rect width="1024" height="1024" rx="228" fill="#15803d" />
+	<rect x="152" y="272" width="720" height="480" rx="72" fill="#f4f4ef" />
+	<rect x="232" y="336" width="560" height="248" rx="36" fill="#15803d" />
+	<circle cx="392" cy="460" r="72" fill="#f4f4ef" />
+	<circle cx="632" cy="460" r="72" fill="#f4f4ef" />
+	<circle cx="392" cy="460" r="24" fill="#15803d" />
+	<circle cx="632" cy="460" r="24" fill="#15803d" />
+	<path d="M320 752l56-104h272l56 104z" fill="#15803d" opacity="0.55" />
+</svg>

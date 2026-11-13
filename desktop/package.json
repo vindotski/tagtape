@@ -1,6 +1,9 @@
 {
 	"name": "@tagtape/desktop",
 	"private": true,
+	"description": "Turns track links plus album details into a folder of ID3-tagged MP3s.",
+	"author": "TagTape <noreply@tagtape.app>",
+	"homepage": "https://tagtape.app",
 	"license": "Unlicense",
 	"type": "module",
 	"main": "./out/main/index.js",
@@ -12,10 +15,20 @@
 		"build": "electron-vite build",
 		"start": "electron-vite preview",
 		"typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
-		"test": "vitest run"
+		"test": "vitest run",
+		"package": "electron-vite build && electron-builder --config electron-builder.config.mjs --publish never"
 	},
 	"dependencies": {
 		"sharp": "^0.35.5"
+	},
+	"optionalDependencies": {
+		"@img/sharp-darwin-arm64": "0.35.5",
+		"@img/sharp-darwin-x64": "0.35.5",
+		"@img/sharp-libvips-darwin-arm64": "1.3.4",
+		"@img/sharp-libvips-darwin-x64": "1.3.4",
+		"@img/sharp-libvips-linux-x64": "1.3.4",
+		"@img/sharp-linux-x64": "0.35.5",
+		"@img/sharp-win32-x64": "0.35.5"
 	},
 	"devDependencies": {
 		"@dnd-kit/core": "^6.3.1",
@@ -33,6 +46,7 @@
 		"class-variance-authority": "^0.7.1",
 		"cn": "^0.5.2",
 		"electron": "^45.0.0",
+		"electron-builder": "^26.18.0",
 		"electron-vite": "^6.0.0",
 		"lucide-react": "^1.69.0",
 		"node-id3": "^0.2.9",

@@ -124,6 +124,11 @@ async function start(): Promise<void> {
 
 	window = createWindow();
 
+	if (process.env.TAGTAPE_SMOKE_TEST === "1") {
+		void smokeTest(tagtape, window);
+		return;
+	}
+
 	// The bundled programs must run, or nothing will work: say so at once.
 	tagtape.versions().then(
 		(versions) => log.info(versions, "Bundled programs"),
@@ -135,6 +140,38 @@ async function start(): Promise<void> {
 			);
 		},
 	);
+}
+
+/**
+ * For CI, on a packaged build: the page loads and renders, and the bundled
+ * programs run. Prints the result and exits with 0 or 1.
+ */
+async function smokeTest(core: TagTape, page: BrowserWindow): Promise<void> {
+	const timeout = setTimeout(() => {
+		console.error("SMOKE FAILED: timed out");
+		app.exit(1);
+	}, 60_000);
+	try {
+		const versions = await core.versions();
+		if (page.webContents.isLoading()) {
+			await new Promise<void>((resolve) => {
+				page.webContents.once("did-finish-load", () => resolve());
+			});
+		}
+		const text: unknown = await page.webContents.executeJavaScript(
+			"new Promise((done) => setTimeout(() => done(document.body.innerText), 1500))",
+		);
+		if (typeof text !== "string" || !text.includes("Make album")) {
+			throw new Error("the album form didn't render");
+		}
+		console.log(`SMOKE OK ${JSON.stringify(versions)}`);
+		clearTimeout(timeout);
+		await core.close();
+		app.exit(0);
+	} catch (error) {
+		console.error("SMOKE FAILED:", error);
+		app.exit(1);
+	}
 }
 
 if (!app.requestSingleInstanceLock()) {

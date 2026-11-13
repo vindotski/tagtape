@@ -17,3 +17,6 @@ desktop/resources/bin/
 
 # electron-vite build output
 out/
+
+# electron-builder output
+desktop/dist/

@@ -115,12 +115,29 @@ try {
 		"",
 	].join("\n");
 	writeFileSync(join(out, "ffmpeg.NOTICE.txt"), notice);
+	// The licence text ships next to the program: from the archive when it
+	// has one, otherwise FFmpeg's own copy for that release.
 	if (wanted.ffmpeg.licenseFile) {
 		renameSync(
 			join(work, "ffmpeg", wanted.ffmpeg.licenseFile),
 			join(out, "ffmpeg.LICENSE.txt"),
 		);
+	} else {
+		await download(
+			wanted.ffmpeg.licenseUrl,
+			wanted.ffmpeg.licenseSha256,
+			join(out, "ffmpeg.LICENSE.txt"),
+		);
 	}
+	writeFileSync(
+		join(out, "yt-dlp.NOTICE.txt"),
+		[
+			`yt-dlp ${lock["yt-dlp"].version}`,
+			`Licence: ${lock["yt-dlp"].license} (its bundled components carry their own; see yt-dlp/_internal)`,
+			`Source: ${lock["yt-dlp"].source}`,
+			"",
+		].join("\n"),
+	);
 
 	// yt-dlp's "onedir" build: an executable next to its _internal folder. (The
 	// single-file build unpacks itself into the temp folder on every run.)

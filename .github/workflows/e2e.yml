@@ -1,0 +1,40 @@
+name: End-to-end (real links)
+
+# Converts real public links with the bundled ffmpeg and yt-dlp, weekly and on
+# demand. Site links come from the repo variable TAGTAPE_E2E_SITE_URLS
+# (comma-separated, never written into the repo); without it only the public
+# MP3 files in the test are used.
+on:
+  schedule:
+    - cron: "17 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      # Scheduled runs start from the default branch (dev): test what's released.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event_name == 'schedule' && 'main' || github.ref }}
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 26
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm binaries
+
+      - name: Convert real links
+        env:
+          TAGTAPE_E2E: "1"
+          TAGTAPE_E2E_SITE_URLS: ${{ vars.TAGTAPE_E2E_SITE_URLS }}
+        run: pnpm --filter @tagtape/desktop exec vitest run src/core/e2e.test.ts

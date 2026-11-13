@@ -16,7 +16,7 @@ concurrency:
 # Third-party actions are pinned to commit SHAs (tags can be moved).
 jobs:
   checks:
-    name: Lint, typecheck, test
+    name: Lint, typecheck, test, build
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -40,3 +40,121 @@ jobs:
 
       - run: pnpm typecheck
       - run: pnpm test
+      - run: pnpm build
+
+  # One installer per platform, built on that platform, then started once to
+  # prove the packaged app renders and its bundled ffmpeg and yt-dlp run.
+  # Installers are unsigned (macOS: ad-hoc).
+  package:
+    name: Package (${{ matrix.name }})
+    needs: checks
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS arm64
+            os: macos-15
+            app: desktop/dist/mac-arm64/TagTape.app/Contents/MacOS/TagTape
+          - name: macOS x64
+            os: macos-15-intel
+            app: desktop/dist/mac/TagTape.app/Contents/MacOS/TagTape
+          - name: Windows x64
+            os: windows-2025
+            app: desktop/dist/win-unpacked/TagTape.exe
+          - name: Linux x64
+            os: ubuntu-24.04
+            app: desktop/dist/linux-unpacked/tagtape
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 26
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # The pipeline's tests on this platform too: process handling and file
+      # naming differ between them.
+      - run: pnpm --filter @tagtape/desktop test
+
+      # A release tag must match the version in package.json (bump it first).
+      - name: Check the version
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          REF: ${{ github.ref }}
+        run: |
+          pkg="$(node -p "require('./package.json').version")"
+          if [ "${REF#refs/tags/v}" != "$pkg" ]; then
+            echo "::error::Tag ${REF#refs/tags/} doesn't match package.json version $pkg"
+            exit 1
+          fi
+
+      # Fetches the pinned ffmpeg and yt-dlp (checksum-verified), builds the
+      # app and the installers.
+      - run: pnpm package
+
+      - name: Smoke test the packaged app
+        env:
+          TAGTAPE_SMOKE_TEST: "1"
+          APP: ${{ matrix.app }}
+        run: |
+          # The app prints its result and exits with 0 (the page rendered, both
+          # programs ran) or 1.
+          if [ "$RUNNER_OS" = Linux ]; then
+            # No display on the runner, and its AppArmor profile blocks the
+            # Chromium sandbox for unpacked apps: both are CI-only workarounds.
+            xvfb-run -a "$APP" --no-sandbox
+          else
+            "$APP"
+          fi
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: installers-${{ matrix.os }}
+          if-no-files-found: error
+          retention-days: 14
+          path: |
+            desktop/dist/*.dmg
+            desktop/dist/*.zip
+            desktop/dist/*.exe
+            desktop/dist/*.AppImage
+            desktop/dist/*.deb
+
+  # On a version tag: a draft GitHub Release with every installer attached.
+  # Publishing it (which makes it the "latest" the website links to) is a
+  # manual step.
+  release:
+    name: Draft release
+    needs: package
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: installers-*
+          merge-multiple: true
+          path: installers
+
+      - name: Create the draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          (cd installers && sha256sum -- * > SHA256SUMS.txt)
+          gh release create "$TAG" --draft --verify-tag --title "TagTape ${TAG#v}" \
+            --notes "See CHANGELOG.md for what changed. Installers are unsigned: the website explains how to open them." \
+            installers/*
