@@ -17,8 +17,9 @@ export function DeleteAlbum({ id }: { id: string }) {
 		setPending(true);
 		setFailed(false);
 		if (await removeAlbum(id)) {
-			await router.invalidate();
+			// Leave first: reloading this screen would say the album is gone.
 			await navigate({ to: "/albums" });
+			await router.invalidate();
 			return;
 		}
 		setPending(false);

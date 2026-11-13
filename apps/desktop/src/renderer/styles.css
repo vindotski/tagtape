@@ -21,11 +21,6 @@
     --color-sidebar-primary: var(--sidebar-primary);
     --color-sidebar-foreground: var(--sidebar-foreground);
     --color-sidebar: var(--sidebar);
-    --color-chart-5: var(--chart-5);
-    --color-chart-4: var(--chart-4);
-    --color-chart-3: var(--chart-3);
-    --color-chart-2: var(--chart-2);
-    --color-chart-1: var(--chart-1);
     --color-ring: var(--ring);
     --color-input: var(--input);
     --color-border: var(--border);
@@ -74,11 +69,6 @@
     --border: oklch(0.93 0.007 106.5);
     --input: oklch(0.93 0.007 106.5);
     --ring: oklch(0.737 0.021 106.9);
-    --chart-1: oklch(0.871 0.15 154.449);
-    --chart-2: oklch(0.723 0.219 149.579);
-    --chart-3: oklch(0.627 0.194 149.214);
-    --chart-4: oklch(0.527 0.154 150.069);
-    --chart-5: oklch(0.448 0.119 151.328);
     --radius: 0;
     --sidebar: oklch(0.988 0.003 106.5);
     --sidebar-foreground: oklch(0.153 0.006 107.1);
@@ -110,11 +100,6 @@
       --border: oklch(1 0 0 / 10%);
       --input: oklch(1 0 0 / 15%);
       --ring: oklch(0.58 0.031 107.3);
-      --chart-1: oklch(0.871 0.15 154.449);
-      --chart-2: oklch(0.723 0.219 149.579);
-      --chart-3: oklch(0.627 0.194 149.214);
-      --chart-4: oklch(0.527 0.154 150.069);
-      --chart-5: oklch(0.448 0.119 151.328);
       --sidebar: oklch(0.228 0.013 107.4);
       --sidebar-foreground: oklch(0.988 0.003 106.5);
       --sidebar-primary: oklch(0.723 0.219 149.579);
@@ -142,6 +127,15 @@
     @apply font-sans;
     overscroll-behavior: none;
     }
+}
+
+/* Chrome isn't selectable (see the root route), but anything that says what
+   went wrong must be: people copy errors to ask about them. */
+[role="alert"],
+[data-slot="alert"],
+[aria-live],
+.text-destructive {
+  user-select: text;
 }
 
 /* Dragging these moves the window; the controls inside them still work. */

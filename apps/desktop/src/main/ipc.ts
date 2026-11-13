@@ -73,6 +73,19 @@ export function registerIpc(ctx: IpcContext): {
 			() => false,
 		);
 
+	/**
+	 * Opens a folder in the file manager. One whose name the system would
+	 * treat as something to launch (an album called "Name.app" on macOS) is
+	 * shown in its parent instead.
+	 */
+	async function showFolder(folder: string): Promise<boolean> {
+		if (/\.(app|bundle|framework|plugin|kext)$/i.test(folder)) {
+			shell.showItemInFolder(folder);
+			return true;
+		}
+		return (await shell.openPath(folder)) === "";
+	}
+
 	/** The remembered folder, if it still exists; otherwise the default. */
 	async function destination(): Promise<string> {
 		const remembered = await ctx.library.destination().catch(() => undefined);
@@ -154,13 +167,18 @@ export function registerIpc(ctx: IpcContext): {
 	type Finished = { folder: string; cover: Uint8Array | undefined };
 	const albumOfJob = new Map<string, string>();
 	const titleOfJob = new Map<string, string>();
+	const recording = new Set<string>();
 	const finishedEarly = new Map<string, Finished>();
 	async function remember(albumId: string, result: Finished): Promise<void> {
 		try {
-			await ctx.library.finished(albumId, {
-				folder: result.folder,
-				cover: result.cover && (await thumbnail(result.cover)),
-			});
+			// A cover that can't be shrunk must not cost the album its folder.
+			const cover =
+				result.cover &&
+				(await thumbnail(result.cover).catch((error: unknown) => {
+					ctx.log.error({ err: error }, "Making the cover thumbnail failed");
+					return undefined;
+				}));
+			await ctx.library.finished(albumId, { folder: result.folder, cover });
 		} catch (error) {
 			ctx.log.error({ err: error }, "Remembering the finished album failed");
 		}
@@ -176,7 +194,9 @@ export function registerIpc(ctx: IpcContext): {
 		// The cover is only in memory during this call.
 		const result = { folder: job.folder, cover: ctx.tagtape.jobCover(job.id) };
 		if (albumId) void remember(albumId, result);
-		else finishedEarly.set(job.id, result);
+		// Only while its library entry is still being written; otherwise
+		// there is none (recording failed) and nothing will collect this.
+		else if (recording.has(job.id)) finishedEarly.set(job.id, result);
 	});
 
 	const handlers: Handlers = {
@@ -211,11 +231,13 @@ export function registerIpc(ctx: IpcContext): {
 			titleOfJob.set(outcome.jobId, outcome.album.title);
 			// History is a convenience: the album still starts if this fails.
 			let albumId: string | undefined;
+			recording.add(outcome.jobId);
 			try {
 				albumId = await ctx.library.record(outcome.album, parsed.data.albumId);
 			} catch (error) {
 				ctx.log.error({ err: error }, "Recording the album failed");
 			}
+			recording.delete(outcome.jobId);
 			const early = finishedEarly.get(outcome.jobId);
 			finishedEarly.delete(outcome.jobId);
 			if (albumId) {
@@ -256,16 +278,19 @@ export function registerIpc(ctx: IpcContext): {
 				: await dialog.showOpenDialog(options);
 			const folder = result.filePaths[0];
 			if (!result.canceled && folder) {
-				await ctx.library.setDestination(folder).catch((error: unknown) => {
+				try {
+					await ctx.library.setDestination(folder);
+					return folder;
+				} catch (error) {
+					// Not remembered means not used: show the folder still in use.
 					ctx.log.error({ err: error }, "Remembering the folder failed");
-				});
-				return folder;
+				}
 			}
 			return destination();
 		},
 
 		async showDestination() {
-			return (await shell.openPath(await destination())) === "";
+			return showFolder(await destination());
 		},
 
 		async versions() {
@@ -308,7 +333,7 @@ export function registerIpc(ctx: IpcContext): {
 				? ctx.tagtape.getJob(parsed.data)?.folder
 				: undefined;
 			if (!folder || !(await isFolder(folder))) return false;
-			return (await shell.openPath(folder)) === "";
+			return showFolder(folder);
 		},
 
 		// By album id, for the same reason.
@@ -317,7 +342,7 @@ export function registerIpc(ctx: IpcContext): {
 			if (!parsed.success) return false;
 			const folder = (await ctx.library.get(parsed.data))?.folder;
 			if (!folder || !(await isFolder(folder))) return false;
-			return (await shell.openPath(folder)) === "";
+			return showFolder(folder);
 		},
 
 		async albumCover(albumId) {
@@ -357,7 +382,7 @@ export function registerIpc(ctx: IpcContext): {
 			if (choice === "file" || choice === "link") return share(stored, choice);
 
 			if (choice === "folder" && stored.folder) {
-				await shell.openPath(stored.folder);
+				await showFolder(stored.folder);
 			}
 			if (choice === "delete") {
 				const { response } = await dialog.showMessageBox(window, {

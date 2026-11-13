@@ -1,4 +1,4 @@
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
 	isJobFinished,
@@ -25,7 +25,7 @@ import { NAVIGATE, type Screen } from "../ipc.ts";
 import { registerIpc } from "./ipc.ts";
 import { openLibrary } from "./library.ts";
 import { installMenu } from "./menu.ts";
-import { readShare, shareTargetIn } from "./open-share.ts";
+import { isShareLink, readShare, shareTargetIn } from "./open-share.ts";
 import {
 	readWindowState,
 	restoreWindowState,
@@ -261,6 +261,8 @@ function notifyFinished(
 	if (window?.isFocused() || !Notification.isSupported()) return;
 	if (job.status === "failed" && job.error === "Cancelled") return;
 	const saved = job.status === "done";
+	// Kept until it is clicked or goes away: an unreferenced notification can
+	// be collected, and its click with it.
 	const notification = new Notification({
 		title: saved ? "Album saved" : "Album not saved",
 		body: saved
@@ -268,6 +270,7 @@ function notifyFinished(
 			: `“${album.title}” didn't work. Open TagTape to see why.`,
 	});
 	notification.on("click", () => {
+		shownNotifications.delete(notification);
 		// A saved album opens on its own screen; a failed one on the first
 		// screen, which shows what went wrong.
 		showScreen(
@@ -276,8 +279,12 @@ function notifyFinished(
 				: { screen: "new" },
 		);
 	});
+	shownNotifications.add(notification);
+	notification.on("close", () => shownNotifications.delete(notification));
 	notification.show();
 }
+
+const shownNotifications = new Set<Notification>();
 
 /** Closing while an album is being saved would throw it away: ask first. */
 async function confirmQuit(): Promise<boolean> {
@@ -344,7 +351,10 @@ async function start(): Promise<void> {
 
 	const ipc = registerIpc({
 		tagtape,
-		library: openLibrary(join(app.getPath("userData"), "library.json")),
+		library: openLibrary(join(app.getPath("userData"), "library.json"), {
+			onUnreadable: (backup) =>
+				log.warn({ backup }, "The library file couldn't be read in full"),
+		}),
 		window: () => window,
 		defaultDestination: app.getPath("downloads"),
 		log,
@@ -432,11 +442,14 @@ if (!app.requestSingleInstanceLock()) {
 		void openShare(url);
 	});
 
-	app.on("second-instance", (_event, argv) => {
+	app.on("second-instance", (_event, argv, workingDirectory) => {
 		// Windows and Linux: the same, as the second start's command line.
 		const share = shareTargetIn(argv.slice(1));
 		if (share) {
-			void openShare(share);
+			// A relative path is relative to where that second start ran.
+			void openShare(
+				isShareLink(share) ? share : resolve(workingDirectory, share),
+			);
 			return;
 		}
 		// Never leave a running app without a window to reach it by.
@@ -457,8 +470,17 @@ if (!app.requestSingleInstanceLock()) {
 		void quitIfConfirmed();
 	});
 
-	void app.whenReady().then(start, (error: unknown) => {
-		console.error(error);
-		app.exit(1);
-	});
+	void app
+		.whenReady()
+		.then(start)
+		.catch((error: unknown) => {
+			// Without this the app would sit there with no window, holding
+			// the lock that makes every later start do nothing.
+			log.error({ err: error }, "TagTape couldn't start");
+			dialog.showErrorBox(
+				"TagTape couldn't start",
+				`${error instanceof Error ? error.message : String(error)}\n\nIf this keeps happening, reinstall TagTape.`,
+			);
+			app.exit(1);
+		});
 }

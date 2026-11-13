@@ -114,6 +114,8 @@ function NavItem({
 		<Link
 			to={to}
 			className={ITEM}
+			// When the sidebar is only icons, hovering says what each one is.
+			title={typeof children === "string" ? children : undefined}
 			activeProps={{ className: ACTIVE }}
 			activeOptions={{ exact: exact === true }}
 		>

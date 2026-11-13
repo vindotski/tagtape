@@ -3,6 +3,9 @@
 // validates every argument again, since the renderer is the less trusted side.
 import type { JobSnapshot, ShareResult } from "@tagtape/shared";
 
+/** How many albums the library keeps; older ones are dropped as new ones come. */
+export const HISTORY_LIMIT = 50;
+
 /** A kind of link TagTape accepts (a built-in source, or one from a plugin). */
 export interface SourceInfo {
 	id: string;

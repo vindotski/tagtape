@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { Album } from "@tagtape/shared";
-import { UserFacingError } from "../lib/errors.ts";
+import { UserFacingError, userMessage } from "../lib/errors.ts";
 import type { Logger } from "../options.ts";
 import type { Pipeline, ResolvedLink } from "../pipeline/types.ts";
 import { probeJob, saveJob } from "./runner.ts";
@@ -163,7 +163,10 @@ export class JobManager {
 		} catch (error) {
 			if (!signal.aborted) {
 				this.#options.log.error({ err: error, jobId: job.id }, "Job crashed");
-				this.#fail(job, "Something went wrong. Please try again.");
+				this.#fail(
+					job,
+					userMessage(error, "Something went wrong. Please try again."),
+				);
 			}
 		} finally {
 			// Cancelled, timed out or closed: the reason is the message.

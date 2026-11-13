@@ -103,10 +103,18 @@ export async function saveJob(
 	job.status = "streaming";
 	ctx.changed?.(job);
 	const total = job.tracks.length;
-	const folder = await createAlbumFolder(
-		job.destination,
-		albumFolderName(job.album.artist, job.album.title),
-	);
+	let folder: string;
+	try {
+		folder = await createAlbumFolder(
+			job.destination,
+			albumFolderName(job.album.artist, job.album.title),
+		);
+	} catch (error) {
+		throw new UserFacingError(
+			"TagTape can't write to the save folder. Choose another one and try again.",
+			{ cause: error },
+		);
+	}
 	const written: string[] = [];
 	for (const track of job.tracks) {
 		track.status = "converting";
@@ -146,7 +154,7 @@ export async function saveJob(
 					job,
 					track,
 					error,
-					"Couldn't convert this track",
+					diskProblem(error) ?? "Couldn't convert this track",
 				);
 			}
 			await discardAlbum(folder, written);
@@ -160,6 +168,16 @@ export async function saveJob(
 	}
 	job.folder = folder;
 	return true;
+}
+
+/** What a failed write means in words, when the disk is the reason. */
+function diskProblem(error: unknown): string | undefined {
+	const code = (error as NodeJS.ErrnoException | null)?.code;
+	if (code === "ENOSPC") return "The disk with the save folder is full";
+	if (code === "EACCES" || code === "EPERM" || code === "EROFS") {
+		return "TagTape can't write to the save folder";
+	}
+	return undefined;
 }
 
 /** Logs unexpected errors; returns the message the user should see. */

@@ -43,14 +43,12 @@ export function useSharedAlbum(): Shown | null {
 	);
 }
 
-/** Reads a file dropped on the window. The page reads it itself: no path leaves it. */
+/** Whether a dropped file is a shared album, by its name. */
+export const isSharedFile = (file: File): boolean =>
+	file.name.toLowerCase().endsWith(`.${SHARE_EXTENSION}`);
+
+/** Reads a shared album dropped on the window. The page reads it itself: no path leaves it. */
 export async function readSharedFile(file: File): Promise<ShareResult> {
-	if (!file.name.toLowerCase().endsWith(`.${SHARE_EXTENSION}`)) {
-		return {
-			ok: false,
-			message: `TagTape opens shared albums (.${SHARE_EXTENSION} files). This is something else.`,
-		};
-	}
 	if (file.size > MAX_SHARE_BYTES) {
 		return { ok: false, message: "This is too large to be a TagTape album" };
 	}

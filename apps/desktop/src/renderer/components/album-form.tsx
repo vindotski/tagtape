@@ -91,8 +91,8 @@ export function AlbumForm({
 		);
 	};
 
-	// Several links at once (pasted, or dropped from a browser or a text
-	// file): one track each. A single pasted link is left to the field.
+	// Several links at once (pasted, or dragged as text from a browser or
+	// an editor): one track each. A single pasted link is left to the field.
 	const [linksNote, setLinksNote] = useState<string>();
 	function takeLinks(links: string[], from = 0) {
 		const added = addLinks(draft.tracks, links, from);
@@ -279,6 +279,8 @@ export function AlbumForm({
 						const links = droppedLinks(event.dataTransfer);
 						if (links.length === 0) return;
 						event.preventDefault();
+						// Handled here: the window's own drop handler stays out of it.
+						event.stopPropagation();
 						takeLinks(links);
 					}}
 				>

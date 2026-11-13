@@ -3,8 +3,9 @@ import {
 	Outlet,
 	useLocation,
 	useNavigate,
+	useRouter,
 } from "@tanstack/react-router";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { AppSidebar } from "#/components/app-sidebar";
 import {
 	appPlatform,
@@ -12,7 +13,8 @@ import {
 	fetchSources,
 	onNavigate,
 } from "#/lib/bridge";
-import { readSharedFile, showShared } from "#/lib/shared-album";
+import { isWorking, useCurrentJob } from "#/lib/current-job";
+import { isSharedFile, readSharedFile, showShared } from "#/lib/shared-album";
 import { cn } from "#/lib/utils";
 
 /** How many albums the sidebar lists; the library has them all. */
@@ -49,11 +51,27 @@ function Root() {
 	const { recent } = Route.useLoaderData();
 	const path = useLocation({ select: (location) => location.pathname });
 	const navigate = useNavigate();
+	const router = useRouter();
+	// When the album being made ends, what the library knows about it changed
+	// (its folder, its cover): reload whatever screen is showing.
+	const job = useCurrentJob();
+	const ended = job?.state.kind === "ready" && !isWorking(job);
+	useEffect(() => {
+		if (ended) void router.invalidate();
+	}, [ended, router]);
 	// The menu and notifications live in the main process; this is how they
 	// change the screen.
+	// The window's title follows the screen (screen readers and the system's
+	// window list read it).
+	useEffect(() => {
+		document.title = `${screenName(path)} · TagTape`;
+	}, [path]);
+	const screen = useRef<HTMLElement>(null);
 	useEffect(
 		() =>
 			onNavigate((to) => {
+				// A menu shortcut changed the screen: put the keyboard there too.
+				requestAnimationFrame(() => screen.current?.focus());
 				if (to.screen === "new") void navigate({ to: "/" });
 				else if (to.screen === "library") void navigate({ to: "/albums" });
 				else if (to.screen === "settings") void navigate({ to: "/settings" });
@@ -84,7 +102,11 @@ function Root() {
 			onDrop={(event) => {
 				const file = event.dataTransfer.files[0];
 				if (!file) return;
+				// Never let the window load a dropped file.
 				event.preventDefault();
+				// Only a shared album opens; any other file is ignored, so a
+				// stray drop can't replace the album being typed.
+				if (!isSharedFile(file)) return;
 				void readSharedFile(file).then((share) => {
 					showShared(share);
 					void navigate({ to: "/shared" });
@@ -105,7 +127,9 @@ function Root() {
 					</p>
 				</header>
 				<main
-					className="min-h-0 flex-1 overflow-y-auto"
+					ref={screen}
+					tabIndex={-1}
+					className="min-h-0 flex-1 overflow-y-auto outline-none"
 					data-scroll-restoration-id="screen"
 				>
 					<div className="mx-auto max-w-5xl px-6 py-6">

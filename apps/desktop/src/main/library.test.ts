@@ -1,4 +1,11 @@
-import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import {
+	mkdir,
+	mkdtemp,
+	readdir,
+	readFile,
+	rm,
+	writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Album } from "@tagtape/shared";
@@ -110,13 +117,40 @@ describe("album history", () => {
 		expect(await openLibrary(file).list(100)).toHaveLength(10);
 	});
 
-	test("a damaged file reads as empty and is replaced on the next save", async () => {
+	test("a damaged file reads as empty, and is kept aside before it is replaced", async () => {
 		await openLibrary(file).record(album("Before"), undefined);
 		await writeFile(file, "{ not json");
-		const library = openLibrary(file);
+		const kept: string[] = [];
+		const library = openLibrary(file, { onUnreadable: (to) => kept.push(to) });
 		expect(await library.list(10)).toEqual([]);
 		await library.record(album("After"), undefined);
 		expect(JSON.parse(await readFile(file, "utf8")).albums).toHaveLength(1);
+		expect(kept).toEqual([`${file}.unreadable`]);
+		expect(await readFile(`${file}.unreadable`, "utf8")).toBe("{ not json");
+	});
+
+	test("one entry that can't be read doesn't cost the others", async () => {
+		const first = openLibrary(file);
+		await first.setDestination("/music");
+		await first.record(album("Good"), undefined);
+		const data = JSON.parse(await readFile(file, "utf8"));
+		data.albums.push({ id: "not-an-album" });
+		await writeFile(file, JSON.stringify(data));
+
+		const library = openLibrary(file);
+		expect((await library.list(10)).map((a) => a.title)).toEqual(["Good"]);
+		expect(await library.destination()).toBe("/music");
+		await library.record(album("New"), undefined);
+		expect(
+			JSON.parse(await readFile(`${file}.unreadable`, "utf8")).albums,
+		).toHaveLength(2);
+	});
+
+	test("a file that can't be read right now is not treated as empty", async () => {
+		await mkdir(file, { recursive: true }); // a folder where the file should be
+		const library = openLibrary(file);
+		await expect(library.list(10)).rejects.toThrow();
+		await expect(library.record(album("X"), undefined)).rejects.toThrow();
 	});
 });
 

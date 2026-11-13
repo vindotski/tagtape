@@ -7,6 +7,7 @@ import { dateFormat } from "#/components/album-grid";
 import { AlbumNotFound } from "#/components/album-not-found";
 import { DeleteAlbum } from "#/components/delete-album";
 import { Button, buttonVariants } from "#/components/ui/button";
+import type { StoredAlbum } from "#/lib/albums";
 import { shareAlbum, showAlbumFolder } from "#/lib/bridge";
 import { loadAlbum } from "#/lib/load-album";
 
@@ -19,6 +20,11 @@ export const Route = createFileRoute("/albums/$albumId/")({
 /** A made album, as a music app would show it: cover, details, tracks. */
 function AlbumPage() {
 	const album = Route.useLoaderData();
+	// Another album is a fresh screen: no "Link copied", no armed Delete.
+	return <AlbumView key={album.id} album={album} />;
+}
+
+function AlbumView({ album }: { album: StoredAlbum }) {
 	// What the last share did, said once under the buttons.
 	const [shared, setShared] = useState<"file" | "link" | null>(null);
 	const tracks = `${album.trackCount} ${album.trackCount === 1 ? "track" : "tracks"}`;

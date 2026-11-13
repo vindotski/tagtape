@@ -9,7 +9,7 @@ import {
 	shareFragmentOf,
 } from "@tagtape/shared";
 
-const isShareLink = (text: string) =>
+export const isShareLink = (text: string): boolean =>
 	text.toLowerCase().startsWith(`${SHARE_SCHEME}:`);
 
 /**

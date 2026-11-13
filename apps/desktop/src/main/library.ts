@@ -1,12 +1,18 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+import {
+	copyFile,
+	mkdir,
+	readFile,
+	rename,
+	rm,
+	writeFile,
+} from "node:fs/promises";
 import { dirname, join } from "node:path";
 import type { Album } from "@tagtape/shared";
 import { z } from "zod";
-import type { AlbumSummary } from "../ipc.ts";
+import { type AlbumSummary, HISTORY_LIMIT } from "../ipc.ts";
 
-/** How many albums are remembered; older ones are dropped as new ones come. */
-export const HISTORY_LIMIT = 50;
+export { HISTORY_LIMIT };
 
 const storedAlbumSchema = z.object({
 	id: z.uuid(),
@@ -31,9 +37,14 @@ const fileSchema = z.object({
 	version: z.literal(1),
 	/** The folder albums are saved in; unset until the user picks one. */
 	destination: z.string().optional(),
-	albums: z.array(storedAlbumSchema),
+	// Checked one by one (see `load`): one bad entry must not cost the rest.
+	albums: z.array(z.unknown()),
 });
-type LibraryFile = z.infer<typeof fileSchema>;
+interface LibraryFile {
+	version: 1;
+	destination?: string;
+	albums: LibraryAlbum[];
+}
 
 /**
  * What TagTape remembers on this computer, in one small JSON file: the albums
@@ -67,7 +78,11 @@ export interface Library {
 
 export function openLibrary(
 	file: string,
-	options: { now?: () => Date } = {},
+	options: {
+		now?: () => Date;
+		/** Told when the file on disk couldn't be read in full. */
+		onUnreadable?: (backup: string) => void;
+	} = {},
 ): Library {
 	const now = options.now ?? (() => new Date());
 	const covers = join(dirname(file), "covers");
@@ -79,17 +94,36 @@ export function openLibrary(
 				.map((album) => rm(coverFile(album.id), { force: true })),
 		);
 	let cache: LibraryFile | undefined;
+	/** The file held something that wasn't understood: copy it before replacing it. */
+	let backupFirst = false;
+	const backup = `${file}.unreadable`;
 	// One change at a time, so two quick saves can't interleave.
 	let queue: Promise<unknown> = Promise.resolve();
 
 	async function load(): Promise<LibraryFile> {
 		if (cache) return cache;
+		let text: string | undefined;
 		try {
-			cache = fileSchema.parse(JSON.parse(await readFile(file, "utf8")));
+			text = await readFile(file, "utf8");
+		} catch (error) {
+			// No file yet is the normal first start. Any other read error is
+			// not a reason to start over: fail, and try again next time.
+			if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+		}
+		cache = { version: 1, albums: [] };
+		if (text === undefined) return cache;
+		try {
+			const parsed = fileSchema.parse(JSON.parse(text));
+			if (parsed.destination) cache.destination = parsed.destination;
+			for (const entry of parsed.albums) {
+				const album = storedAlbumSchema.safeParse(entry);
+				if (album.success) cache.albums.push(album.data);
+				else backupFirst = true;
+			}
 		} catch {
-			// Missing, unreadable or from a future version: start empty. The old
-			// file is only replaced when something is saved.
-			cache = { version: 1, albums: [] };
+			// Damaged, or written by a newer TagTape: start empty, but keep
+			// the file (see `update`).
+			backupFirst = true;
 		}
 		return cache;
 	}
@@ -102,6 +136,12 @@ export function openLibrary(
 			const data = await load();
 			const result = await change(data);
 			await mkdir(dirname(file), { recursive: true });
+			if (backupFirst) {
+				// About to replace a file that wasn't fully understood.
+				await copyFile(file, backup);
+				backupFirst = false;
+				options.onUnreadable?.(backup);
+			}
 			const temp = `${file}.${process.pid}.tmp`;
 			await writeFile(temp, JSON.stringify(data, null, "\t"), { mode: 0o600 });
 			await rename(temp, file);
@@ -166,6 +206,8 @@ export function openLibrary(
 					delete stored.hasCover;
 				}
 				stored.folder = folder;
+				// Lists and covers shown before this moment are out of date.
+				stored.updatedAt = now().toISOString();
 				return true;
 			});
 		},

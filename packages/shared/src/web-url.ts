@@ -20,8 +20,3 @@ export function parseWebUrl(input: string): URL | null {
 	if (url.username || url.password || url.port) return null;
 	return url;
 }
-
-/** Non-empty path segments of a URL, e.g. `/a/b/` → `["a", "b"]`. */
-export function pathSegments(url: URL): string[] {
-	return url.pathname.split("/").filter(Boolean);
-}
