@@ -1,11 +1,18 @@
 import { contextBridge, ipcRenderer } from "electron";
-import { CHANNELS, type TagTapeApi } from "../ipc.ts";
+import { CHANNELS, NAVIGATE, type Screen, type TagTapeApi } from "../ipc.ts";
 
 // The only thing the page can reach outside itself: no Node, no Electron
 // objects, just these calls. `__APP_VERSION__` is inlined at build time.
 const api: TagTapeApi = {
 	version: __APP_VERSION__,
 	platform: process.platform,
+	onNavigate(listener) {
+		const handler = (_event: unknown, to: Screen) => listener(to);
+		ipcRenderer.on(NAVIGATE, handler);
+		return () => {
+			ipcRenderer.removeListener(NAVIGATE, handler);
+		};
+	},
 	sources: () => ipcRenderer.invoke(CHANNELS.sources),
 	startJob: (input) => ipcRenderer.invoke(CHANNELS.startJob, input),
 	job: (id) => ipcRenderer.invoke(CHANNELS.job, id),

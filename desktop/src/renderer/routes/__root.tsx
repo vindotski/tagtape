@@ -1,6 +1,17 @@
-import { createRootRoute, Outlet, useLocation } from "@tanstack/react-router";
+import {
+	createRootRoute,
+	Outlet,
+	useLocation,
+	useNavigate,
+} from "@tanstack/react-router";
+import { useEffect } from "react";
 import { AppSidebar } from "#/components/app-sidebar";
-import { appPlatform, fetchAlbums, fetchSources } from "#/lib/bridge";
+import {
+	appPlatform,
+	fetchAlbums,
+	fetchSources,
+	onNavigate,
+} from "#/lib/bridge";
 import { cn } from "#/lib/utils";
 
 /** How many albums the sidebar lists; the library has them all. */
@@ -35,6 +46,24 @@ function screenName(path: string): string {
 function Root() {
 	const { recent } = Route.useLoaderData();
 	const path = useLocation({ select: (location) => location.pathname });
+	const navigate = useNavigate();
+	// The menu and notifications live in the main process; this is how they
+	// change the screen.
+	useEffect(
+		() =>
+			onNavigate((to) => {
+				if (to.screen === "new") void navigate({ to: "/" });
+				else if (to.screen === "library") void navigate({ to: "/albums" });
+				else if (to.screen === "settings") void navigate({ to: "/settings" });
+				else if (to.screen === "album") {
+					void navigate({
+						to: "/albums/$albumId",
+						params: { albumId: to.albumId },
+					});
+				}
+			}),
+		[navigate],
+	);
 	return (
 		<div className="flex h-dvh overflow-hidden select-none">
 			<AppSidebar recent={recent} />

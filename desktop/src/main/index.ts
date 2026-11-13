@@ -1,9 +1,12 @@
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { isJobFinished, type JobSnapshot, jobProgress } from "@tagtape/shared";
 import {
 	app,
 	BrowserWindow,
 	dialog,
+	Menu,
+	Notification,
 	nativeTheme,
 	screen,
 	session,
@@ -12,8 +15,10 @@ import {
 import { createTagTape, type TagTape } from "../core/index.ts";
 import { binaryPaths } from "../core/lib/binaries.ts";
 import { pluginPaths } from "../core/plugins/loader.ts";
+import { NAVIGATE, type Screen } from "../ipc.ts";
 import { registerIpc } from "./ipc.ts";
 import { openLibrary } from "./library.ts";
+import { installMenu } from "./menu.ts";
 import {
 	readWindowState,
 	restoreWindowState,
@@ -138,6 +143,25 @@ function createWindow(): BrowserWindow {
 		event.preventDefault(),
 	);
 
+	// Right-click: what a text field offers in any desktop app, and Copy for
+	// selected text elsewhere. (Albums have their own menu, see ipc.ts.)
+	created.webContents.on("context-menu", (_event, params) => {
+		const { canCut, canCopy, canPaste, canSelectAll } = params.editFlags;
+		if (params.isEditable) {
+			Menu.buildFromTemplate([
+				{ role: "cut", enabled: canCut },
+				{ role: "copy", enabled: canCopy },
+				{ role: "paste", enabled: canPaste },
+				{ type: "separator" },
+				{ role: "selectAll", enabled: canSelectAll },
+			]).popup({ window: created });
+		} else if (params.selectionText.trim() !== "") {
+			Menu.buildFromTemplate([{ role: "copy", enabled: canCopy }]).popup({
+				window: created,
+			});
+		}
+	});
+
 	// electron-vite's dev server in development, the built files otherwise.
 	const devServer = process.env.ELECTRON_RENDERER_URL;
 	if (!app.isPackaged && devServer) void created.loadURL(devServer);
@@ -160,6 +184,65 @@ function createWindow(): BrowserWindow {
 		if (window === created) window = undefined;
 	});
 	return created;
+}
+
+/** Brings the window forward (making one if it was closed) on `to`. */
+function showScreen(to: Screen): void {
+	if (!window) {
+		if (!tagtape || quitting) return;
+		window = createWindow();
+	}
+	if (window.isMinimized()) window.restore();
+	window.show();
+	window.focus();
+	const page = window.webContents;
+	if (page.isLoading())
+		page.once("did-finish-load", () => page.send(NAVIGATE, to));
+	else page.send(NAVIGATE, to);
+}
+
+/** The dock or taskbar icon shows how far along the album is. */
+function showProgress(job: JobSnapshot): void {
+	if (!window) return;
+	if (isJobFinished(job.status)) window.setProgressBar(-1);
+	else if (job.status === "streaming") {
+		// A sliver from the start, so it reads as "working", not "empty".
+		window.setProgressBar(Math.max(jobProgress(job) / 100, 0.03));
+	} else {
+		// Waiting or checking: no amount to show yet.
+		window.setProgressBar(2, { mode: "indeterminate" });
+	}
+}
+
+/**
+ * Says an album is done when the user is looking elsewhere. A cancelled album
+ * needs no telling. (Shown by the main process: the page has no permissions.)
+ */
+function notifyFinished(
+	job: JobSnapshot,
+	album: { title: string; albumId: string | undefined },
+): void {
+	if (window?.isFocused() || !Notification.isSupported()) return;
+	if (job.status === "failed" && job.error === "Cancelled") return;
+	const saved = job.status === "done";
+	const notification = new Notification({
+		title: saved ? "Album saved" : "Album not saved",
+		body: saved
+			? `“${album.title}” is ready in its folder.`
+			: `“${album.title}” didn't work. Open TagTape to see why.`,
+	});
+	notification.on("click", () => {
+		// A saved album opens on its own screen; a failed one is still on
+		// the screen that shows what went wrong.
+		if (saved && album.albumId) {
+			showScreen({ screen: "album", albumId: album.albumId });
+		} else if (window) {
+			if (window.isMinimized()) window.restore();
+			window.show();
+			window.focus();
+		}
+	});
+	notification.show();
 }
 
 /** Closing while an album is being saved would throw it away: ask first. */
@@ -224,12 +307,18 @@ async function start(): Promise<void> {
 		log,
 	});
 
-	registerIpc({
+	const ipc = registerIpc({
 		tagtape,
 		library: openLibrary(join(app.getPath("userData"), "library.json")),
 		window: () => window,
 		defaultDestination: app.getPath("downloads"),
 		log,
+		onFinished: notifyFinished,
+	});
+	tagtape.subscribe(showProgress);
+	installMenu({
+		navigate: showScreen,
+		showSaveFolder: () => void ipc.showDestination(),
 	});
 
 	window = createWindow();

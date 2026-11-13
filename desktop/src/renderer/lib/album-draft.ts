@@ -1,4 +1,9 @@
-import { type AlbumInput, albumInputSchema } from "@tagtape/shared";
+import {
+	type AlbumInput,
+	albumInputSchema,
+	MAX_TRACKS,
+	parseWebUrl,
+} from "@tagtape/shared";
 import type { StoredAlbum } from "./albums";
 
 /** What the form edits. Tracks carry a client-only `key` for React and drag-and-drop. */
@@ -93,4 +98,41 @@ export function moveTrack(
 	const [moved] = next.splice(from, 1);
 	if (moved) next.splice(to, 0, moved);
 	return next;
+}
+
+/**
+ * The links in a piece of pasted or dropped text, one per line or separated
+ * by spaces, in order and without repeats. Only whole http(s) links count,
+ * so ordinary prose pasted by mistake yields nothing.
+ */
+export function linksFromText(text: string): string[] {
+	const links: string[] = [];
+	for (const token of text.split(/\s+/)) {
+		if (!/^https?:\/\//i.test(token)) continue;
+		const url = parseWebUrl(token);
+		if (url && !links.includes(url.href)) links.push(url.href);
+	}
+	return links;
+}
+
+/**
+ * Puts one link per track: first into the tracks without a link, from `from`
+ * on, then into new tracks, up to the album's limit. `left` is how many links
+ * didn't fit.
+ */
+export function addLinks(
+	tracks: TrackDraft[],
+	links: string[],
+	from = 0,
+): { tracks: TrackDraft[]; left: number } {
+	const next = tracks.map((track) => ({ ...track }));
+	const waiting = [...links];
+	for (let i = from; i < next.length && waiting.length > 0; i++) {
+		const track = next[i];
+		if (track && track.url.trim() === "") track.url = waiting.shift() ?? "";
+	}
+	while (waiting.length > 0 && next.length < MAX_TRACKS) {
+		next.push({ ...newTrack(), url: waiting.shift() ?? "" });
+	}
+	return { tracks: next, left: waiting.length };
 }

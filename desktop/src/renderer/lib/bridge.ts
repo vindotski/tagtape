@@ -5,6 +5,7 @@ import type { JobSnapshot } from "@tagtape/shared";
 import type {
 	AlbumMenuChoice,
 	AlbumSummary,
+	Screen,
 	SourceInfo,
 	StartJobResult,
 	StoredAlbum,
@@ -21,6 +22,10 @@ export const appVersion = (): string => window.tagtape.version;
 
 /** Which system's window buttons the page must leave room for. */
 export const appPlatform = (): string => window.tagtape.platform;
+
+/** Follows the app's requests for a screen (menu items, notifications). */
+export const onNavigate = (listener: (to: Screen) => void): (() => void) =>
+	window.tagtape.onNavigate(listener);
 
 /** The kinds of links this app accepts; an empty list if that can't be read. */
 export const fetchSources = (): Promise<SourceInfo[]> =>

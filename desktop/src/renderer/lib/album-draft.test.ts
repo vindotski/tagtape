@@ -1,5 +1,11 @@
+import { MAX_TRACKS } from "@tagtape/shared";
 import { describe, expect, it } from "vitest";
-import { draftFromAlbum, validateDraft } from "./album-draft";
+import {
+	addLinks,
+	draftFromAlbum,
+	linksFromText,
+	validateDraft,
+} from "./album-draft";
 import type { StoredAlbum } from "./albums";
 
 const stored: StoredAlbum = {
@@ -53,5 +59,64 @@ describe("draftFromAlbum", () => {
 		});
 		expect(draft.coverUrl).toBe("");
 		expect(draft.tracks).toEqual([{ key: "stored-0", title: "", url: "" }]);
+	});
+});
+
+describe("linksFromText", () => {
+	it("takes whole http(s) links, in order, once each", () => {
+		expect(
+			linksFromText(
+				"https://example.com/1.mp3\n  http://example.com/2.mp3 https://example.com/1.mp3\r\n",
+			),
+		).toEqual(["https://example.com/1.mp3", "http://example.com/2.mp3"]);
+	});
+
+	it("ignores prose, bare host names and links it wouldn't accept", () => {
+		expect(
+			linksFromText(
+				"see example.com/a.mp3 and ftp://example.com/b https://user:pw@example.com/c # note",
+			),
+		).toEqual([]);
+	});
+});
+
+describe("addLinks", () => {
+	const track = (key: string, url = "") => ({ key, title: "", url });
+
+	it("fills tracks without a link first, then adds tracks", () => {
+		const { tracks, left } = addLinks(
+			[track("a", "https://example.com/kept.mp3"), track("b")],
+			["https://example.com/1.mp3", "https://example.com/2.mp3"],
+		);
+		expect(left).toBe(0);
+		expect(tracks.map((t) => t.url)).toEqual([
+			"https://example.com/kept.mp3",
+			"https://example.com/1.mp3",
+			"https://example.com/2.mp3",
+		]);
+		expect(tracks.slice(0, 2).map((t) => t.key)).toEqual(["a", "b"]);
+	});
+
+	it("starts at the track that was pasted into", () => {
+		const { tracks } = addLinks(
+			[track("a"), track("b"), track("c")],
+			["https://example.com/1.mp3"],
+			1,
+		);
+		expect(tracks.map((t) => t.url)).toEqual([
+			"",
+			"https://example.com/1.mp3",
+			"",
+		]);
+	});
+
+	it("stops at the album's limit and says how many were left", () => {
+		const links = Array.from(
+			{ length: MAX_TRACKS + 3 },
+			(_, i) => `https://example.com/${i}.mp3`,
+		);
+		const { tracks, left } = addLinks([track("a")], links);
+		expect(tracks).toHaveLength(MAX_TRACKS);
+		expect(left).toBe(3);
 	});
 });

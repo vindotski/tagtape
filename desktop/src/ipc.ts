@@ -43,6 +43,14 @@ export interface StoredAlbum extends AlbumSummary {
 	folder: "saved" | "missing" | "never";
 }
 
+/**
+ * A screen the main process may ask the page to show (from the menu, or a
+ * notification). The only thing main ever sends the page.
+ */
+export type Screen =
+	| { screen: "new" | "library" | "settings" }
+	| { screen: "album"; albumId: string };
+
 /** What was picked from an album's right-click menu. */
 export type AlbumMenuChoice = "open" | "folder" | "again" | "delete";
 
@@ -51,6 +59,8 @@ export interface TagTapeApi {
 	version: string;
 	/** `process.platform`: the page leaves room for that system's window buttons. */
 	platform: string;
+	/** Calls `listener` when the app asks for a screen; returns the unsubscribe. */
+	onNavigate(listener: (to: Screen) => void): () => void;
 	sources(): Promise<SourceInfo[]>;
 	/** Starts an album; `albumId` is the stored album being made again, if any. */
 	startJob(input: {
@@ -88,7 +98,10 @@ export interface TagTapeApi {
 	removeAlbum(id: string): Promise<boolean>;
 }
 
-/** One IPC channel per method. */
+/** The one message main sends the page (see `Screen`). */
+export const NAVIGATE = "tagtape:navigate";
+
+/** One IPC channel per method the page can call. */
 export const CHANNELS = {
 	sources: "tagtape:sources",
 	startJob: "tagtape:start-job",

@@ -1,5 +1,5 @@
 import { stat } from "node:fs/promises";
-import { isJobFinished } from "@tagtape/shared";
+import { isJobFinished, type JobSnapshot } from "@tagtape/shared";
 import { type BrowserWindow, dialog, ipcMain, Menu, shell } from "electron";
 import { z } from "zod";
 import type { TagTape } from "../core/index.ts";
@@ -27,10 +27,15 @@ export interface IpcContext {
 	/** Where albums go until the user picks a folder (Downloads). */
 	defaultDestination: string;
 	log: { error(obj: object, msg: string): void };
+	/** An album ended (saved, failed or cancelled). */
+	onFinished?: (
+		job: JobSnapshot,
+		album: { title: string; albumId: string | undefined },
+	) => void;
 }
 
 type Handlers = {
-	[K in keyof Omit<TagTapeApi, "version" | "platform">]: (
+	[K in keyof Omit<TagTapeApi, "version" | "platform" | "onNavigate">]: (
 		...args: unknown[]
 	) => ReturnType<TagTapeApi[K]>;
 };
@@ -39,7 +44,10 @@ type Handlers = {
  * Registers one handler per channel. Every argument arrives as `unknown` and
  * is validated here: the page is never trusted to send the right shape.
  */
-export function registerIpc(ctx: IpcContext): void {
+export function registerIpc(ctx: IpcContext): {
+	/** Opens the folder albums are saved in. */
+	showDestination(): Promise<boolean>;
+} {
 	const isFolder = (path: string) =>
 		stat(path).then(
 			(info) => info.isDirectory(),
@@ -57,6 +65,7 @@ export function registerIpc(ctx: IpcContext): void {
 	// library entry are made a moment apart, so either may come first.
 	type Finished = { folder: string; cover: Uint8Array | undefined };
 	const albumOfJob = new Map<string, string>();
+	const titleOfJob = new Map<string, string>();
 	const finishedEarly = new Map<string, Finished>();
 	async function remember(albumId: string, result: Finished): Promise<void> {
 		try {
@@ -72,6 +81,9 @@ export function registerIpc(ctx: IpcContext): void {
 		if (!isJobFinished(job.status)) return;
 		const albumId = albumOfJob.get(job.id);
 		albumOfJob.delete(job.id);
+		const title = titleOfJob.get(job.id) ?? "";
+		titleOfJob.delete(job.id);
+		ctx.onFinished?.(job, { title, albumId });
 		if (job.status !== "done" || !job.folder) return;
 		// The cover is only in memory during this call.
 		const result = { folder: job.folder, cover: ctx.tagtape.jobCover(job.id) };
@@ -108,6 +120,7 @@ export function registerIpc(ctx: IpcContext): void {
 			if (outcome.kind === "busy") {
 				return { ok: false, message: outcome.message };
 			}
+			titleOfJob.set(outcome.jobId, outcome.album.title);
 			// History is a convenience: the album still starts if this fails.
 			let albumId: string | undefined;
 			try {
@@ -309,4 +322,5 @@ export function registerIpc(ctx: IpcContext): void {
 			(_event, ...args: unknown[]) => handler(...args),
 		);
 	}
+	return { showDestination: handlers.showDestination };
 }

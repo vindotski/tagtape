@@ -1,3 +1,4 @@
+import { MAX_TRACKS } from "@tagtape/shared";
 import {
 	CircleAlert,
 	FolderOpen,
@@ -19,7 +20,9 @@ import { FieldDescription } from "#/components/ui/field";
 import { Spinner } from "#/components/ui/spinner";
 import {
 	type AlbumDraft,
+	addLinks,
 	type FieldErrors,
+	linksFromText,
 	moveTrack,
 	newTrack,
 	type TrackDraft,
@@ -88,6 +91,34 @@ export function AlbumForm({
 		);
 	};
 
+	// Several links at once (pasted, or dropped from a browser or a text
+	// file): one track each. A single pasted link is left to the field.
+	const [linksNote, setLinksNote] = useState<string>();
+	function takeLinks(links: string[], from = 0) {
+		const added = addLinks(draft.tracks, links, from);
+		updateTracks(added.tracks);
+		setLinksNote(
+			added.left > 0
+				? `An album holds ${MAX_TRACKS} tracks: ${added.left} ${added.left === 1 ? "link was" : "links were"} left out.`
+				: undefined,
+		);
+	}
+	function handlePaste(event: React.ClipboardEvent<HTMLFormElement>) {
+		const field = event.target;
+		if (!(field instanceof HTMLInputElement) || field.type !== "url") return;
+		const links = linksFromText(event.clipboardData.getData("text/plain"));
+		if (links.length < 2 || field.id === "coverUrl") return;
+		event.preventDefault();
+		const index = draft.tracks.findIndex(
+			(track) => `track-${track.key}-url` === field.id,
+		);
+		takeLinks(links, Math.max(index, 0));
+	}
+	const droppedLinks = (data: DataTransfer) =>
+		linksFromText(data.getData("text/uri-list") || data.getData("text/plain"));
+	const carriesText = (data: DataTransfer) =>
+		data.types.includes("text/uri-list") || data.types.includes("text/plain");
+
 	async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
 		event.preventDefault();
 		setFormError(undefined);
@@ -116,7 +147,7 @@ export function AlbumForm({
 	const trackCount = `${draft.tracks.length} ${draft.tracks.length === 1 ? "track" : "tracks"}`;
 
 	return (
-		<form noValidate onSubmit={handleSubmit}>
+		<form noValidate onSubmit={handleSubmit} onPaste={handlePaste}>
 			<AlbumShell
 				role="region"
 				aria-labelledby="album-heading"
@@ -132,6 +163,10 @@ export function AlbumForm({
 							hasCover={draft.coverUrl !== ""}
 							expanded={coverShown}
 							disabled={submitting}
+							onDropLink={(coverUrl) => {
+								setCoverOpen(true);
+								update({ coverUrl }, ["coverUrl"]);
+							}}
 							onPress={() => {
 								setCoverOpen(true);
 								// Straight to the field it reveals.
@@ -231,28 +266,55 @@ export function AlbumForm({
 					</div>
 				)}
 
-				<TrackList
-					tracks={draft.tracks}
-					errors={errors}
-					disabled={submitting}
-					onChange={(index, patch) =>
-						update(
-							{
-								tracks: draft.tracks.map((track, i) =>
-									i === index ? { ...track, ...patch } : track,
-								),
-							},
-							Object.keys(patch).map((field) => `tracks.${index}.${field}`),
-						)
-					}
-					onMove={(from, to) => updateTracks(moveTrack(draft.tracks, from, to))}
-					onRemove={(index) =>
-						updateTracks(draft.tracks.filter((_, i) => i !== index))
-					}
-					onAdd={() =>
-						update({ tracks: [...draft.tracks, newTrack()] }, ["tracks"])
-					}
-				/>
+				{/* biome-ignore lint/a11y/noStaticElementInteractions: a drop target only; pasting does the same from the keyboard */}
+				<div
+					onDragOver={(event) => {
+						if (!submitting && carriesText(event.dataTransfer)) {
+							event.preventDefault();
+							event.dataTransfer.dropEffect = "copy";
+						}
+					}}
+					onDrop={(event) => {
+						if (submitting) return;
+						const links = droppedLinks(event.dataTransfer);
+						if (links.length === 0) return;
+						event.preventDefault();
+						takeLinks(links);
+					}}
+				>
+					<TrackList
+						tracks={draft.tracks}
+						errors={errors}
+						disabled={submitting}
+						onChange={(index, patch) =>
+							update(
+								{
+									tracks: draft.tracks.map((track, i) =>
+										i === index ? { ...track, ...patch } : track,
+									),
+								},
+								Object.keys(patch).map((field) => `tracks.${index}.${field}`),
+							)
+						}
+						onMove={(from, to) =>
+							updateTracks(moveTrack(draft.tracks, from, to))
+						}
+						onRemove={(index) =>
+							updateTracks(draft.tracks.filter((_, i) => i !== index))
+						}
+						onAdd={() =>
+							update({ tracks: [...draft.tracks, newTrack()] }, ["tracks"])
+						}
+					/>
+				</div>
+				{linksNote && (
+					<p
+						role="status"
+						className="border-t px-4 py-2 text-sm text-muted-foreground sm:px-6"
+					>
+						{linksNote}
+					</p>
+				)}
 
 				<div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t px-4 py-3 text-sm sm:px-6">
 					<span className="text-muted-foreground">Save in</span>
@@ -309,17 +371,35 @@ function CoverButton({
 	expanded,
 	disabled,
 	onPress,
+	onDropLink,
 }: {
 	title: string;
 	hasCover: boolean;
 	expanded: boolean;
 	disabled: boolean;
 	onPress: () => void;
+	/** An image link was dropped on the tile. */
+	onDropLink: (url: string) => void;
 }) {
 	return (
 		<button
 			type="button"
 			onClick={onPress}
+			onDragOver={(event) => {
+				if (disabled) return;
+				event.preventDefault();
+				event.dataTransfer.dropEffect = "copy";
+			}}
+			onDrop={(event) => {
+				const [link] = linksFromText(
+					event.dataTransfer.getData("text/uri-list") ||
+						event.dataTransfer.getData("text/plain"),
+				);
+				if (disabled || !link) return;
+				event.preventDefault();
+				event.stopPropagation();
+				onDropLink(link);
+			}}
 			disabled={disabled}
 			aria-expanded={expanded}
 			aria-controls={expanded ? "coverUrl" : undefined}
