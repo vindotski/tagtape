@@ -47,6 +47,7 @@ describe("yt-dlp arguments", () => {
 	test("probe ends options before the URL and ignores config files", () => {
 		const args = probeArgs(TRACK, options);
 		expect(args).toContain("--ignore-config");
+		expect(args).toContain("--no-plugin-dirs");
 		expect(args).toContain("--no-cache-dir");
 		expect(args).toContain("--no-playlist");
 		expect(args).toContain("--flat-playlist");

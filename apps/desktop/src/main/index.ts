@@ -325,6 +325,7 @@ async function start(): Promise<void> {
 	session.defaultSession.setPermissionRequestHandler((_contents, _name, done) =>
 		done(false),
 	);
+	session.defaultSession.setPermissionCheckHandler(() => false);
 
 	const bin = binaryPaths(
 		app.isPackaged

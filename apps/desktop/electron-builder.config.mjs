@@ -33,6 +33,17 @@ export default {
 	// The app updates by downloading a new installer: nothing to publish to.
 	publish: null,
 
+	// Switches burned into the Electron binary itself. The app's code is read
+	// only from its archive, and the binary takes no debugger flags and no
+	// NODE_OPTIONS. Running it as plain Node stays on: that is how yt-dlp
+	// gets its JavaScript runtime (ELECTRON_RUN_AS_NODE, see main/index.ts).
+	electronFuses: {
+		runAsNode: true,
+		enableNodeCliInspectArguments: false,
+		enableNodeOptionsEnvironmentVariable: false,
+		onlyLoadAppFromAsar: true,
+	},
+
 	// Shared albums: .tagtape files and tagtape:// links open the app
 	// (the same names as SHARE_EXTENSION and SHARE_SCHEME in @tagtape/shared).
 	fileAssociations: [

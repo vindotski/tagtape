@@ -74,10 +74,15 @@ export const EXTRACTORS = "default,-generic";
  */
 export const FORMAT = "bestaudio[protocol!*=dash]/best[protocol!*=dash]";
 
-/** Flags every run gets: no config files, no cache on disk, the proxy. */
+/**
+ * Flags every run gets: no config files, no plugins from the user's own
+ * yt-dlp folders (an extractor or token helper installed there must not
+ * change what this app does), no cache on disk, the proxy.
+ */
 function baseArgs(options: YtDlpOptions): string[] {
 	const args = [
 		"--ignore-config",
+		"--no-plugin-dirs",
 		"--no-warnings",
 		"--no-cache-dir",
 		"--use-extractors",
