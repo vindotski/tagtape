@@ -4,6 +4,34 @@
 // biome-ignore lint/suspicious/noControlCharactersInRegex: stripping control characters is the point
 const ILLEGAL = /[<>:"/\\|?*\u0000-\u001f\u007f]/g;
 const MAX_BASENAME_LENGTH = 120;
+/**
+ * File systems limit a name to 255 UTF-8 bytes (Linux) or UTF-16 units
+ * (macOS, Windows), not characters: 120 CJK characters are 360 bytes. 200
+ * leaves room for what gets added around the name: `07 - `, `.mp3.part`,
+ * and ` (99)` on a repeated album folder.
+ */
+const MAX_BASENAME_BYTES = 200;
+
+/** UTF-8 length of one code point. */
+function utf8Bytes(character: string): number {
+	const code = character.codePointAt(0) ?? 0;
+	if (code < 0x80) return 1;
+	if (code < 0x800) return 2;
+	return code < 0x10000 ? 3 : 4;
+}
+
+/** Cuts at whole characters, within both the character and the byte limit. */
+function truncate(text: string): string {
+	let bytes = 0;
+	let kept = "";
+	let count = 0;
+	for (const character of text) {
+		bytes += utf8Bytes(character);
+		if (++count > MAX_BASENAME_LENGTH || bytes > MAX_BASENAME_BYTES) break;
+		kept += character;
+	}
+	return kept;
+}
 
 /** Makes `name` safe to use as a file name while keeping it readable. */
 export function safeFileName(name: string, fallback: string): string {
@@ -14,10 +42,8 @@ export function safeFileName(name: string, fallback: string): string {
 		.trim()
 		// Windows drops trailing dots and spaces; a leading dot hides the file.
 		.replace(/^[.\s]+|[.\s]+$/g, "");
-	const truncated = Array.from(cleaned)
-		.slice(0, MAX_BASENAME_LENGTH)
-		.join("")
-		.trim();
+	// Trimmed again: the cut may land after a space, or before a dot.
+	const truncated = truncate(cleaned).replace(/[.\s]+$/g, "");
 	return truncated || fallback;
 }
 

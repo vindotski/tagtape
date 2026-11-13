@@ -147,6 +147,11 @@ export async function saveJob(
 			return false;
 		}
 	}
+	// Cancelled just as the last track landed: still a cancelled album.
+	if (signal.aborted) {
+		await discardAlbum(folder, written);
+		return false;
+	}
 	job.folder = folder;
 	return true;
 }

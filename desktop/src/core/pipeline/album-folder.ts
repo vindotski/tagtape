@@ -1,6 +1,6 @@
 import { once } from "node:events";
 import { createWriteStream } from "node:fs";
-import { mkdir, rename, rm, rmdir } from "node:fs/promises";
+import { mkdir, rename, rmdir, unlink } from "node:fs/promises";
 import { join } from "node:path";
 import type { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
@@ -51,7 +51,14 @@ export async function writeTrack(
 	try {
 		file.write(tag);
 		await pipeline(mp3, file, { signal });
+		// A cancel that arrives once the stream has ended still counts: the
+		// track must not appear after the user was told it was cancelled.
+		signal.throwIfAborted();
 		await rename(part, path);
+		if (signal.aborted) {
+			await removeFile(path);
+			signal.throwIfAborted();
+		}
 		return path;
 	} catch (error) {
 		mp3.destroy();
@@ -64,26 +71,46 @@ export async function writeTrack(
 	}
 }
 
-/** Removes a file, retrying while the system still holds it (Windows: EBUSY, EPERM). */
-function removeFile(path: string): Promise<void> {
-	return rm(path, { force: true, maxRetries: 5, retryDelay: 100 }).catch(
-		() => {},
-	);
+const RETRIES = 5;
+const RETRY_DELAY_MS = 100;
+/** What Windows answers while something still holds a file or folder. */
+const TRANSIENT = new Set(["EBUSY", "EPERM", "ENOTEMPTY"]);
+
+const pause = () =>
+	new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
+
+/**
+ * Removes a file, retrying while the system still holds it. (`fs.rm` only
+ * retries with `recursive`, which must never be used on a user's folder.)
+ */
+export async function removeFile(
+	path: string,
+	remove: (path: string) => Promise<void> = unlink,
+): Promise<void> {
+	for (let attempt = 0; attempt < RETRIES; attempt++) {
+		try {
+			await remove(path);
+			return;
+		} catch (error) {
+			const { code } = error as NodeJS.ErrnoException;
+			if (!code || !TRANSIENT.has(code)) return; // gone already, or not ours to fix
+			await pause();
+		}
+	}
 }
 
 /** Removes a folder if it's empty, giving a just-deleted file a moment to go. */
 async function removeEmptyFolder(folder: string): Promise<void> {
-	for (let attempt = 0; attempt < 5; attempt++) {
+	for (let attempt = 0; attempt < RETRIES; attempt++) {
 		try {
 			await rmdir(folder);
 			return;
 		} catch (error) {
 			const { code } = error as NodeJS.ErrnoException;
-			if (code === "ENOENT") return;
 			// ENOTEMPTY is also what a folder with someone else's files says:
 			// a few short tries, then leave it.
-			if (code !== "ENOTEMPTY" && code !== "EBUSY" && code !== "EPERM") return;
-			await new Promise((resolve) => setTimeout(resolve, 100));
+			if (!code || !TRANSIENT.has(code)) return;
+			await pause();
 		}
 	}
 }
@@ -93,6 +120,6 @@ export async function discardAlbum(
 	folder: string,
 	files: string[],
 ): Promise<void> {
-	await Promise.all(files.map(removeFile));
+	await Promise.all(files.map((file) => removeFile(file)));
 	await removeEmptyFolder(folder);
 }

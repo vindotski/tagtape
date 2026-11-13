@@ -10,7 +10,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Readable } from "node:stream";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
-import { createAlbumFolder, discardAlbum, writeTrack } from "./album-folder.ts";
+import {
+	createAlbumFolder,
+	discardAlbum,
+	removeFile,
+	writeTrack,
+} from "./album-folder.ts";
 
 let root: string;
 beforeEach(async () => {
@@ -83,6 +88,36 @@ describe("album folder", () => {
 		).rejects.toThrow();
 		expect(stream.destroyed).toBe(true);
 		expect(await readdir(root)).toEqual([]);
+	});
+
+	test("a cancel that lands as the stream ends still fails the track", async () => {
+		const controller = new AbortController();
+		const stream = Readable.from([Buffer.from("all of it")]);
+		// The source is done, the file not yet renamed: the last moment to cancel.
+		stream.once("end", () => controller.abort());
+		await expect(
+			writeTrack(root, "01.mp3", tag, stream, controller.signal),
+		).rejects.toThrow();
+		expect(await readdir(root)).toEqual([]);
+	});
+
+	test("removing a file retries while the system still holds it", async () => {
+		let calls = 0;
+		const busyTwice = async () => {
+			if (++calls <= 2) {
+				throw Object.assign(new Error("busy"), { code: "EBUSY" });
+			}
+		};
+		await removeFile(join(root, "held.mp3"), busyTwice);
+		expect(calls).toBe(3);
+
+		// Something that isn't about a held file is not retried.
+		calls = 0;
+		await removeFile(join(root, "gone.mp3"), async () => {
+			calls++;
+			throw Object.assign(new Error("gone"), { code: "ENOENT" });
+		});
+		expect(calls).toBe(1);
 	});
 
 	test("discarding removes our files, and the folder only when it's empty", async () => {
