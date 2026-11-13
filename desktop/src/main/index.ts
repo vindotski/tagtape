@@ -1,6 +1,12 @@
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { isJobFinished, type JobSnapshot, jobProgress } from "@tagtape/shared";
+import {
+	isJobFinished,
+	type JobSnapshot,
+	jobProgress,
+	SHARE_EXTENSION,
+	SHARE_SCHEME,
+} from "@tagtape/shared";
 import {
 	app,
 	BrowserWindow,
@@ -19,6 +25,7 @@ import { NAVIGATE, type Screen } from "../ipc.ts";
 import { registerIpc } from "./ipc.ts";
 import { openLibrary } from "./library.ts";
 import { installMenu } from "./menu.ts";
+import { readShare, shareTargetIn } from "./open-share.ts";
 import {
 	readWindowState,
 	restoreWindowState,
@@ -201,6 +208,35 @@ function showScreen(to: Screen): void {
 	else page.send(NAVIGATE, to);
 }
 
+/** A shared album handed over before the app could show it. */
+let shareWaiting: string | undefined;
+
+/**
+ * Shows a shared album (the path of a `.tagtape` file, or a `tagtape://`
+ * link) in the editor. It is only ever shown: making it is the user's step.
+ */
+async function openShare(target: string): Promise<void> {
+	if (!tagtape) {
+		shareWaiting = target;
+		return;
+	}
+	showScreen({ screen: "shared", share: await readShare(target) });
+}
+
+/** File > Open Album File… */
+async function chooseShare(): Promise<void> {
+	const options = {
+		title: "Open a shared album",
+		properties: ["openFile"] as Array<"openFile">,
+		filters: [{ name: "TagTape album", extensions: [SHARE_EXTENSION] }],
+	};
+	const { canceled, filePaths } = window
+		? await dialog.showOpenDialog(window, options)
+		: await dialog.showOpenDialog(options);
+	const file = filePaths[0];
+	if (!canceled && file) await openShare(file);
+}
+
 /** The dock or taskbar icon shows how far along the album is. */
 function showProgress(job: JobSnapshot): void {
 	if (!window) return;
@@ -319,7 +355,11 @@ async function start(): Promise<void> {
 	installMenu({
 		navigate: showScreen,
 		showSaveFolder: () => void ipc.showDestination(),
+		openAlbumFile: () => void chooseShare(),
 	});
+	// Links to shared albums open this app (the installer registers the
+	// file type; in development nothing is registered).
+	if (app.isPackaged) app.setAsDefaultProtocolClient(SHARE_SCHEME);
 
 	window = createWindow();
 
@@ -327,6 +367,12 @@ async function start(): Promise<void> {
 		void smokeTest(tagtape, window);
 		return;
 	}
+
+	// Started by opening a shared album: macOS said so in an event (held in
+	// `shareWaiting`); Windows and Linux put it on the command line.
+	const share = shareWaiting ?? shareTargetIn(process.argv.slice(1));
+	shareWaiting = undefined;
+	if (share) void openShare(share);
 
 	// The bundled programs must run, or nothing will work: say so at once.
 	tagtape.versions().then(
@@ -376,7 +422,24 @@ async function smokeTest(core: TagTape, page: BrowserWindow): Promise<void> {
 if (!app.requestSingleInstanceLock()) {
 	app.quit();
 } else {
-	app.on("second-instance", () => {
+	// macOS: a double-clicked .tagtape file, or a clicked tagtape:// link.
+	// Both can arrive before the app is ready.
+	app.on("open-file", (event, path) => {
+		event.preventDefault();
+		void openShare(path);
+	});
+	app.on("open-url", (event, url) => {
+		event.preventDefault();
+		void openShare(url);
+	});
+
+	app.on("second-instance", (_event, argv) => {
+		// Windows and Linux: the same, as the second start's command line.
+		const share = shareTargetIn(argv.slice(1));
+		if (share) {
+			void openShare(share);
+			return;
+		}
 		// Never leave a running app without a window to reach it by.
 		if (!window) {
 			if (app.isReady() && tagtape && !quitting) window = createWindow();

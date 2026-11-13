@@ -7,6 +7,8 @@ export interface MenuActions {
 	navigate(to: Screen): void;
 	/** Opens the folder albums are saved in. */
 	showSaveFolder(): void;
+	/** Asks for a shared album file (`.tagtape`) and opens it. */
+	openAlbumFile(): void;
 }
 
 /**
@@ -49,6 +51,11 @@ export function installMenu(actions: MenuActions): void {
 					label: "New Album",
 					accelerator: "CmdOrCtrl+N",
 					click: () => actions.navigate({ screen: "new" }),
+				},
+				{
+					label: "Open Album File…",
+					accelerator: "CmdOrCtrl+O",
+					click: () => actions.openAlbumFile(),
 				},
 				{ type: "separator" },
 				{ label: "Open Save Folder", click: () => actions.showSaveFolder() },

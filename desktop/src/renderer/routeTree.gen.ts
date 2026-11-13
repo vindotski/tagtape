@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from "./routes/__root";
 import { Route as IndexRouteImport } from "./routes/index";
 import { Route as SettingsRouteImport } from "./routes/settings";
+import { Route as SharedRouteImport } from "./routes/shared";
 import { Route as AlbumsIndexRouteImport } from "./routes/albums.index";
 import { Route as AlbumsAlbumIdIndexRouteImport } from "./routes/albums.$albumId.index";
 import { Route as AlbumsAlbumIdEditRouteImport } from "./routes/albums.$albumId.edit";
@@ -23,6 +24,11 @@ const IndexRoute = IndexRouteImport.update({
 const SettingsRoute = SettingsRouteImport.update({
   id: "/settings",
   path: "/settings",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const SharedRoute = SharedRouteImport.update({
+  id: "/shared",
+  path: "/shared",
   getParentRoute: () => rootRouteImport,
 } as any);
 const AlbumsIndexRoute = AlbumsIndexRouteImport.update({
@@ -44,6 +50,7 @@ const AlbumsAlbumIdEditRoute = AlbumsAlbumIdEditRouteImport.update({
 export interface FileRoutesByFullPath {
   "/": typeof IndexRoute;
   "/settings": typeof SettingsRoute;
+  "/shared": typeof SharedRoute;
   "/albums/": typeof AlbumsIndexRoute;
   "/albums/$albumId/edit": typeof AlbumsAlbumIdEditRoute;
   "/albums/$albumId/": typeof AlbumsAlbumIdIndexRoute;
@@ -51,6 +58,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   "/": typeof IndexRoute;
   "/settings": typeof SettingsRoute;
+  "/shared": typeof SharedRoute;
   "/albums": typeof AlbumsIndexRoute;
   "/albums/$albumId/edit": typeof AlbumsAlbumIdEditRoute;
   "/albums/$albumId": typeof AlbumsAlbumIdIndexRoute;
@@ -59,6 +67,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport;
   "/": typeof IndexRoute;
   "/settings": typeof SettingsRoute;
+  "/shared": typeof SharedRoute;
   "/albums/": typeof AlbumsIndexRoute;
   "/albums/$albumId/edit": typeof AlbumsAlbumIdEditRoute;
   "/albums/$albumId/": typeof AlbumsAlbumIdIndexRoute;
@@ -68,6 +77,7 @@ export interface FileRouteTypes {
   fullPaths:
     | "/"
     | "/settings"
+    | "/shared"
     | "/albums/"
     | "/albums/$albumId/edit"
     | "/albums/$albumId/";
@@ -75,6 +85,7 @@ export interface FileRouteTypes {
   to:
     | "/"
     | "/settings"
+    | "/shared"
     | "/albums"
     | "/albums/$albumId/edit"
     | "/albums/$albumId";
@@ -82,6 +93,7 @@ export interface FileRouteTypes {
     | "__root__"
     | "/"
     | "/settings"
+    | "/shared"
     | "/albums/"
     | "/albums/$albumId/edit"
     | "/albums/$albumId/";
@@ -90,6 +102,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute;
   SettingsRoute: typeof SettingsRoute;
+  SharedRoute: typeof SharedRoute;
   AlbumsIndexRoute: typeof AlbumsIndexRoute;
   AlbumsAlbumIdEditRoute: typeof AlbumsAlbumIdEditRoute;
   AlbumsAlbumIdIndexRoute: typeof AlbumsAlbumIdIndexRoute;
@@ -109,6 +122,13 @@ declare module "@tanstack/react-router" {
       path: "/settings";
       fullPath: "/settings";
       preLoaderRoute: typeof SettingsRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/shared": {
+      id: "/shared";
+      path: "/shared";
+      fullPath: "/shared";
+      preLoaderRoute: typeof SharedRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/albums/": {
@@ -138,6 +158,7 @@ declare module "@tanstack/react-router" {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   SettingsRoute: SettingsRoute,
+  SharedRoute: SharedRoute,
   AlbumsIndexRoute: AlbumsIndexRoute,
   AlbumsAlbumIdEditRoute: AlbumsAlbumIdEditRoute,
   AlbumsAlbumIdIndexRoute: AlbumsAlbumIdIndexRoute,

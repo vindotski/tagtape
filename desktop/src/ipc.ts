@@ -1,7 +1,7 @@
 // The contract between the window (renderer) and the main process. The
 // preload script exposes exactly this as `window.tagtape`; the main process
 // validates every argument again, since the renderer is the less trusted side.
-import type { JobSnapshot } from "@tagtape/shared";
+import type { JobSnapshot, ShareResult } from "@tagtape/shared";
 
 /** A kind of link TagTape accepts (a built-in source, or one from a plugin). */
 export interface SourceInfo {
@@ -49,7 +49,9 @@ export interface StoredAlbum extends AlbumSummary {
  */
 export type Screen =
 	| { screen: "new" | "library" | "settings" }
-	| { screen: "album"; albumId: string };
+	| { screen: "album"; albumId: string }
+	/** A shared album someone opened (a file or a link), or why it couldn't be read. */
+	| { screen: "shared"; share: ShareResult };
 
 /** What was picked from an album's right-click menu. */
 export type AlbumMenuChoice =

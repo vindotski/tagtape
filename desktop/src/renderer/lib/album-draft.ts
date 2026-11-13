@@ -1,4 +1,5 @@
 import {
+	type Album,
 	type AlbumInput,
 	albumInputSchema,
 	MAX_TRACKS,
@@ -56,6 +57,22 @@ export function draftFromAlbum(album: StoredAlbum): AlbumDraft {
 		coverUrl: album.coverUrl ?? "",
 		tracks:
 			tracks.length > 0 ? tracks : [{ key: "stored-0", title: "", url: "" }],
+	};
+}
+
+/** An album someone shared, ready to check and make. */
+export function draftFromShared(album: Album): AlbumDraft {
+	return {
+		title: album.title,
+		artist: album.artist,
+		genre: album.genre ?? "",
+		year: album.year ?? "",
+		coverUrl: album.coverUrl ?? "",
+		tracks: album.tracks.map(({ title, url }, i) => ({
+			key: `shared-${i}`,
+			title,
+			url,
+		})),
 	};
 }
 

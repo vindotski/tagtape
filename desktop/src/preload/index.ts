@@ -1,16 +1,25 @@
 import { contextBridge, ipcRenderer } from "electron";
 import { CHANNELS, NAVIGATE, type Screen, type TagTapeApi } from "../ipc.ts";
 
+// Main may ask for a screen before the page has started listening (a shared
+// album opened while the app starts): keep those until it does.
+const waiting: Screen[] = [];
+let navigate: ((to: Screen) => void) | undefined;
+ipcRenderer.on(NAVIGATE, (_event, to: Screen) => {
+	if (navigate) navigate(to);
+	else waiting.push(to);
+});
+
 // The only thing the page can reach outside itself: no Node, no Electron
 // objects, just these calls. `__APP_VERSION__` is inlined at build time.
 const api: TagTapeApi = {
 	version: __APP_VERSION__,
 	platform: process.platform,
 	onNavigate(listener) {
-		const handler = (_event: unknown, to: Screen) => listener(to);
-		ipcRenderer.on(NAVIGATE, handler);
+		navigate = listener;
+		for (const to of waiting.splice(0)) listener(to);
 		return () => {
-			ipcRenderer.removeListener(NAVIGATE, handler);
+			if (navigate === listener) navigate = undefined;
 		};
 	},
 	sources: () => ipcRenderer.invoke(CHANNELS.sources),

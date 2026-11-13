@@ -33,6 +33,19 @@ export default {
 	// The app updates by downloading a new installer: nothing to publish to.
 	publish: null,
 
+	// Shared albums: .tagtape files and tagtape:// links open the app
+	// (the same names as SHARE_EXTENSION and SHARE_SCHEME in @tagtape/shared).
+	fileAssociations: [
+		{
+			ext: "tagtape",
+			name: "TagTape Album",
+			description: "TagTape album",
+			mimeType: "application/x-tagtape+json",
+			role: "Editor",
+		},
+	],
+	protocols: [{ name: "TagTape album link", schemes: ["tagtape"] }],
+
 	mac: {
 		category: "public.app-category.music",
 		target: ["dmg", "zip"],

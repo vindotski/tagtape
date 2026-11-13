@@ -12,6 +12,7 @@ import {
 	fetchSources,
 	onNavigate,
 } from "#/lib/bridge";
+import { readSharedFile, showShared } from "#/lib/shared-album";
 import { cn } from "#/lib/utils";
 
 /** How many albums the sidebar lists; the library has them all. */
@@ -36,6 +37,7 @@ function screenName(path: string): string {
 	if (path === "/albums") return "Library";
 	if (path.startsWith("/albums/")) return "Album";
 	if (path === "/settings") return "Settings";
+	if (path === "/shared") return "Shared album";
 	return "TagTape";
 }
 
@@ -55,7 +57,10 @@ function Root() {
 				if (to.screen === "new") void navigate({ to: "/" });
 				else if (to.screen === "library") void navigate({ to: "/albums" });
 				else if (to.screen === "settings") void navigate({ to: "/settings" });
-				else if (to.screen === "album") {
+				else if (to.screen === "shared") {
+					showShared(to.share);
+					void navigate({ to: "/shared" });
+				} else if (to.screen === "album") {
 					void navigate({
 						to: "/albums/$albumId",
 						params: { albumId: to.albumId },
@@ -65,7 +70,27 @@ function Root() {
 		[navigate],
 	);
 	return (
-		<div className="flex h-dvh overflow-hidden select-none">
+		// biome-ignore lint/a11y/noStaticElementInteractions: a drop target for the whole window; File > Open does the same from the keyboard
+		<div
+			className="flex h-dvh overflow-hidden select-none"
+			// A .tagtape file dropped anywhere on the window opens it. (Links
+			// dropped on the album form are text, not files: see album-form.)
+			onDragOver={(event) => {
+				if (event.dataTransfer.types.includes("Files")) {
+					event.preventDefault();
+					event.dataTransfer.dropEffect = "copy";
+				}
+			}}
+			onDrop={(event) => {
+				const file = event.dataTransfer.files[0];
+				if (!file) return;
+				event.preventDefault();
+				void readSharedFile(file).then((share) => {
+					showShared(share);
+					void navigate({ to: "/shared" });
+				});
+			}}
+		>
 			<AppSidebar recent={recent} />
 			<div className="flex min-w-0 flex-1 flex-col bg-muted dark:bg-background">
 				<header
