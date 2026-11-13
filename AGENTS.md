@@ -47,7 +47,7 @@ Versions 2 and 3 were a hosted web app (TanStack Start + a Fastify API in one Do
 | Path | What |
 |---|---|
 | `desktop/` | `@tagtape/desktop`: the Electron app (electron-vite, electron-builder). |
-| `desktop/src/main/` | Main process: window, IPC handlers (`ipc.ts`), the local library (`library.ts`). |
+| `desktop/src/main/` | Main process: window, IPC handlers (`ipc.ts`), the local library (`library.ts`), the application menu (`menu.ts`), the remembered window place (`window-state.ts`). |
 | `desktop/src/preload/` | The sandboxed bridge that exposes `window.tagtape`. |
 | `desktop/src/renderer/` | The React UI (TanStack Router, hash history; shadcn/ui on React Aria). |
 | `desktop/src/core/` | The pipeline: jobs, sources, plugins, process handling, the album-folder writer. No Electron imports; tested in plain Node. |
@@ -108,7 +108,8 @@ Run `pnpm check`, `pnpm typecheck` and `pnpm test` before calling a task done, a
   - A failed or cancelled album removes every file it wrote, then its folder if empty. An existing folder is never reused (the new one gets ` (2)`).
   - ffmpeg writes no tags and no Xing header (we write the only tag), and CBR (VBR is re-encoded to 256 kbps).
   - After any pipeline change, run the e2e test and cancel an album mid-save in the real window; check the destination and the temp folder for leftovers.
-- **The local library** (`main/library.ts`): one JSON file in the app's data folder with the last 50 albums as typed (details, track titles and links, the cover's URL; never media) and the save folder. Atomic writes, one at a time. Failures never block an album.
+- **The local library** (`main/library.ts`): one JSON file in the app's data folder with the last 50 albums as typed (details, track titles and links, the cover's URL), where each was saved, and the save folder; next to it, `covers/<album id>.jpg`, a 320 px copy of each album's cover. **Never media.** Atomic writes, one at a time. Failures never block an album. A cover goes when its album does.
+  - The page gets covers and folders **by album id only** (`albumCover` returns a `data:` URL, so the page's security policy needs no new image source).
 - **Bundled programs** are pinned by URL and SHA-256 in `desktop/binaries.lock.json` (Dependabot can't bump them). Their licence texts ship next to them. ffmpeg comes from third-party builds for now; a minimal build of our own is planned.
 - **The website** (`website/`): static Astro, no JavaScript, self-hosted fonts, a strict content security policy in a `<meta>` tag. Installer links use the fixed file names from `electron-builder.config.mjs` (`website/src/site.ts`). It lives under `/tagtape` on `github.io` until the domain is pointed at it (then: `site`, remove `base`, add `public/CNAME`).
 - pnpm settings live in `pnpm-workspace.yaml`. `.npmrc` is for auth only (see the `pnpm` skill).
@@ -116,6 +117,9 @@ Run `pnpm check`, `pnpm typecheck` and `pnpm test` before calling a task done, a
 - Code in `shared/` must run in browsers, Node and React Native: web-standard APIs only (no `node:*` imports, no `Buffer`), relative imports with `.ts` extensions, and erasable TypeScript syntax only.
 - Tests are Vitest, written as `*.test.ts` files next to the code they test. Pipeline tests use the fake pipeline in `core/test/helpers.ts` and need no binaries or network.
 - **UI** is **shadcn/ui** on the React Aria base (`desktop/components.json`: vega style, green on olive, no radius, Oxanium, lucide icons).
+  - **It is a desktop window, not a web page.** The root route (`routes/__root.tsx`) is the whole window: the sidebar (`components/app-sidebar.tsx`), a strip that stands in for the title bar and drags the window (`.app-drag` in `styles.css`), and a screen that scrolls on its own. The window itself never scrolls. Chrome is `select-none`; add `select-text` where text should be copyable.
+  - Screens: `/` (new album), `/albums` (library), `/albums/$albumId` (an album), `/albums/$albumId/edit` (make it again), `/settings`.
+  - Anything the system does better stays native, in the main process: the application menu, right-click menus, confirm dialogs, notifications, the dock/taskbar progress. The main process changes the screen only through the one `navigate` event (`Screen` in `desktop/src/ipc.ts`).
   - `renderer/components/ui/` is vendor code: prefer composing over editing those files.
   - Use theme tokens (`bg-card`, `text-muted-foreground`, `text-primary`), never raw palette colours. Dark mode follows `prefers-color-scheme`.
   - Track reordering stays on dnd-kit: a React Aria GridList is a single Tab stop, and its arrow-key row navigation fights the text inputs inside the rows.

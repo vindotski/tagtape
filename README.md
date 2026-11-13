@@ -3,7 +3,7 @@
 
 [![CI](https://github.com/vindotski/tagtape/actions/workflows/ci.yml/badge.svg)](https://github.com/vindotski/tagtape/actions/workflows/ci.yml)
 
-![The TagTape window: an album with its details and four numbered tracks, each with a title and a link](docs/screenshot.png)
+![The TagTape window: a sidebar with New album, Library and recent albums, and the library as a shelf of six album covers](docs/screenshot.png)
 
 TagTape is a desktop app for macOS, Windows and Linux. Paste up to 10 track links (one track each, up to 2 hours long), add the album title, artist, year, genre and a cover image, and get a folder of MP3s with every tag filled in and the tracks numbered in your order. The albums show up properly on any plain MP3 player.
 

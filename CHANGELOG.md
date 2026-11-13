@@ -13,7 +13,13 @@ TagTape becomes a desktop app for macOS, Windows and Linux. It runs entirely on 
 - **Albums are saved as folders:** `Artist - Album/01 - Title.mp3`, in a folder you choose (Downloads at first; the choice is remembered). An existing folder is never overwritten: the new one gets a number.
 - **Cancel** while an album is being checked or saved. A cancelled or failed album leaves nothing behind.
 - **Show in folder** when an album is done.
-- **Your albums** are kept in a small file on your computer (the last 50, as you typed them; never the music).
+- **A library** of the last 50 albums you made, shown as a shelf of covers. An album opens on its own screen: cover, details, tracks, **Show in folder**, **Edit and make again**. TagTape keeps what you typed and a small copy of the cover on your computer, never the music.
+- **A desktop window, not a web page:** a sidebar (new album, library, recent albums, settings), a title bar that blends into the app, and a window that reopens where you left it.
+- **A menu and shortcuts:** New Album (Ctrl/Cmd+N), Settings (Ctrl/Cmd+,), and the rest of what an app's menu should have.
+- **Progress on the dock or taskbar icon**, and a system notification when an album is done while you're in another app.
+- **Paste or drop several links at once:** each becomes a track. Drop an image link on the cover to set it.
+- **Right-click menus:** cut, copy and paste in text fields; open, show in folder, make again and delete on an album.
+- **Settings:** the save folder, the kinds of links the app accepts, clearing the library, and the versions of the app and its bundled programs.
 - **Product website** with downloads, built with Astro and published on GitHub Pages.
 - Windows support in the pipeline: cancelling kills the whole process tree, and bundled programs get the environment they need to start.
 
