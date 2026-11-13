@@ -4,6 +4,12 @@ TagTape has one version for the web app and the API, kept in the root `package.j
 
 ## Unreleased
 
+## 3.2.0 (2026-11-13)
+
+Clearer handling of sites that refuse the server: a plain message, and a short pause for that site.
+
+**Upgrade notes:** nothing to configure. The new `YTDLP_BLOCK_COOLDOWN_SEC` defaults to 600 seconds (0 turns the pause off).
+
 ### Added
 - **Pausing a site that refuses the server:** after a site's anti-bot check or rate limit, its links fail at once for `YTDLP_BLOCK_COOLDOWN_SEC` (600; 0 turns it off) with when to try again, instead of each starting yt-dlp only to be refused. The API logs `Site refused this server` when a pause starts. TagTape never uses cookies, accounts or rotating proxies to get past such checks.
 
