@@ -28,6 +28,10 @@ export const appPlatform = (): string => window.tagtape.platform;
 export const onNavigate = (listener: (to: Screen) => void): (() => void) =>
 	window.tagtape.onNavigate(listener);
 
+/** Follows changes to the library the page didn't make itself. */
+export const onLibraryChanged = (listener: () => void): (() => void) =>
+	window.tagtape.onLibraryChanged(listener);
+
 /** The kinds of links this app accepts; an empty list if that can't be read. */
 export const fetchSources = (): Promise<SourceInfo[]> =>
 	window.tagtape.sources().catch(() => []);

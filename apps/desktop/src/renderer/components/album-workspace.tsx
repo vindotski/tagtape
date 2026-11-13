@@ -1,5 +1,5 @@
 import { useNavigate, useRouter } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AlbumForm } from "#/components/album-form";
 import { JobProgress } from "#/components/job-progress";
 import {
@@ -7,7 +7,13 @@ import {
 	emptyDraft,
 	type FieldErrors,
 } from "#/lib/album-draft";
-import { dismissJob, followJob, useCurrentJob } from "#/lib/current-job";
+import {
+	dismissJob,
+	followJob,
+	isWorking,
+	useCurrentJob,
+} from "#/lib/current-job";
+import { onNewAlbum } from "#/lib/new-album";
 
 interface AlbumWorkspaceProps {
 	initialDraft: AlbumDraft;
@@ -35,6 +41,26 @@ export function AlbumWorkspace({
 	const current = useCurrentJob();
 	const router = useRouter();
 	const navigate = useNavigate();
+	// Goes up with each fresh start, so the form forgets its own state too.
+	const [generation, setGeneration] = useState(0);
+	// The album is on its way to the app (between Make album and the job's
+	// id coming back). A ref: the menu must see it at once, not a render later.
+	const starting = useRef(false);
+
+	// File > New Album while the new-album screen is already open: an empty
+	// editor, unless an album is being made or started. That one stays on
+	// screen: this is where it is followed and cancelled.
+	useEffect(() => {
+		if (!home) return;
+		return onNewAlbum(() => {
+			if (starting.current || isWorking(current)) return;
+			dismissJob();
+			setDraft(emptyDraft());
+			setAlbumId(undefined);
+			setErrors(undefined);
+			setGeneration((count) => count + 1);
+		});
+	}, [home, current]);
 
 	if (home && current) {
 		return (
@@ -67,11 +93,14 @@ export function AlbumWorkspace({
 	return (
 		<AlbumForm
 			// Remount with fresh errors whenever we come back from a job.
-			key={JSON.stringify(errors ?? {})}
+			key={`${generation}:${JSON.stringify(errors ?? {})}`}
 			draft={draft}
 			onDraftChange={setDraft}
 			initialErrors={errors}
 			albumId={albumId}
+			onSubmittingChange={(submitting) => {
+				starting.current = submitting;
+			}}
 			onStarted={(jobId, savedId) => {
 				if (savedId) setAlbumId(savedId);
 				followJob(jobId, draft, savedId ?? albumId);

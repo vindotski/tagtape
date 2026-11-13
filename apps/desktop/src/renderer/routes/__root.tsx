@@ -11,9 +11,10 @@ import {
 	appPlatform,
 	fetchAlbums,
 	fetchSources,
+	onLibraryChanged,
 	onNavigate,
 } from "#/lib/bridge";
-import { isWorking, useCurrentJob } from "#/lib/current-job";
+import { requestNewAlbum } from "#/lib/new-album";
 import { isSharedFile, readSharedFile, showShared } from "#/lib/shared-album";
 import { cn } from "#/lib/utils";
 
@@ -52,13 +53,6 @@ function Root() {
 	const path = useLocation({ select: (location) => location.pathname });
 	const navigate = useNavigate();
 	const router = useRouter();
-	// When the album being made ends, what the library knows about it changed
-	// (its folder, its cover): reload whatever screen is showing.
-	const job = useCurrentJob();
-	const ended = job?.state.kind === "ready" && !isWorking(job);
-	useEffect(() => {
-		if (ended) void router.invalidate();
-	}, [ended, router]);
 	// The menu and notifications live in the main process; this is how they
 	// change the screen.
 	// The window's title follows the screen (screen readers and the system's
@@ -72,8 +66,11 @@ function Root() {
 			onNavigate((to) => {
 				// A menu shortcut changed the screen: put the keyboard there too.
 				requestAnimationFrame(() => screen.current?.focus());
-				if (to.screen === "new") void navigate({ to: "/" });
-				else if (to.screen === "library") void navigate({ to: "/albums" });
+				if (to.screen === "new") {
+					// Already there: going to it again would leave the editor as it is.
+					if (router.state.location.pathname === "/") requestNewAlbum();
+					else void navigate({ to: "/" });
+				} else if (to.screen === "library") void navigate({ to: "/albums" });
 				else if (to.screen === "settings") void navigate({ to: "/settings" });
 				else if (to.screen === "shared") {
 					showShared(to.share);
@@ -85,8 +82,11 @@ function Root() {
 					});
 				}
 			}),
-		[navigate],
+		[navigate, router],
 	);
+	// A finished album's folder and cover are kept a moment after its job
+	// ends: the lists and the album's screen read them again.
+	useEffect(() => onLibraryChanged(() => void router.invalidate()), [router]);
 	return (
 		// biome-ignore lint/a11y/noStaticElementInteractions: a drop target for the whole window; File > Open does the same from the keyboard
 		<div

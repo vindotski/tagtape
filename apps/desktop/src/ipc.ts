@@ -29,6 +29,8 @@ export interface AlbumSummary {
 	trackCount: number;
 	/** A small copy of the cover is kept (see `albumCover`). */
 	hasCover: boolean;
+	/** Goes up each time the kept cover is replaced, so the page fetches it again. */
+	coverRevision: number;
 	/** ISO 8601. */
 	createdAt: string;
 	/** ISO 8601: when it was last made (or made again). */
@@ -48,7 +50,7 @@ export interface StoredAlbum extends AlbumSummary {
 
 /**
  * A screen the main process may ask the page to show (from the menu, or a
- * notification). The only thing main ever sends the page.
+ * notification).
  */
 export type Screen =
 	| { screen: "new" | "library" | "settings" }
@@ -74,6 +76,11 @@ export interface TagTapeApi {
 	platform: string;
 	/** Calls `listener` when the app asks for a screen; returns the unsubscribe. */
 	onNavigate(listener: (to: Screen) => void): () => void;
+	/**
+	 * Calls `listener` when the library changed behind the page's back (a
+	 * finished album's folder and cover were kept); returns the unsubscribe.
+	 */
+	onLibraryChanged(listener: () => void): () => void;
 	sources(): Promise<SourceInfo[]>;
 	/** Starts an album; `albumId` is the stored album being made again, if any. */
 	startJob(input: {
@@ -117,8 +124,11 @@ export interface TagTapeApi {
 	removeAlbum(id: string): Promise<boolean>;
 }
 
-/** The one message main sends the page (see `Screen`). */
+// The two messages main sends the page; neither asks for an answer.
+/** Show a screen (see `Screen`). */
 export const NAVIGATE = "tagtape:navigate";
+/** The library changed; carries nothing. */
+export const LIBRARY_CHANGED = "tagtape:library-changed";
 
 /** One IPC channel per method the page can call. */
 export const CHANNELS = {
