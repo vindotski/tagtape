@@ -9,6 +9,8 @@ export interface MenuActions {
 	showSaveFolder(): void;
 	/** Asks for a shared album file (`.tagtape`) and opens it. */
 	openAlbumFile(): void;
+	/** Shows the app's log file in the file manager. */
+	showLogs(): void;
 }
 
 /**
@@ -111,6 +113,8 @@ export function installMenu(actions: MenuActions): void {
 					label: "Source Code",
 					click: () => void shell.openExternal(LINKS.source),
 				},
+				{ type: "separator" },
+				{ label: "Show Logs", click: () => actions.showLogs() },
 			],
 		},
 	];

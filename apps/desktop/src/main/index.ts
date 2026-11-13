@@ -24,6 +24,7 @@ import { pluginPaths } from "../core/plugins/loader.ts";
 import { NAVIGATE, type Screen } from "../ipc.ts";
 import { registerIpc } from "./ipc.ts";
 import { openLibrary } from "./library.ts";
+import { createLog } from "./log.ts";
 import { installMenu } from "./menu.ts";
 import { isShareLink, readShare, shareTargetIn } from "./open-share.ts";
 import {
@@ -34,11 +35,17 @@ import {
 
 const here = fileURLToPath(new URL(".", import.meta.url));
 
-const log = {
-	info: (obj: object, msg: string) => console.info(msg, obj),
-	warn: (obj: object, msg: string) => console.warn(msg, obj),
-	error: (obj: object, msg: string) => console.error(msg, obj),
-};
+const logFile = () => join(app.getPath("userData"), "logs", "main.log");
+const log = createLog(logFile);
+
+// Nothing may fail without a trace: these would otherwise end in a console
+// nobody sees.
+process.on("uncaughtException", (error) => {
+	log.error({ err: error }, "Uncaught exception");
+});
+process.on("unhandledRejection", (reason) => {
+	log.error({ err: reason }, "Unhandled rejection");
+});
 
 let window: BrowserWindow | undefined;
 let tagtape: TagTape | undefined;
@@ -365,12 +372,17 @@ async function start(): Promise<void> {
 		navigate: showScreen,
 		showSaveFolder: () => void ipc.showDestination(),
 		openAlbumFile: () => void chooseShare(),
+		showLogs: () => shell.showItemInFolder(logFile()),
 	});
 	// Links to shared albums open this app (the installer registers the
 	// file type; in development nothing is registered).
 	if (app.isPackaged) app.setAsDefaultProtocolClient(SHARE_SCHEME);
 
 	window = createWindow();
+	log.info(
+		{ version: app.getVersion(), platform: process.platform },
+		"Started",
+	);
 
 	if (process.env.TAGTAPE_SMOKE_TEST === "1") {
 		void smokeTest(tagtape, window);
