@@ -74,3 +74,17 @@ function read(): void {
 
 read();
 addEventListener("hashchange", read);
+
+// The album lives in the address's fragment, so the header's skip link
+// (`#content`) would replace it and the page would lose its album. Here the
+// link does its job without touching the address.
+const content = document.getElementById("content");
+document
+	.querySelector<HTMLAnchorElement>('a[href="#content"]')
+	?.addEventListener("click", (event) => {
+		if (!content) return;
+		event.preventDefault();
+		content.tabIndex = -1;
+		content.focus();
+		content.scrollIntoView();
+	});
