@@ -149,4 +149,4 @@ Run `pnpm check`, `pnpm typecheck` and `pnpm test` before calling a task done, a
 
 ## Skills
 
-Project skills are in `.claude/skills/` (third-party ones tracked by `skills-lock.json`): `electron` (this repo's own rules for the desktop app), `node`, `pnpm`, `vitest`, `commit-message`. TanStack's version-matched skills load through TanStack Intent (block above).
+Project skills are in `.claude/skills/` (third-party ones tracked by `skills-lock.json`): `electron` (this repo's own rules for the desktop app), `pnpm`, `vitest`, `commit-message`. TanStack's version-matched skills load through TanStack Intent (block above).
