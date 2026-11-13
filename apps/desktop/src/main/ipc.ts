@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { rename, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import {
@@ -164,13 +165,16 @@ export function registerIpc(ctx: IpcContext): {
 		{ label: "Copy Link", click: pick("link") },
 	];
 
-	// A finished album's folder and cover go into the library. The job and the
-	// library entry are made a moment apart, so either may come first.
+	// A finished album's folder and cover go into the library. Its library id
+	// is settled before the job starts, so nothing here waits on a disk write.
 	type Finished = { folder: string; cover: Uint8Array | undefined };
 	const albumOfJob = new Map<string, string>();
 	const titleOfJob = new Map<string, string>();
-	const recording = new Set<string>();
-	const finishedEarly = new Map<string, Finished>();
+	/** Tells the page the library changed behind its back. */
+	const libraryChanged = () => {
+		const page = ctx.window()?.webContents;
+		if (page && !page.isDestroyed()) page.send(LIBRARY_CHANGED);
+	};
 	async function remember(albumId: string, result: Finished): Promise<void> {
 		try {
 			// A cover that can't be shrunk must not cost the album its folder.
@@ -185,8 +189,7 @@ export function registerIpc(ctx: IpcContext): {
 				cover,
 			});
 			// The page may be showing this album with its old cover and folder.
-			const page = ctx.window()?.webContents;
-			if (kept && page && !page.isDestroyed()) page.send(LIBRARY_CHANGED);
+			if (kept) libraryChanged();
 		} catch (error) {
 			ctx.log.error({ err: error }, "Remembering the finished album failed");
 		}
@@ -201,10 +204,9 @@ export function registerIpc(ctx: IpcContext): {
 		if (job.status !== "done" || !job.folder) return;
 		// The cover is only in memory during this call.
 		const result = { folder: job.folder, cover: ctx.tagtape.jobCover(job.id) };
+		// The library writes one change at a time, in order: this lands after
+		// the album's own entry, however quickly the job ended.
 		if (albumId) void remember(albumId, result);
-		// Only while its library entry is still being written; otherwise
-		// there is none (recording failed) and nothing will collect this.
-		else if (recording.has(job.id)) finishedEarly.set(job.id, result);
 	});
 
 	const handlers: Handlers = {
@@ -218,6 +220,16 @@ export function registerIpc(ctx: IpcContext): {
 					message: "Something went wrong. Please try again.",
 				};
 			}
+			// The album's library id, known up front: the one being made again
+			// if it is still there, a new one otherwise. (History is a
+			// convenience: if it can't be read, the album is still made.)
+			const again = parsed.data.albumId;
+			const existing =
+				again && (await ctx.library.get(again).catch(() => null))
+					? again
+					: undefined;
+			const albumId = existing ?? randomUUID();
+
 			const outcome = ctx.tagtape.createJob(
 				parsed.data.album,
 				await destination(),
@@ -237,27 +249,15 @@ export function registerIpc(ctx: IpcContext): {
 				return { ok: false, message: outcome.message };
 			}
 			titleOfJob.set(outcome.jobId, outcome.album.title);
-			// History is a convenience: the album still starts if this fails.
-			let albumId: string | undefined;
-			recording.add(outcome.jobId);
-			try {
-				albumId = await ctx.library.record(outcome.album, parsed.data.albumId);
-			} catch (error) {
-				ctx.log.error({ err: error }, "Recording the album failed");
-			}
-			recording.delete(outcome.jobId);
-			const early = finishedEarly.get(outcome.jobId);
-			finishedEarly.delete(outcome.jobId);
-			if (albumId) {
-				const status = ctx.tagtape.getJob(outcome.jobId)?.status;
-				if (early) void remember(albumId, early);
-				else if (status && !isJobFinished(status)) {
-					albumOfJob.set(outcome.jobId, albumId);
-				}
-			}
-			return albumId
-				? { ok: true, jobId: outcome.jobId, albumId }
-				: { ok: true, jobId: outcome.jobId };
+			albumOfJob.set(outcome.jobId, albumId);
+			// Written behind the answer: the page can follow and cancel the job
+			// at once, whatever the disk is doing.
+			void ctx.library
+				.record(outcome.album, existing, albumId)
+				.then(libraryChanged, (error: unknown) =>
+					ctx.log.error({ err: error }, "Recording the album failed"),
+				);
+			return { ok: true, jobId: outcome.jobId, albumId };
 		},
 
 		async job(id) {

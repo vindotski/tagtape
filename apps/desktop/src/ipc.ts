@@ -16,7 +16,7 @@ export interface SourceInfo {
 export type FieldErrors = Record<string, string>;
 
 export type StartJobResult =
-	| { ok: true; jobId: string; albumId?: string }
+	| { ok: true; jobId: string; albumId: string }
 	| { ok: false; message: string; fieldErrors?: FieldErrors };
 
 /** One album in the history, as the lists show it (no links). */

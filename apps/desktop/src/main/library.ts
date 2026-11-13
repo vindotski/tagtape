@@ -56,8 +56,16 @@ interface LibraryFile {
  * cover. Never media.
  */
 export interface Library {
-	/** Stores a started album, or updates `albumId`; resolves to its id. */
-	record(album: Album, albumId: string | undefined): Promise<string>;
+	/**
+	 * Stores a started album, or updates `albumId`; resolves to its id. A new
+	 * album gets `newId` when given, so a caller can know the id before the
+	 * write has happened.
+	 */
+	record(
+		album: Album,
+		albumId: string | undefined,
+		newId?: string,
+	): Promise<string>;
 	/**
 	 * Notes where a finished album was saved and keeps its small cover (or
 	 * drops the old one when it was made without). A kept cover gets the next
@@ -168,14 +176,14 @@ export function openLibrary(
 	});
 
 	return {
-		record(album, albumId) {
+		record(album, albumId, newId) {
 			return update(async (data) => {
 				const at = now().toISOString();
 				const existing = albumId
 					? data.albums.find((stored) => stored.id === albumId)
 					: undefined;
 				const stored: LibraryAlbum = {
-					id: existing?.id ?? randomUUID(),
+					id: existing?.id ?? newId ?? randomUUID(),
 					title: album.title,
 					artist: album.artist,
 					genre: album.genre ?? null,

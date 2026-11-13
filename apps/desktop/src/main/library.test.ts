@@ -78,6 +78,21 @@ describe("album history", () => {
 		});
 	});
 
+	test("a new album takes the id its caller chose", async () => {
+		const library = openLibrary(file);
+		const chosen = "11111111-1111-4111-8111-111111111111";
+		expect(await library.record(album("New"), undefined, chosen)).toBe(chosen);
+		// An existing album keeps its own, whatever is offered.
+		expect(
+			await library.record(
+				album("New, again"),
+				chosen,
+				"22222222-2222-4222-8222-222222222222",
+			),
+		).toBe(chosen);
+		expect(await library.list(10)).toHaveLength(1);
+	});
+
 	test("an unknown album id records a new album", async () => {
 		const library = openLibrary(file);
 		const id = await library.record(
