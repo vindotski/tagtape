@@ -1,19 +1,93 @@
-import { spawn } from "node:child_process";
+import { type ChildProcess, spawn } from "node:child_process";
+import { join } from "node:path";
 import { createInterface } from "node:readline";
 import type { Readable } from "node:stream";
 
+/** What Windows programs need to start at all (DLL lookup, temp files, profile). */
+const WINDOWS_VARIABLES = [
+	"SystemRoot",
+	"SystemDrive",
+	"PATHEXT",
+	"TEMP",
+	"TMP",
+	"USERPROFILE",
+	"APPDATA",
+	"LOCALAPPDATA",
+];
+
+/** Reads a variable whatever its case (a copied Windows environment says `Path`). */
+function variable(env: NodeJS.ProcessEnv, name: string): string | undefined {
+	if (env[name] !== undefined) return env[name];
+	const key = Object.keys(env).find(
+		(candidate) => candidate.toLowerCase() === name.toLowerCase(),
+	);
+	return key === undefined ? undefined : env[key];
+}
+
 /**
- * What child processes see of the environment: enough to find binaries and
- * handle UTF-8, never secrets such as API_TOKEN.
+ * What child processes see of the environment: enough to find binaries, start
+ * and handle UTF-8, and nothing else of the user's (tokens, proxy settings…).
+ * `extra` adds what one tool needs on top.
  */
 export function childEnv(
 	env: NodeJS.ProcessEnv = process.env,
+	extra: Readonly<Record<string, string>> = {},
+	platform: NodeJS.Platform = process.platform,
 ): NodeJS.ProcessEnv {
+	if (platform === "win32") {
+		const result: NodeJS.ProcessEnv = { PATH: variable(env, "PATH") ?? "" };
+		for (const name of WINDOWS_VARIABLES) {
+			const value = variable(env, name);
+			if (value !== undefined) result[name] = value;
+		}
+		return { ...result, ...extra };
+	}
 	return {
 		PATH: env.PATH ?? "/usr/local/bin:/usr/bin:/bin",
 		LANG: "C.UTF-8",
 		...(env.HOME ? { HOME: env.HOME } : {}),
+		...extra,
 	};
+}
+
+/**
+ * Kills a child and everything it started: a tool may start its own children
+ * (a downloader starting ffmpeg), and killing only the parent would leave them
+ * running as orphans.
+ * - POSIX: the child leads its own process group (`detached`); the group is killed.
+ * - Windows has no process groups: `taskkill /T` walks the process tree.
+ */
+function killTree(child: ChildProcess): void {
+	if (child.pid === undefined || child.exitCode !== null) return;
+	if (process.platform === "win32") {
+		const taskkill = join(
+			process.env.SystemRoot ?? "C:\\Windows",
+			"System32",
+			"taskkill.exe",
+		);
+		const killer = spawn(taskkill, ["/pid", String(child.pid), "/T", "/F"], {
+			shell: false,
+			stdio: "ignore",
+			windowsHide: true,
+		});
+		killer.once("error", () => child.kill());
+		return;
+	}
+	try {
+		process.kill(-child.pid, "SIGKILL");
+	} catch {
+		child.kill("SIGKILL");
+	}
+}
+
+/** Same for every child: no shell, a minimal environment, its own process group. */
+function spawnOptions(extraEnv: Readonly<Record<string, string>> | undefined) {
+	return {
+		shell: false,
+		env: childEnv(process.env, extraEnv),
+		detached: process.platform !== "win32",
+		windowsHide: true,
+	} as const;
 }
 
 export interface RunOptions {
@@ -24,6 +98,8 @@ export interface RunOptions {
 	onLine?: (line: string) => void;
 	/** Cap on collected stdout, in bytes. */
 	maxStdoutBytes?: number;
+	/** Variables this tool needs on top of the minimal environment. */
+	env?: Readonly<Record<string, string>>;
 }
 
 export interface RunResult {
@@ -78,25 +154,12 @@ export function run(
 			return;
 		}
 
-		// `detached` puts the child in its own process group, so cancelling kills
-		// the whole tree: a tool may start its own children (a downloader starting
-		// ffmpeg), and killing only the parent would
-		// leave ffmpeg running as an orphan.
 		const child = spawn(command, args, {
-			shell: false,
-			env: childEnv(),
+			...spawnOptions(options.env),
 			stdio: ["ignore", "pipe", "pipe"],
-			detached: process.platform !== "win32",
 		});
-		const killTree = () => {
-			if (child.pid === undefined || child.exitCode !== null) return;
-			try {
-				process.kill(-child.pid, "SIGKILL");
-			} catch {
-				child.kill("SIGKILL");
-			}
-		};
-		combined?.addEventListener("abort", killTree, { once: true });
+		const kill = () => killTree(child);
+		combined?.addEventListener("abort", kill, { once: true });
 
 		let stdout = "";
 		let stdoutBytes = 0;
@@ -129,7 +192,7 @@ export function run(
 		});
 
 		child.once("close", (exitCode) => {
-			combined?.removeEventListener("abort", killTree);
+			combined?.removeEventListener("abort", kill);
 			lines.close();
 			if (combined?.aborted) {
 				reject(abortError(timeout, command));
@@ -171,9 +234,9 @@ export interface StreamProcess {
 
 /**
  * Like `run`, but streams stdout instead of collecting it, so audio can flow
- * from one process to the next and to the client without touching disk.
- * Same guarantees: no shell, its own process group, the whole group is killed
- * on abort or timeout.
+ * from one process to the next without touching disk.
+ * Same guarantees: no shell, and the whole process tree is killed on abort or
+ * timeout.
  */
 export function spawnStream(
 	command: string,
@@ -182,6 +245,8 @@ export function spawnStream(
 		signal: AbortSignal;
 		stdin?: string | Readable;
 		timeoutMs?: number;
+		/** Variables this tool needs on top of the minimal environment. */
+		env?: Readonly<Record<string, string>>;
 	},
 ): StreamProcess {
 	const timeout = options.timeoutMs
@@ -192,21 +257,12 @@ export function spawnStream(
 		: options.signal;
 
 	const child = spawn(command, args, {
-		shell: false,
-		env: childEnv(),
+		...spawnOptions(options.env),
 		stdio: [options.stdin === undefined ? "ignore" : "pipe", "pipe", "pipe"],
-		detached: process.platform !== "win32",
 	});
-	const killTree = () => {
-		if (child.pid === undefined || child.exitCode !== null) return;
-		try {
-			process.kill(-child.pid, "SIGKILL");
-		} catch {
-			child.kill("SIGKILL");
-		}
-	};
-	if (signal.aborted) killTree();
-	else signal.addEventListener("abort", killTree, { once: true });
+	const kill = () => killTree(child);
+	if (signal.aborted) kill();
+	else signal.addEventListener("abort", kill, { once: true });
 
 	if (child.stdin) {
 		// The child may exit before reading all its input (EPIPE): that's reported
@@ -231,7 +287,7 @@ export function spawnStream(
 
 	const done = new Promise<void>((resolve, reject) => {
 		child.once("error", (error) => {
-			signal.removeEventListener("abort", killTree);
+			signal.removeEventListener("abort", kill);
 			reject(
 				signal.aborted
 					? abortError(timeout, command)
@@ -243,7 +299,7 @@ export function spawnStream(
 			);
 		});
 		child.once("close", (exitCode) => {
-			signal.removeEventListener("abort", killTree);
+			signal.removeEventListener("abort", kill);
 			if (signal.aborted) reject(abortError(timeout, command));
 			else if (exitCode === 0) resolve();
 			else {

@@ -10,8 +10,12 @@ export interface TagTapeOptions {
 	ffmpegBin: string;
 	/** Absolute path to yt-dlp. Without it, only direct MP3 links (and plugins) work. */
 	ytdlpBin?: string;
-	/** Runtime for sites' JavaScript challenges (yt-dlp's `--js-runtimes`). */
+	/**
+	 * Runtime for sites' JavaScript challenges (yt-dlp's `--js-runtimes`), as
+	 * `name:path`, and the variables it needs to run.
+	 */
 	jsRuntime?: string;
+	jsRuntimeEnv?: Readonly<Record<string, string>>;
 	/** Source plugins to load: absolute paths to their modules. */
 	plugins?: string[];
 	/** What plugins may read as their environment. */

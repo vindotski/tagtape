@@ -83,6 +83,7 @@ export async function createTagTape(options: TagTapeOptions): Promise<TagTape> {
 				bin: options.ytdlpBin,
 				ffmpegBin: options.ffmpegBin,
 				jsRuntime: options.jsRuntime ?? "",
+				...(options.jsRuntimeEnv ? { env: options.jsRuntimeEnv } : {}),
 				proxy: egressProxy.url,
 				timeoutMs: LIMITS.sourceTimeoutMs,
 				maxChecks: LIMITS.ytdlpMaxChecks,

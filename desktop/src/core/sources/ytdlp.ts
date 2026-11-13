@@ -41,6 +41,8 @@ export interface YtDlpOptions {
 	ffmpegBin: string;
 	/** Runtime for sites' JavaScript challenges (`--js-runtimes`); empty disables it. */
 	jsRuntime: string;
+	/** Variables yt-dlp's own children need (e.g. to run the JS runtime). */
+	env?: Readonly<Record<string, string>>;
 	/** The egress proxy's URL. */
 	proxy: string;
 	/** Kill a single yt-dlp run after this long. */
@@ -300,6 +302,7 @@ export function createYtDlpSource(options: YtDlpOptions): Source {
 				stdin: state.infoJson,
 				signal,
 				timeoutMs: options.timeoutMs,
+				...(options.env ? { env: options.env } : {}),
 			});
 			const ffmpeg = spawnStream(
 				options.ffmpegBin,
@@ -340,6 +343,7 @@ export function createYtDlpSource(options: YtDlpOptions): Source {
 				({ stdout } = await run(options.bin, probeArgs(url, options), {
 					signal,
 					timeoutMs: options.timeoutMs,
+					...(options.env ? { env: options.env } : {}),
 				}));
 			} catch (error) {
 				pauseIfBlocked(site, error);

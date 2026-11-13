@@ -2,15 +2,46 @@ import { describe, expect, test } from "vitest";
 import { childEnv, ExecError, run } from "./exec.ts";
 import { isPrivateAddress } from "./net.ts";
 
-test("child processes get a minimal environment, never the API token", () => {
-	expect(
-		childEnv({
-			PATH: "/bin",
-			HOME: "/home/node",
-			API_TOKEN: "secret",
-			FOO: "x",
-		}),
-	).toEqual({ PATH: "/bin", HOME: "/home/node", LANG: "C.UTF-8" });
+describe("childEnv", () => {
+	test("POSIX: a minimal environment, never the user's secrets", () => {
+		expect(
+			childEnv(
+				{ PATH: "/bin", HOME: "/home/node", API_TOKEN: "secret", FOO: "x" },
+				{},
+				"linux",
+			),
+		).toEqual({ PATH: "/bin", HOME: "/home/node", LANG: "C.UTF-8" });
+	});
+
+	test("Windows: what programs need to start, whatever the case of Path", () => {
+		expect(
+			childEnv(
+				{
+					Path: "C:\\Windows\\System32",
+					SystemRoot: "C:\\Windows",
+					PATHEXT: ".COM;.EXE",
+					TEMP: "C:\\Temp",
+					USERPROFILE: "C:\\Users\\me",
+					HTTPS_PROXY: "http://proxy.example.com",
+					SECRET_TOKEN: "x",
+				},
+				{},
+				"win32",
+			),
+		).toEqual({
+			PATH: "C:\\Windows\\System32",
+			SystemRoot: "C:\\Windows",
+			PATHEXT: ".COM;.EXE",
+			TEMP: "C:\\Temp",
+			USERPROFILE: "C:\\Users\\me",
+		});
+	});
+
+	test("a tool's own variables are added on top", () => {
+		expect(
+			childEnv({ PATH: "/bin" }, { ELECTRON_RUN_AS_NODE: "1" }, "darwin"),
+		).toEqual({ PATH: "/bin", LANG: "C.UTF-8", ELECTRON_RUN_AS_NODE: "1" });
+	});
 });
 
 describe("isPrivateAddress", () => {
@@ -134,6 +165,23 @@ describe("run", () => {
 		await expect
 			.poll(() => isAlive(grandchildPid), { timeout: 3_000 })
 			.toBe(false);
+	});
+
+	test("a tool gets the extra variables it was given, and nothing else of ours", async () => {
+		process.env.TAGTAPE_TEST_SECRET = "secret";
+		try {
+			const { stdout } = await run(
+				node,
+				[
+					"-e",
+					"console.log(process.env.EXTRA, process.env.TAGTAPE_TEST_SECRET)",
+				],
+				{ env: { EXTRA: "yes" } },
+			);
+			expect(stdout.trim()).toBe("yes undefined");
+		} finally {
+			delete process.env.TAGTAPE_TEST_SECRET;
+		}
 	});
 
 	test("missing binary is an ExecError without exit code", async () => {
