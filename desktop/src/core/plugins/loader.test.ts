@@ -1,3 +1,4 @@
+import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, test, vi } from "vitest";
 import { UserFacingError } from "../lib/errors.ts";
@@ -40,57 +41,60 @@ const fakeImport =
 		return modules[path];
 	};
 
+/** An absolute plugin path on this platform (`/p/x.ts`, or `D:\\p\\x.ts` on Windows). */
+const at = (name: string) => resolve("/p", name);
+
 const plugin = (sources: Source[], extra: object = {}) => ({
 	default: { apiVersion: 1, name: "test", create: () => sources, ...extra },
 });
 
 describe("plugin loader", () => {
 	test("splits TAGTAPE_PLUGINS", () => {
-		expect(pluginPaths(" /a/x.ts , ,plugins/y.ts", "/srv")).toEqual([
-			"/a/x.ts",
-			"/srv/plugins/y.ts",
-		]);
+		// Absolute paths stay; relative ones are resolved against the folder.
+		expect(
+			pluginPaths(` ${resolve("/a/x.ts")} , ,plugins/y.ts`, resolve("/srv")),
+		).toEqual([resolve("/a/x.ts"), resolve("/srv/plugins/y.ts")]);
 		expect(pluginPaths("")).toEqual([]);
 	});
 
 	test("collects sources from every plugin, in order", async () => {
 		const sources = await loadPlugins(
-			["/p/one.ts", "/p/two.ts"],
+			[at("one.ts"), at("two.ts")],
 			ctx,
 			fakeImport({
-				"/p/one.ts": plugin([source("a", "a.example")]),
-				"/p/two.ts": plugin([source("b", "b.example")]),
+				[at("one.ts")]: plugin([source("a", "a.example")]),
+				[at("two.ts")]: plugin([source("b", "b.example")]),
 			}),
 		);
 		expect(sources.map((s) => s.id)).toEqual(["a", "b"]);
 	});
 
 	test.each([
-		["a missing module", ["/p/missing.ts"], {}, "Couldn't load plugin"],
+		["a missing module", [at("missing.ts")], {}, "Couldn't load plugin"],
 		[
 			"another API version",
-			["/p/x.ts"],
-			{ "/p/x.ts": plugin([], { apiVersion: 2 }) },
+			[at("x.ts")],
+			{ [at("x.ts")]: plugin([], { apiVersion: 2 }) },
 			"targets plugin API 2",
 		],
 		[
 			"no default export",
-			["/p/x.ts"],
-			{ "/p/x.ts": {} },
+			[at("x.ts")],
+			{ [at("x.ts")]: {} },
 			"has no default export",
 		],
 		[
 			"an invalid source",
-			["/p/x.ts"],
-			{ "/p/x.ts": plugin([{ id: "Bad Id" } as unknown as Source]) },
+			[at("x.ts")],
+			{ [at("x.ts")]: plugin([{ id: "Bad Id" } as unknown as Source]) },
 			"invalid source",
 		],
 		[
 			"duplicate ids",
-			["/p/x.ts", "/p/y.ts"],
+			[at("x.ts"), at("y.ts")],
 			{
-				"/p/x.ts": plugin([source("a", "a.example")]),
-				"/p/y.ts": plugin([source("a", "b.example")]),
+				[at("x.ts")]: plugin([source("a", "a.example")]),
+				[at("y.ts")]: plugin([source("a", "b.example")]),
 			},
 			'share the id "a"',
 		],
