@@ -67,6 +67,14 @@ function createWindow(): BrowserWindow {
 	if (!app.isPackaged && devServer) void created.loadURL(devServer);
 	else void created.loadFile(join(here, "../renderer/index.html"));
 
+	// Closing the window is quitting. While an album is being made, the window
+	// stays open until the user has confirmed: "Keep going" must leave them a
+	// window to keep going in.
+	created.on("close", (event) => {
+		if (quitting) return;
+		event.preventDefault();
+		void quitIfConfirmed();
+	});
 	created.on("closed", () => {
 		if (window === created) window = undefined;
 	});
@@ -88,6 +96,24 @@ async function confirmQuit(): Promise<boolean> {
 		? await dialog.showMessageBox(window, options)
 		: await dialog.showMessageBox(options);
 	return response === 1;
+}
+
+/**
+ * The one way out: ask if an album is running, then cancel everything (which
+ * removes what it wrote so far) and quit. Until then nothing is closed.
+ */
+let asking = false;
+async function quitIfConfirmed(): Promise<void> {
+	if (quitting || asking) return;
+	asking = true;
+	try {
+		if (!(await confirmQuit())) return;
+		quitting = true;
+		await tagtape?.close().catch(() => {});
+		app.quit();
+	} finally {
+		asking = false;
+	}
 }
 
 async function start(): Promise<void> {
@@ -178,23 +204,22 @@ if (!app.requestSingleInstanceLock()) {
 	app.quit();
 } else {
 	app.on("second-instance", () => {
-		if (!window) return;
+		// Never leave a running app without a window to reach it by.
+		if (!window) {
+			if (app.isReady() && tagtape && !quitting) window = createWindow();
+			return;
+		}
 		if (window.isMinimized()) window.restore();
 		window.focus();
 	});
 
 	app.on("window-all-closed", () => app.quit());
 
+	// Cmd+Q, the dock or the system shutting down: the same question.
 	app.on("before-quit", (event) => {
 		if (quitting) return;
 		event.preventDefault();
-		void (async () => {
-			if (!(await confirmQuit())) return;
-			quitting = true;
-			// Cancels running albums and removes what they wrote so far.
-			await tagtape?.close().catch(() => {});
-			app.quit();
-		})();
+		void quitIfConfirmed();
 	});
 
 	void app.whenReady().then(start, (error: unknown) => {

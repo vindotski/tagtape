@@ -50,6 +50,19 @@ describe("album folder", () => {
 		expect(await readdir(root)).toEqual(["01 - Ниночка.mp3"]);
 	});
 
+	test("cleanup waits for the file to be closed, then removes the album folder", async () => {
+		const folder = await createAlbumFolder(root, "A - B");
+		const stream = new Readable({ read() {} });
+		stream.push(Buffer.alloc(256 * 1024));
+		setImmediate(() => stream.destroy(new Error("boom")));
+		await expect(
+			writeTrack(folder, "01.mp3", tag, stream, never),
+		).rejects.toThrow("boom");
+		// Nothing is open any more, so the folder can go at once (on Windows too).
+		await discardAlbum(folder, []);
+		expect(await readdir(root)).toEqual([]);
+	});
+
 	test("a failing stream leaves no file", async () => {
 		const stream = new Readable({ read() {} });
 		stream.push(Buffer.from("partial"));

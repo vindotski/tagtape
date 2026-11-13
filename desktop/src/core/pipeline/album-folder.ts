@@ -1,5 +1,6 @@
+import { once } from "node:events";
 import { createWriteStream } from "node:fs";
-import { mkdir, rename, rmdir, unlink } from "node:fs/promises";
+import { mkdir, rename, rm, rmdir } from "node:fs/promises";
 import { join } from "node:path";
 import type { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
@@ -55,8 +56,35 @@ export async function writeTrack(
 	} catch (error) {
 		mp3.destroy();
 		file.destroy();
-		await unlink(part).catch(() => {});
+		// Windows can't remove a folder while a file in it is still open: wait
+		// for the handle to be released before cleaning up.
+		if (!file.closed) await once(file, "close").catch(() => {});
+		await removeFile(part);
 		throw error;
+	}
+}
+
+/** Removes a file, retrying while the system still holds it (Windows: EBUSY, EPERM). */
+function removeFile(path: string): Promise<void> {
+	return rm(path, { force: true, maxRetries: 5, retryDelay: 100 }).catch(
+		() => {},
+	);
+}
+
+/** Removes a folder if it's empty, giving a just-deleted file a moment to go. */
+async function removeEmptyFolder(folder: string): Promise<void> {
+	for (let attempt = 0; attempt < 5; attempt++) {
+		try {
+			await rmdir(folder);
+			return;
+		} catch (error) {
+			const { code } = error as NodeJS.ErrnoException;
+			if (code === "ENOENT") return;
+			// ENOTEMPTY is also what a folder with someone else's files says:
+			// a few short tries, then leave it.
+			if (code !== "ENOTEMPTY" && code !== "EBUSY" && code !== "EPERM") return;
+			await new Promise((resolve) => setTimeout(resolve, 100));
+		}
 	}
 }
 
@@ -65,6 +93,6 @@ export async function discardAlbum(
 	folder: string,
 	files: string[],
 ): Promise<void> {
-	await Promise.all(files.map((file) => unlink(file).catch(() => {})));
-	await rmdir(folder).catch(() => {});
+	await Promise.all(files.map(removeFile));
+	await removeEmptyFolder(folder);
 }
