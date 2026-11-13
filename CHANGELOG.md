@@ -1,8 +1,31 @@
 # Changelog
 
-TagTape has one version for the web app and the API, kept in the root `package.json`. Each release is a git tag `vX.Y.Z`, published as the Docker image `vindotski/tagtape:X.Y.Z`.
+TagTape has one version, kept in the root `package.json`. Each release is a git tag `vX.Y.Z` with installers attached to its GitHub Release. (Up to 3.2.0, releases were the Docker image `vindotski/tagtape:X.Y.Z`.)
 
 ## Unreleased
+
+TagTape becomes a desktop app for macOS, Windows and Linux. It runs entirely on your computer, so sites see your own connection instead of a datacenter's, and there is no server or account.
+
+**Upgrade notes:** this replaces the hosted web app and the Docker image; nothing carries over from them. Albums kept under a guest account on tagtape.app are not moved to the desktop app. The installers are unsigned for now: the website and the README explain how to open them.
+
+### Added
+- **Desktop app** (Electron) for macOS (Apple Silicon and Intel), Windows and Linux, with ffmpeg and yt-dlp inside it, pinned and checksum-verified.
+- **Albums are saved as folders:** `Artist - Album/01 - Title.mp3`, in a folder you choose (Downloads at first; the choice is remembered). An existing folder is never overwritten: the new one gets a number.
+- **Cancel** while an album is being checked or saved. A cancelled or failed album leaves nothing behind.
+- **Show in folder** when an album is done.
+- **Your albums** are kept in a small file on your computer (the last 50, as you typed them; never the music).
+- **Product website** with downloads, built with Astro and published on GitHub Pages.
+- Windows support in the pipeline: cancelling kills the whole process tree, and bundled programs get the environment they need to start.
+
+### Changed
+- A site's bot check or rate limit is now about your device's connection: "The site is refusing requests from this device right now…". The 10-minute pause for that site stays.
+- yt-dlp runs sites' JavaScript challenges with the app's own runtime; nothing extra is installed.
+- ID3 tags are written by TagTape's own small writer (shared with the coming mobile app) instead of `node-id3`. The tags are the same: ID3v2.3 with the front cover.
+
+### Removed
+- **The hosted web app, the API service and the Docker image** (`vindotski/tagtape`), with everything only a public service needs: guest accounts and Postgres, the proof-of-work, per-visitor limits, the request middleware, and its environment-variable configuration.
+- **ZIP downloads:** an album is a folder now.
+- Jobs no longer expire after 30 minutes or have a download count: an album is saved once, when you make it.
 
 ## 3.2.0 (2026-11-13)
 
