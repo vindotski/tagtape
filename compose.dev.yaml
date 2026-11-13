@@ -1,104 +1,25 @@
-# Hot-reload development in Docker: `pnpm docker:dev` (stop: Ctrl+C, then
-# `pnpm docker:down`). Nothing is installed on the host: the source is
-# bind-mounted, dependencies live in named volumes (Linux builds of native
-# packages never mix with the host's), and ffmpeg and yt-dlp come with the image.
-#
-# Guest accounts: a local Postgres (the same image as Spotcraft's apps server),
-# its `auth` schema migrated by the `migrate` service before the web app starts.
-# `pnpm docker:down -v` also resets the database.
-#
-# Plugins: set TAGTAPE_PLUGINS on the api service (e.g. in an override file).
+# Checks and tests in a container: `pnpm docker:test` (clean up with
+# `pnpm docker:down`). The source is bind-mounted and dependencies live in
+# named volumes, so Linux builds of native packages never mix with the host's.
+# The app itself runs on the host (`pnpm dev`): Electron needs a display.
 name: tagtape-dev
 
-x-dev: &dev
-  build:
-    context: .
-    dockerfile: docker/dev.Dockerfile
-  image: tagtape-dev:local
-  working_dir: /app
-  volumes:
-    - .:/app
-    - node_modules:/app/node_modules
-    - web_node_modules:/app/apps/web/node_modules
-    - api_node_modules:/app/apps/api/node_modules
-    - shared_node_modules:/app/packages/shared/node_modules
-    - pnpm_store:/pnpm-store
-
 services:
-  install:
-    <<: *dev
-    command: pnpm install --frozen-lockfile
-
-  api:
-    <<: *dev
-    command: pnpm --filter @tagtape/api dev
-    environment:
-      HOST: 0.0.0.0
-      # Dev only: the API isn't published, so this never leaves the Docker network.
-      API_TOKEN: dev-token-not-secret-0123456789abcdef
-      LOG_LEVEL: info
-      TAGTAPE_PLUGINS: ${TAGTAPE_PLUGINS:-}
-    depends_on:
-      install:
-        condition: service_completed_successfully
-
-  postgres:
-    image: postgres:18.6-trixie@sha256:e3d24f6906d0760bf4da0dae872415391ededefad23fd471c47dc53b0ddf3c42
-    environment:
-      # Dev only: Postgres isn't published, so this never leaves the Docker network.
-      POSTGRES_PASSWORD: dev-postgres-not-secret
-      POSTGRES_DB: tagtape
-    volumes:
-      - postgres_data:/var/lib/postgresql
-    healthcheck:
-      test: ["CMD", "pg_isready", "-U", "postgres", "-d", "tagtape"]
-      interval: 2s
-      timeout: 5s
-      retries: 30
-
-  # `pnpm docker:test`: checks and tests, with Postgres for the database tests.
   test:
-    <<: *dev
-    environment:
-      TAGTAPE_TEST_DATABASE_URL: postgres://postgres:dev-postgres-not-secret@postgres:5432/postgres
-    depends_on:
-      postgres:
-        condition: service_healthy
-
-  migrate:
-    <<: *dev
-    command: node apps/web/scripts/dev-migrate.ts
-    environment:
-      DATABASE_URL: &database-url postgres://postgres:dev-postgres-not-secret@postgres:5432/tagtape
-    depends_on:
-      install:
-        condition: service_completed_successfully
-      postgres:
-        condition: service_healthy
-
-  web:
-    <<: *dev
-    command: pnpm --filter @tagtape/web exec vite dev --port 3000 --host 0.0.0.0
-    environment:
-      API_URL: http://api:4000
-      API_TOKEN: dev-token-not-secret-0123456789abcdef
-      DATABASE_URL: *database-url
-      AUTH_SECRET: dev-auth-secret-not-secret-0123456789abcdef
-      PUBLIC_URL: http://localhost:${PORT:-3000}
-    ports:
-      - "127.0.0.1:${PORT:-3000}:3000"
-    depends_on:
-      install:
-        condition: service_completed_successfully
-      api:
-        condition: service_started
-      migrate:
-        condition: service_completed_successfully
+    build:
+      context: .
+      dockerfile: docker/dev.Dockerfile
+    image: tagtape-dev:local
+    working_dir: /app
+    volumes:
+      - .:/app
+      - node_modules:/app/node_modules
+      - desktop_node_modules:/app/desktop/node_modules
+      - shared_node_modules:/app/shared/node_modules
+      - pnpm_store:/pnpm-store
 
 volumes:
   node_modules:
-  web_node_modules:
-  api_node_modules:
+  desktop_node_modules:
   shared_node_modules:
   pnpm_store:
-  postgres_data:

@@ -1,4 +1,4 @@
-# Weekly update PRs, against `dev` (pushes to `main` publish the image).
+# Weekly update PRs, against `dev`.
 # A release must be a week old before it's proposed: time for a compromised
 # version to be noticed and pulled (pnpm adds its own 1-day minimum on top).
 version: 2
@@ -27,16 +27,14 @@ updates:
       minor-and-patch:
         update-types: [minor, patch]
     open-pull-requests-limit: 5
-    # @types/node follows the Node major the image runs: bump them together.
+    # @types/node follows the Node major the project uses: bump them together.
     ignore:
       - dependency-name: "@types/node"
         update-types: ["version-update:semver-major"]
 
-  # Base images pinned by digest: the production and dev Dockerfiles.
-  # (Postgres in the compose files and CI follows Spotcraft's apps server
-  # instead: update it when Spotcraft does.)
+  # Base images of the test container, pinned by digest.
   - package-ecosystem: docker
-    directories: [/, /docker]
+    directory: /docker
     target-branch: dev
     schedule:
       interval: weekly

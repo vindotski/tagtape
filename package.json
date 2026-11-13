@@ -9,14 +9,10 @@
 		"node": ">=26"
 	},
 	"scripts": {
-		"dev": "pnpm --recursive --parallel run dev",
-		"build": "pnpm --recursive run build",
 		"typecheck": "pnpm --recursive run typecheck",
 		"test": "pnpm --recursive --if-present run test",
 		"check": "biome check",
 		"fix": "biome check --write",
-		"docker": "docker compose -f docker/compose.local.yaml up --build",
-		"docker:dev": "docker compose -f compose.dev.yaml up --build",
 		"docker:test": "docker compose -f compose.dev.yaml run --rm --build test sh -c 'pnpm install --frozen-lockfile && pnpm check && pnpm typecheck && pnpm test'",
 		"docker:down": "docker compose -f compose.dev.yaml down"
 	},

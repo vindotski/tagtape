@@ -1,0 +1,12 @@
+{
+	"extends": "../tsconfig.base.json",
+	"include": ["src"],
+	"compilerOptions": {
+		// Runs in browsers and Node: the DOM lib supplies web-standard globals
+		// like URL without pulling in Node-only APIs.
+		"lib": ["ES2022", "DOM"],
+		"allowImportingTsExtensions": true,
+		"erasableSyntaxOnly": true,
+		"types": []
+	}
+}

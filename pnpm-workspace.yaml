@@ -1,6 +1,6 @@
 packages:
-  - apps/*
-  - packages/*
+  - desktop
+  - shared
 
 # Supply chain, written out explicitly (most are pnpm's defaults) so a change
 # of defaults can't quietly weaken them:
@@ -11,10 +11,6 @@ packages:
 # - transitive dependencies can't come from git or tarball URLs
 # - only the packages below may run install scripts
 minimumReleaseAge: 1440
-# Spotcraft is our own project, released with provenance; its kit is adopted
-# on the day it ships. Its dependencies still wait the full day.
-minimumReleaseAgeExclude:
-  - '@spotcraft/kit'
 trustPolicy: no-downgrade
 blockExoticSubdeps: true
 strictDepBuilds: true

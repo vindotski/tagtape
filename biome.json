@@ -8,14 +8,14 @@
 	"files": {
 		"ignoreUnknown": true,
 		"includes": [
-			"apps/**",
-			"packages/**",
+			"desktop/**",
+			"shared/**",
 			".vscode/**",
 			"*.json",
 			"!skills-lock.json",
 			"!**/.cta.json",
 			"!**/routeTree.gen.ts",
-			"!**/src/styles.css",
+			"!**/renderer/styles.css",
 			"!**/*.md"
 		]
 	},
@@ -43,7 +43,7 @@
 	},
 	"overrides": [
 		{
-			"includes": ["apps/web/src/components/ui/**"],
+			"includes": ["desktop/src/renderer/components/ui/**"],
 			"linter": {
 				"enabled": false
 			},

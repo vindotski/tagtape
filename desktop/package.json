@@ -1,0 +1,22 @@
+{
+	"name": "@tagtape/desktop",
+	"private": true,
+	"license": "Unlicense",
+	"type": "module",
+	"scripts": {
+		"typecheck": "tsc --noEmit",
+		"test": "vitest run"
+	},
+	"dependencies": {
+		"@tagtape/shared": "workspace:*",
+		"sharp": "^0.35.5",
+		"yazl": "^3.3.1"
+	},
+	"devDependencies": {
+		"@types/node": "catalog:",
+		"@types/yazl": "^3.3.1",
+		"node-id3": "^0.2.9",
+		"typescript": "catalog:",
+		"vitest": "catalog:"
+	}
+}
