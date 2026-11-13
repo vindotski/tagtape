@@ -15,3 +15,6 @@ apps/api/src/test
 deploy
 docs
 compose.dev.yaml
+
+# Throwaway mobile spike: never part of the image
+spike

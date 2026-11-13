@@ -1,0 +1,42 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+  id 'com.chaquo.python' version '17.2.0'
+}
+
+group = 'app.tagtape.engine'
+version = '0.1.0'
+
+android {
+  namespace "app.tagtape.engine"
+  defaultConfig {
+    versionCode 1
+    versionName "0.1.0"
+    ndk {
+      // 64-bit only: the emulator on Apple Silicon and current phones.
+      abiFilters "arm64-v8a", "x86_64"
+    }
+  }
+  lintOptions {
+    abortOnError false
+  }
+}
+
+chaquopy {
+  defaultConfig {
+    version "3.13"
+    // The Mac has no Python 3.13; the spike keeps its own under .tools/.
+    buildPython file("../../../.tools/python/bin/python3.13").absolutePath
+    pip {
+      // Pinned, as docker/yt-dlp.version does for the server image.
+      install "yt-dlp==2026.10.26"
+    }
+  }
+}
+
+dependencies {
+  // ffmpeg as a library (LGPL-3.0), with libmp3lame.
+  implementation 'dev.ffmpegkit-maintained:ffmpeg-kit-audio:8.1.9'
+  implementation 'androidx.documentfile:documentfile:1.1.0'
+  implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2'
+}
