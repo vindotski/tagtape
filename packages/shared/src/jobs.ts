@@ -1,51 +1,41 @@
-import { z } from "zod";
-
 /**
- * Job lifecycle: queued → probing → [queued →] streaming → done.
+ * Job lifecycle: queued → probing → streaming → done.
  * Any phase can end in `failed` (a cancelled job fails with "Cancelled").
  * A failed job leaves nothing on disk.
  */
-export const jobStatusSchema = z.enum([
-	/** Waiting for a free slot (to check the tracks, or to convert them). */
-	"queued",
+export type JobStatus =
+	/** Created; nothing has started yet. */
+	| "queued"
 	/** Reading each track's details; nothing is downloaded yet. */
-	"probing",
+	| "probing"
 	/** Tracks are being converted and saved into the album's folder. */
-	"streaming",
-	"done",
-	"failed",
-]);
-export type JobStatus = z.infer<typeof jobStatusSchema>;
+	| "streaming"
+	| "done"
+	| "failed";
 
-export const trackStatusSchema = z.enum([
-	"queued",
-	"converting",
-	"done",
-	"error",
-]);
-export type TrackStatus = z.infer<typeof trackStatusSchema>;
+export type TrackStatus = "queued" | "converting" | "done" | "error";
 
-export const trackSnapshotSchema = z.object({
+export interface TrackSnapshot {
 	/** 1-based track number (position in the album). */
-	number: z.int().positive(),
-	title: z.string(),
-	status: trackStatusSchema,
+	number: number;
+	title: string;
+	status: TrackStatus;
 	/** Human-readable reason when `status` is `error`. */
-	error: z.string().optional(),
-});
-export type TrackSnapshot = z.infer<typeof trackSnapshotSchema>;
+	error?: string;
+}
 
-export const jobSnapshotSchema = z.object({
-	id: z.uuid(),
-	status: jobStatusSchema,
-	tracks: z.array(trackSnapshotSchema),
+/** A job as the window sees it: plain data, sent from the main process. */
+export interface JobSnapshot {
+	id: string;
+	status: JobStatus;
+	tracks: TrackSnapshot[];
 	/** Human-readable reason when `status` is `failed`. */
-	error: z.string().optional(),
+	error?: string;
 	/** The album's folder, once every track is saved (`status` is `done`). */
-	folder: z.string().optional(),
-	createdAt: z.iso.datetime(),
-});
-export type JobSnapshot = z.infer<typeof jobSnapshotSchema>;
+	folder?: string;
+	/** ISO 8601. */
+	createdAt: string;
+}
 
 /**
  * How far along a job is, 0 to 100, for a progress bar. Checking counts as 0;

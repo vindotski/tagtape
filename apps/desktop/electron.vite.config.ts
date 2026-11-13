@@ -75,7 +75,12 @@ export default defineConfig({
 		root: renderer,
 		define,
 		resolve: { alias: { "#": renderer, "@": renderer } },
-		build: { rollupOptions: { input: `${renderer}/index.html` } },
+		build: {
+			// electron-vite leaves code readable by default; the page's script
+			// is a third of the size minified.
+			minify: true,
+			rollupOptions: { input: `${renderer}/index.html` },
+		},
 		plugins: [
 			tailwindcss(),
 			// Must come before the React plugin.

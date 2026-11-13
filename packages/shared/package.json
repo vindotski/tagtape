@@ -3,6 +3,7 @@
 	"private": true,
 	"license": "Unlicense",
 	"type": "module",
+	"sideEffects": false,
 	"exports": {
 		".": "./src/index.ts"
 	},

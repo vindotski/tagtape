@@ -1,6 +1,5 @@
 import { describe, expect, test } from "vitest";
 import { type AlbumInput, albumInputSchema } from "./album.ts";
-import { jobSnapshotSchema } from "./jobs.ts";
 import { MAX_TRACKS } from "./limits.ts";
 
 const track = (n: number) => ({
@@ -99,25 +98,5 @@ describe("albumInputSchema", () => {
 			["tracks", 1, "title"],
 			["tracks", 1, "url"],
 		]);
-	});
-});
-
-describe("jobSnapshotSchema", () => {
-	test("accepts a snapshot as the API sends it", () => {
-		const snapshot = {
-			id: "8f14e45f-ceea-4e7a-9f3b-1c2d3e4f5a6b",
-			status: "streaming",
-			tracks: [
-				{ number: 1, title: "Track 1", status: "done" },
-				{
-					number: 2,
-					title: "Track 2",
-					status: "error",
-					error: "Track unavailable",
-				},
-			],
-			createdAt: "2026-11-06T12:00:00.000Z",
-		};
-		expect(jobSnapshotSchema.parse(snapshot)).toEqual(snapshot);
 	});
 });
