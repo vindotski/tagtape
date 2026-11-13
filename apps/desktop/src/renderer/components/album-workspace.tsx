@@ -1,5 +1,6 @@
+import { isJobFinished } from "@tagtape/shared";
 import { useRouter } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AlbumForm } from "#/components/album-form";
 import { JobProgress } from "#/components/job-progress";
 import {
@@ -7,6 +8,8 @@ import {
 	emptyDraft,
 	type FieldErrors,
 } from "#/lib/album-draft";
+import { fetchJob } from "#/lib/bridge";
+import { onNewAlbum } from "#/lib/new-album";
 
 type Phase =
 	| { kind: "edit"; errors?: FieldErrors }
@@ -31,13 +34,37 @@ export function AlbumWorkspace({
 	const [phase, setPhase] = useState<Phase>({ kind: "edit" });
 	// Once an album is saved, converting it again updates it instead of adding another.
 	const [albumId, setAlbumId] = useState(storedId);
+	// Goes up with each fresh start, so the form forgets its own state too.
+	const [generation, setGeneration] = useState(0);
 	const router = useRouter();
+
+	// File > New Album while this is the new-album screen: an empty editor,
+	// unless an album is being made. That one stays on screen, since this is
+	// the only place to follow or cancel it.
+	useEffect(
+		() =>
+			onNewAlbum(() => {
+				const fresh = () => {
+					setDraft(emptyDraft());
+					setAlbumId(undefined);
+					setPhase({ kind: "edit" });
+					setGeneration((count) => count + 1);
+				};
+				if (phase.kind === "edit") return fresh();
+				void fetchJob(phase.jobId)
+					.catch(() => null)
+					.then((job) => {
+						if (!job || isJobFinished(job.status)) fresh();
+					});
+			}),
+		[phase],
+	);
 
 	if (phase.kind === "edit") {
 		return (
 			<AlbumForm
 				// Remount with fresh errors whenever we come back from a job.
-				key={JSON.stringify(phase.errors ?? {})}
+				key={`${generation}:${JSON.stringify(phase.errors ?? {})}`}
 				draft={draft}
 				onDraftChange={setDraft}
 				initialErrors={phase.errors}

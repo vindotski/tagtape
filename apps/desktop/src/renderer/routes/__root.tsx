@@ -3,6 +3,7 @@ import {
 	Outlet,
 	useLocation,
 	useNavigate,
+	useRouter,
 } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { AppSidebar } from "#/components/app-sidebar";
@@ -12,6 +13,7 @@ import {
 	fetchSources,
 	onNavigate,
 } from "#/lib/bridge";
+import { requestNewAlbum } from "#/lib/new-album";
 import { readSharedFile, showShared } from "#/lib/shared-album";
 import { cn } from "#/lib/utils";
 
@@ -49,13 +51,17 @@ function Root() {
 	const { recent } = Route.useLoaderData();
 	const path = useLocation({ select: (location) => location.pathname });
 	const navigate = useNavigate();
+	const router = useRouter();
 	// The menu and notifications live in the main process; this is how they
 	// change the screen.
 	useEffect(
 		() =>
 			onNavigate((to) => {
-				if (to.screen === "new") void navigate({ to: "/" });
-				else if (to.screen === "library") void navigate({ to: "/albums" });
+				if (to.screen === "new") {
+					// Already there: going to it again would leave the editor as it is.
+					if (router.state.location.pathname === "/") requestNewAlbum();
+					else void navigate({ to: "/" });
+				} else if (to.screen === "library") void navigate({ to: "/albums" });
 				else if (to.screen === "settings") void navigate({ to: "/settings" });
 				else if (to.screen === "shared") {
 					showShared(to.share);
@@ -67,7 +73,7 @@ function Root() {
 					});
 				}
 			}),
-		[navigate],
+		[navigate, router],
 	);
 	return (
 		// biome-ignore lint/a11y/noStaticElementInteractions: a drop target for the whole window; File > Open does the same from the keyboard
