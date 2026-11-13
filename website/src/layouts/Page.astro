@@ -4,16 +4,23 @@ import "../styles/global.css";
 interface Props {
 	title: string;
 	description: string;
+	/**
+	 * Lets the page run this site's own script files. Only the page that opens
+	 * share links needs it; every other page runs no script at all.
+	 */
+	scripts?: boolean;
 }
-const { title, description } = Astro.props;
+const { title, description, scripts = false } = Astro.props;
 const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 const canonical = new URL(Astro.url.pathname, Astro.site);
 
-// Everything is served from this site: no scripts at all, no remote anything.
+// Everything is served from this site: no remote anything, no connections,
+// and no scripts unless the page asked for the site's own.
 // (GitHub Pages can't set headers, so the policy is a meta tag; the dev
 // server is left alone, since its tooling needs scripts.)
 const policy = [
 	"default-src 'none'",
+	...(scripts ? ["script-src 'self'"] : []),
 	"style-src 'self' 'unsafe-inline'",
 	"img-src 'self'",
 	"font-src 'self'",
@@ -51,9 +58,9 @@ const policy = [
 					<span class="text-lg font-bold tracking-tight">TagTape</span>
 				</a>
 				<nav aria-label="Main" class="flex items-center gap-1 text-sm">
-					<a href="#how-it-works" class="hidden px-3 py-2 hover:underline sm:inline">How it works</a>
-					<a href="#questions" class="hidden px-3 py-2 hover:underline sm:inline">Questions</a>
-					<a href="#download" class="border bg-card px-3 py-2 font-medium hover:bg-muted">Download</a>
+					<a href={`${base}/#how-it-works`} class="hidden px-3 py-2 hover:underline sm:inline">How it works</a>
+					<a href={`${base}/#questions`} class="hidden px-3 py-2 hover:underline sm:inline">Questions</a>
+					<a href={`${base}/#download`} class="border bg-card px-3 py-2 font-medium hover:bg-muted">Download</a>
 				</nav>
 			</header>
 			<main class="flex-1 pb-16">

@@ -8,5 +8,10 @@ export default defineConfig({
 	site: "https://vindotski.github.io",
 	base: "/tagtape",
 	trailingSlash: "ignore",
-	vite: { plugins: [tailwindcss()] },
+	vite: {
+		plugins: [tailwindcss()],
+		// Scripts stay in files of their own: the one page that has a script
+		// allows this site's files, never inline code.
+		build: { assetsInlineLimit: 0 },
+	},
 });
