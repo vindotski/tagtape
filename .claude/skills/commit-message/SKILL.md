@@ -35,9 +35,11 @@ description: Suggest Conventional Commits messages for the current changes in th
   - `chore`: everything else
   - `revert`
 - **Scopes** (optional, one per commit):
-  - `web` (TanStack Start app)
-  - `api` (Fastify service)
+  - `desktop` (the Electron app and its pipeline)
+  - `mobile` (the React Native app)
+  - `website` (the Astro site)
   - `shared` (`@tagtape/shared`)
+  - `spike` (throwaway experiments)
   - `legacy`
   - `repo` (root config, agent setup, monorepo wiring)
   - `deps`
@@ -49,9 +51,9 @@ description: Suggest Conventional Commits messages for the current changes in th
 ## Examples
 
 ```
-feat(api): add job endpoints with a streaming pipeline
+feat(desktop): save an album as a folder of MP3s
 fix(shared): reject links with credentials
-refactor(web): extract track list into its own component
+refactor(desktop): extract track list into its own component
 build(repo): restructure into pnpm monorepo
-chore(deps): bump @tanstack/react-start to 1.170
+chore(deps): bump electron to 45.3
 ```
