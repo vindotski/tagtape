@@ -3,7 +3,7 @@
 	"private": true,
 	"description": "Turns track links plus album details into a folder of ID3-tagged MP3s.",
 	"author": "TagTape <noreply@tagtape.app>",
-	"homepage": "https://tagtape.app",
+	"homepage": "https://vindotski.github.io/tagtape/",
 	"license": "Unlicense",
 	"type": "module",
 	"main": "./out/main/index.js",
