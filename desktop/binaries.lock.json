@@ -1,0 +1,68 @@
+{
+	"//": "The external programs the desktop app bundles, pinned by URL and SHA-256. `pnpm binaries` fetches and verifies them. Dependabot can't bump these: update them by hand (yt-dlp when a site breaks, both when a vulnerability is reported), taking the checksums from the publisher's own sums file.",
+	"yt-dlp": {
+		"version": "2026.10.26",
+		"license": "Unlicense",
+		"source": "https://github.com/yt-dlp/yt-dlp",
+		"targets": {
+			"darwin-arm64": {
+				"url": "https://github.com/yt-dlp/yt-dlp/releases/download/2026.10.26/yt-dlp_macos.zip",
+				"sha256": "20d98fa608998eff87d1d35a6e9fb65e4b874639a6cc89addc19da3becde3ef1",
+				"executable": "yt-dlp_macos"
+			},
+			"darwin-x64": {
+				"url": "https://github.com/yt-dlp/yt-dlp/releases/download/2026.10.26/yt-dlp_macos.zip",
+				"sha256": "20d98fa608998eff87d1d35a6e9fb65e4b874639a6cc89addc19da3becde3ef1",
+				"executable": "yt-dlp_macos"
+			},
+			"win32-x64": {
+				"url": "https://github.com/yt-dlp/yt-dlp/releases/download/2026.10.26/yt-dlp_win.zip",
+				"sha256": "fd51b212cf8380c7a52ee08c0d6be7f3c59b2f2c832eaf7b45acfae6eab57419",
+				"executable": "yt-dlp.exe"
+			},
+			"linux-x64": {
+				"url": "https://github.com/yt-dlp/yt-dlp/releases/download/2026.10.26/yt-dlp_linux.zip",
+				"sha256": "f34053415136e55073dd64ba5326d161ecc23ce0e98c081d8752867b37809450",
+				"executable": "yt-dlp_linux"
+			}
+		}
+	},
+	"ffmpeg": {
+		"targets": {
+			"darwin-arm64": {
+				"version": "9.0.2",
+				"license": "GPL-3.0-or-later",
+				"source": "https://git.martin-riedl.de/ffmpeg/build-script",
+				"url": "https://ffmpeg.martin-riedl.de/download/macos/arm64/1789931890_9.0.2/ffmpeg.zip",
+				"sha256": "c8ed4c4e6978a03c485edbfe4e0a5dc2380f8a30bba5150531b31b094492d924",
+				"executable": "ffmpeg"
+			},
+			"darwin-x64": {
+				"version": "9.0.2",
+				"license": "GPL-3.0-or-later",
+				"source": "https://git.martin-riedl.de/ffmpeg/build-script",
+				"url": "https://ffmpeg.martin-riedl.de/download/macos/amd64/1789931006_9.0.2/ffmpeg.zip",
+				"sha256": "7c6b4125b191cbf773832dc51f424cf2b6bb7da43007d1e066f95909e47cacd4",
+				"executable": "ffmpeg"
+			},
+			"win32-x64": {
+				"version": "n8.1.3-27-g8dca1586f4",
+				"license": "LGPL-3.0-or-later",
+				"source": "https://github.com/BtbN/FFmpeg-Builds/tree/autobuild-2026-10-31-12-59",
+				"url": "https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-10-31-12-59/ffmpeg-n8.1.3-27-g8dca1586f4-win64-lgpl-8.1.zip",
+				"sha256": "d4c2a42673917b4a97104a3e9f082729a9730796b98664e37c0b7eba6c6c613d",
+				"executable": "ffmpeg-n8.1.3-27-g8dca1586f4-win64-lgpl-8.1/bin/ffmpeg.exe",
+				"licenseFile": "ffmpeg-n8.1.3-27-g8dca1586f4-win64-lgpl-8.1/LICENSE.txt"
+			},
+			"linux-x64": {
+				"version": "n8.1.3-27-g8dca1586f4",
+				"license": "LGPL-3.0-or-later",
+				"source": "https://github.com/BtbN/FFmpeg-Builds/tree/autobuild-2026-10-31-12-59",
+				"url": "https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-10-31-12-59/ffmpeg-n8.1.3-27-g8dca1586f4-linux64-lgpl-8.1.tar.xz",
+				"sha256": "a64f3171e6ad1f7d358d28890a907ee478c331d1177ec696a93418f79ac3f1f3",
+				"executable": "ffmpeg-n8.1.3-27-g8dca1586f4-linux64-lgpl-8.1/bin/ffmpeg",
+				"licenseFile": "ffmpeg-n8.1.3-27-g8dca1586f4-linux64-lgpl-8.1/LICENSE.txt"
+			}
+		}
+	}
+}

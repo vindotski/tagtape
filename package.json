@@ -9,6 +9,7 @@
 		"node": ">=26"
 	},
 	"scripts": {
+		"binaries": "node desktop/scripts/fetch-binaries.mjs",
 		"typecheck": "pnpm --recursive run typecheck",
 		"test": "pnpm --recursive --if-present run test",
 		"check": "biome check",

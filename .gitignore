@@ -11,3 +11,6 @@ dist-ssr
 .vinxi
 __unconfig*
 todos.json
+
+# Bundled programs, fetched by `pnpm binaries`
+desktop/resources/bin/
