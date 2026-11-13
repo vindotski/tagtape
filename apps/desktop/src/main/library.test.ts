@@ -155,12 +155,32 @@ describe("finished albums", () => {
 		await library.record(album("Night Drive"), id);
 		expect(await library.cover(id)).toEqual(Buffer.from("one"));
 
+		// The old cover may be on screen under this revision.
+		expect((await library.list(10))[0]).toMatchObject({ coverRevision: 1 });
+
 		// Made again without a cover: the old one goes.
 		await library.finished(id, { folder: "/b" });
 		expect(await library.get(id)).toMatchObject({ folder: "/b" });
 		expect(await library.get(id)).not.toHaveProperty("hasCover");
 		expect(await library.cover(id)).toBeNull();
 		expect(await covers()).toEqual([]);
+	});
+
+	test("a replaced cover gets a new revision, which survives a restart", async () => {
+		const library = openLibrary(file);
+		const id = await library.record(album("Night Drive"), undefined);
+		expect((await library.list(10))[0]).toMatchObject({ coverRevision: 0 });
+		await library.finished(id, { folder: "/a", cover: Buffer.from("one") });
+		expect((await library.list(10))[0]).toMatchObject({ coverRevision: 1 });
+
+		// Made again: the revision only moves once the new cover is in place.
+		await library.record(album("Night Drive"), id);
+		expect((await library.list(10))[0]).toMatchObject({ coverRevision: 1 });
+		await library.finished(id, { folder: "/a", cover: Buffer.from("two") });
+
+		const reopened = openLibrary(file);
+		expect((await reopened.list(10))[0]).toMatchObject({ coverRevision: 2 });
+		expect(await reopened.cover(id)).toEqual(Buffer.from("two"));
 	});
 
 	test("an album deleted while it was being made is not brought back", async () => {

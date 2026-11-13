@@ -25,6 +25,7 @@ import {
 	type AlbumMenuChoice,
 	CHANNELS,
 	type FieldErrors,
+	LIBRARY_CHANGED,
 	type ShareChoice,
 	type StartJobResult,
 	type TagTapeApi,
@@ -54,9 +55,10 @@ export interface IpcContext {
 }
 
 type Handlers = {
-	[K in keyof Omit<TagTapeApi, "version" | "platform" | "onNavigate">]: (
-		...args: unknown[]
-	) => ReturnType<TagTapeApi[K]>;
+	[K in keyof Omit<
+		TagTapeApi,
+		"version" | "platform" | "onNavigate" | "onLibraryChanged"
+	>]: (...args: unknown[]) => ReturnType<TagTapeApi[K]>;
 };
 
 /**
@@ -157,10 +159,13 @@ export function registerIpc(ctx: IpcContext): {
 	const finishedEarly = new Map<string, Finished>();
 	async function remember(albumId: string, result: Finished): Promise<void> {
 		try {
-			await ctx.library.finished(albumId, {
+			const kept = await ctx.library.finished(albumId, {
 				folder: result.folder,
 				cover: result.cover && (await thumbnail(result.cover)),
 			});
+			// The page may be showing this album with its old cover and folder.
+			const page = ctx.window()?.webContents;
+			if (kept && page && !page.isDestroyed()) page.send(LIBRARY_CHANGED);
 		} catch (error) {
 			ctx.log.error({ err: error }, "Remembering the finished album failed");
 		}
@@ -389,10 +394,11 @@ export function registerIpc(ctx: IpcContext): {
 			if (!parsed.success) return null;
 			const stored = await ctx.library.get(parsed.data);
 			if (!stored) return null;
-			const { folder, hasCover, ...album } = stored;
+			const { folder, hasCover, coverRevision, ...album } = stored;
 			return {
 				...album,
 				hasCover: hasCover === true,
+				coverRevision: coverRevision ?? 0,
 				folder:
 					folder === undefined
 						? "never"

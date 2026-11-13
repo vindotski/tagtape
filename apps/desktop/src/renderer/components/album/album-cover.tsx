@@ -11,11 +11,11 @@ const SIZES = {
 	xl: "size-40 md:size-52 [&_svg]:size-16 text-xl",
 };
 
-/** A stored album's cover: which album, and when it was last made. */
+/** A stored album's cover: which album, and which of its covers. */
 export interface StoredCover {
 	albumId: string;
-	/** Changes when the album is made again, so a new cover is fetched. */
-	version: string;
+	/** Goes up when the kept cover is replaced, so the new one is fetched. */
+	revision: number;
 }
 
 /**
@@ -67,27 +67,33 @@ export function AlbumCover({
 }
 
 // Covers are small `data:` URLs; keeping them means a shelf doesn't flicker
-// back to initials each time it is shown.
-const cache = new Map<string, string>();
+// back to initials each time it is shown. One per album: a replaced cover
+// takes the old one's place.
+const cache = new Map<string, { revision: number; url: string }>();
+
+const cached = (albumId: string | undefined, revision: number | undefined) => {
+	const known = albumId ? cache.get(albumId) : undefined;
+	return known?.revision === revision ? known?.url : undefined;
+};
 
 function useStoredCover(stored: StoredCover | undefined): string | undefined {
 	const albumId = stored?.albumId;
-	const key = stored ? `${stored.albumId}@${stored.version}` : undefined;
-	const [image, setImage] = useState(() => (key ? cache.get(key) : undefined));
+	const revision = stored?.revision;
+	const [image, setImage] = useState(() => cached(albumId, revision));
 	useEffect(() => {
-		const known = key ? cache.get(key) : undefined;
+		const known = cached(albumId, revision);
 		setImage(known);
-		if (!key || !albumId || known) return;
+		if (!albumId || revision === undefined || known) return;
 		let current = true;
 		void fetchAlbumCover(albumId).then((url) => {
 			if (!url) return;
-			cache.set(key, url);
+			cache.set(albumId, { revision, url });
 			if (current) setImage(url);
 		});
 		return () => {
 			current = false;
 		};
-	}, [key, albumId]);
+	}, [albumId, revision]);
 	return image;
 }
 
@@ -95,10 +101,10 @@ function useStoredCover(stored: StoredCover | undefined): string | undefined {
 export function storedCover(album: {
 	id: string;
 	hasCover: boolean;
-	updatedAt: string;
+	coverRevision: number;
 }): StoredCover | undefined {
 	return album.hasCover
-		? { albumId: album.id, version: album.updatedAt }
+		? { albumId: album.id, revision: album.coverRevision }
 		: undefined;
 }
 

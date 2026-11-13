@@ -11,6 +11,7 @@ import {
 	appPlatform,
 	fetchAlbums,
 	fetchSources,
+	onLibraryChanged,
 	onNavigate,
 } from "#/lib/bridge";
 import { requestNewAlbum } from "#/lib/new-album";
@@ -75,6 +76,9 @@ function Root() {
 			}),
 		[navigate, router],
 	);
+	// A finished album's folder and cover are kept a moment after its job
+	// ends: the lists and the album's screen read them again.
+	useEffect(() => onLibraryChanged(() => void router.invalidate()), [router]);
 	return (
 		// biome-ignore lint/a11y/noStaticElementInteractions: a drop target for the whole window; File > Open does the same from the keyboard
 		<div

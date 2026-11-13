@@ -23,6 +23,8 @@ const storedAlbumSchema = z.object({
 	folder: z.string().optional(),
 	/** A small copy of the cover is in the covers folder. */
 	hasCover: z.boolean().optional(),
+	/** How many times a cover was kept; stays when the cover goes. */
+	coverRevision: z.number().optional(),
 });
 /** An album as the file holds it. */
 export type LibraryAlbum = z.infer<typeof storedAlbumSchema>;
@@ -47,7 +49,8 @@ export interface Library {
 	record(album: Album, albumId: string | undefined): Promise<string>;
 	/**
 	 * Notes where a finished album was saved and keeps its small cover (or
-	 * drops the old one when it was made without). False if the album is gone.
+	 * drops the old one when it was made without). A kept cover gets the next
+	 * `coverRevision`. False if the album is gone.
 	 */
 	finished(
 		albumId: string,
@@ -116,8 +119,13 @@ export function openLibrary(
 		tracks: _tracks,
 		folder: _folder,
 		hasCover,
+		coverRevision,
 		...rest
-	}: LibraryAlbum): AlbumSummary => ({ ...rest, hasCover: hasCover === true });
+	}: LibraryAlbum): AlbumSummary => ({
+		...rest,
+		hasCover: hasCover === true,
+		coverRevision: coverRevision ?? 0,
+	});
 
 	return {
 		record(album, albumId) {
@@ -140,6 +148,9 @@ export function openLibrary(
 					// Until this run finishes, the last one's folder and cover stand.
 					...(existing?.folder ? { folder: existing.folder } : {}),
 					...(existing?.hasCover ? { hasCover: true } : {}),
+					...(existing?.coverRevision
+						? { coverRevision: existing.coverRevision }
+						: {}),
 				};
 				const all = [
 					stored,
@@ -161,6 +172,9 @@ export function openLibrary(
 					await writeFile(temp, cover, { mode: 0o600 });
 					await rename(temp, coverFile(albumId));
 					stored.hasCover = true;
+					// `updatedAt` was set when this run started, and the old cover
+					// may have been shown since: the new one needs its own mark.
+					stored.coverRevision = (stored.coverRevision ?? 0) + 1;
 				} else if (stored.hasCover) {
 					await rm(coverFile(albumId), { force: true });
 					delete stored.hasCover;

@@ -1,5 +1,11 @@
 import { contextBridge, ipcRenderer } from "electron";
-import { CHANNELS, NAVIGATE, type Screen, type TagTapeApi } from "../ipc.ts";
+import {
+	CHANNELS,
+	LIBRARY_CHANGED,
+	NAVIGATE,
+	type Screen,
+	type TagTapeApi,
+} from "../ipc.ts";
 
 // Main may ask for a screen before the page has started listening (a shared
 // album opened while the app starts): keep those until it does.
@@ -8,6 +14,11 @@ let navigate: ((to: Screen) => void) | undefined;
 ipcRenderer.on(NAVIGATE, (_event, to: Screen) => {
 	if (navigate) navigate(to);
 	else waiting.push(to);
+});
+
+const libraryListeners = new Set<() => void>();
+ipcRenderer.on(LIBRARY_CHANGED, () => {
+	for (const listener of libraryListeners) listener();
 });
 
 // The only thing the page can reach outside itself: no Node, no Electron
@@ -20,6 +31,12 @@ const api: TagTapeApi = {
 		for (const to of waiting.splice(0)) listener(to);
 		return () => {
 			if (navigate === listener) navigate = undefined;
+		};
+	},
+	onLibraryChanged(listener) {
+		libraryListeners.add(listener);
+		return () => {
+			libraryListeners.delete(listener);
 		};
 	},
 	sources: () => ipcRenderer.invoke(CHANNELS.sources),
