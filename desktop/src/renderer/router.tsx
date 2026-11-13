@@ -1,23 +1,16 @@
-import { createRouter as createTanStackRouter } from "@tanstack/react-router";
-import { createIsomorphicFn } from "@tanstack/react-start";
-import { cspNonce } from "./lib/csp.server";
+import {
+	createHashHistory,
+	createRouter as createTanStackRouter,
+} from "@tanstack/react-router";
 import { routeTree } from "./routeTree.gen";
 
-/** Per request on the server (sets the CSP header too); unused in the browser. */
-const nonce = createIsomorphicFn()
-	.server(() => cspNonce())
-	.client(() => undefined);
-
 export function getRouter() {
-	const router = createTanStackRouter({
+	return createTanStackRouter({
 		routeTree,
-		ssr: { nonce: nonce() },
+		// The page is a local file: routes live in the URL's hash.
+		history: createHashHistory(),
 		scrollRestoration: true,
-		defaultPreload: "intent",
-		defaultPreloadStaleTime: 0,
 	});
-
-	return router;
 }
 
 declare module "@tanstack/react-router" {

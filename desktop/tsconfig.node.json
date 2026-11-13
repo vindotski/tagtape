@@ -1,8 +1,15 @@
 {
 	"extends": "../tsconfig.base.json",
-	// src/renderer (the UI from the old web app) is parked: it joins the
-	// typecheck when the Electron shell wires it up.
-	"include": ["src/core"],
+	// The main process, the preload script and the pipeline: Node code.
+	"include": [
+		"src/main",
+		"src/preload",
+		"src/core",
+		"src/ipc.ts",
+		"src/env.d.ts",
+		"electron.vite.config.ts",
+		"vitest.config.ts"
+	],
 	"compilerOptions": {
 		"module": "NodeNext",
 		"moduleResolution": "NodeNext",

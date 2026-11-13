@@ -1,0 +1,15 @@
+{
+	"extends": "../tsconfig.base.json",
+	// The window's page: browser code, bundled by Vite.
+	"include": ["src/renderer", "src/ipc.ts", "src/env.d.ts"],
+	"compilerOptions": {
+		"lib": ["ES2022", "DOM", "DOM.Iterable"],
+		"jsx": "react-jsx",
+		"types": ["vite/client"],
+		"allowImportingTsExtensions": true,
+		"paths": {
+			"#/*": ["./src/renderer/*"],
+			"@/*": ["./src/renderer/*"]
+		}
+	}
+}

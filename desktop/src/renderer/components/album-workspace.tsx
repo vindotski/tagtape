@@ -16,7 +16,7 @@ interface AlbumWorkspaceProps {
 	initialDraft: AlbumDraft;
 	/** A stored album: converting it again updates it. */
 	albumId?: string;
-	/** What "Convert another album" does; by default the editor starts empty. */
+	/** What "Make another album" does; by default the editor starts empty. */
 	onStartOver?: () => void;
 }
 
@@ -45,7 +45,7 @@ export function AlbumWorkspace({
 				onStarted={(jobId, savedId) => {
 					setPhase({ kind: "job", jobId });
 					if (savedId) setAlbumId(savedId);
-					// The album (and, on a first visit, the new guest) shows up in the lists.
+					// The album shows up in the lists.
 					void router.invalidate();
 				}}
 			/>

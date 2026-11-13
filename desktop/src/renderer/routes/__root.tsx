@@ -1,90 +1,56 @@
-import {
-	createRootRoute,
-	HeadContent,
-	Link,
-	Scripts,
-} from "@tanstack/react-router";
+import { createRootRoute, Link, Outlet } from "@tanstack/react-router";
 import { buttonVariants } from "#/components/ui/button";
-import { fetchSources } from "#/lib/jobs.functions";
-import appCss from "../styles.css?url";
-
-const DESCRIPTION =
-	"Turn track links into a ZIP of MP3s with album, artist, track numbers and cover art filled in. Works on any MP3 player.";
+import { appVersion, fetchSources } from "#/lib/bridge";
 
 export const Route = createRootRoute({
-	// Which links this instance accepts depends on the API's source plugins.
+	// Which links the app accepts: its built-in sources, plus any plugins.
 	loader: () => fetchSources(),
-	head: () => ({
-		meta: [
-			{ charSet: "utf-8" },
-			{ name: "viewport", content: "width=device-width, initial-scale=1" },
-			{ title: "TagTape: links to tagged MP3 albums" },
-			{ name: "description", content: DESCRIPTION },
-			// The preset's primary, oklch(0.527 0.154 150.069), is Tailwind's green-700.
-			{ name: "theme-color", content: "#15803d" },
-			{ property: "og:title", content: "TagTape" },
-			{ property: "og:description", content: DESCRIPTION },
-			{ property: "og:url", content: "https://tagtape.app" },
-		],
-		links: [
-			{ rel: "stylesheet", href: appCss },
-			{ rel: "icon", href: "/favicon.svg", type: "image/svg+xml" },
-			{ rel: "canonical", href: "https://tagtape.app" },
-		],
-	}),
-	shellComponent: RootDocument,
+	component: Root,
 });
 
-function RootDocument({ children }: { children: React.ReactNode }) {
+function Root() {
 	return (
-		<html lang="en">
-			<head>
-				<HeadContent />
-			</head>
-			<body className="min-h-dvh bg-muted antialiased dark:bg-background">
-				<div className="mx-auto flex min-h-dvh max-w-5xl flex-col px-4 sm:px-6">
-					<header className="flex items-center justify-between gap-4 py-6">
-						<Link
-							to="/"
-							className="flex items-center gap-2.5 outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-						>
-							<Logo />
-							<span className="text-lg font-bold tracking-tight">TagTape</span>
-						</Link>
-						<nav aria-label="Main" className="flex items-center gap-1">
-							<Link
-								to="/albums"
-								className={buttonVariants({ variant: "ghost" })}
-							>
-								Your albums
-							</Link>
-							<Link
-								to="/new"
-								className={buttonVariants({ variant: "outline" })}
-							>
-								Make an album
-							</Link>
-						</nav>
-					</header>
-					<main className="flex-1 pb-16">{children}</main>
-					<footer className="flex flex-wrap gap-x-6 gap-y-2 border-t py-6 text-sm text-muted-foreground">
-						<a
-							href="https://github.com/vindotski/tagtape"
-							className="underline-offset-4 hover:underline"
-						>
-							Source on GitHub
-						</a>
-						<a
-							href="https://github.com/vindotski/tagtape/blob/main/CHANGELOG.md"
-							className="ml-auto tabular-nums underline-offset-4 hover:underline"
-						>
-							v{__APP_VERSION__}
-						</a>
-					</footer>
-				</div>
-				<Scripts />
-			</body>
-		</html>
+		<div className="mx-auto flex min-h-dvh max-w-5xl flex-col px-4 sm:px-6">
+			<header className="flex items-center justify-between gap-4 py-6">
+				<Link
+					to="/"
+					className="flex items-center gap-2.5 outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+				>
+					<Logo />
+					<span className="text-lg font-bold tracking-tight">TagTape</span>
+				</Link>
+				<nav aria-label="Main" className="flex items-center gap-1">
+					<Link to="/albums" className={buttonVariants({ variant: "ghost" })}>
+						Your albums
+					</Link>
+					<Link to="/" className={buttonVariants({ variant: "outline" })}>
+						Make an album
+					</Link>
+				</nav>
+			</header>
+			<main className="flex-1 pb-16">
+				<Outlet />
+			</main>
+			<footer className="flex flex-wrap gap-x-6 gap-y-2 border-t py-6 text-sm text-muted-foreground">
+				{/* Opens in the browser: the window itself never leaves the app. */}
+				<a
+					href="https://github.com/vindotski/tagtape"
+					target="_blank"
+					rel="noreferrer"
+					className="underline-offset-4 hover:underline"
+				>
+					Source on GitHub
+				</a>
+				<a
+					href="https://github.com/vindotski/tagtape/blob/main/CHANGELOG.md"
+					target="_blank"
+					rel="noreferrer"
+					className="ml-auto tabular-nums underline-offset-4 hover:underline"
+				>
+					v{appVersion()}
+				</a>
+			</footer>
+		</div>
 	);
 }
 

@@ -17,7 +17,7 @@ export interface AlbumDraft {
 	tracks: TrackDraft[];
 }
 
-/** Only called from event handlers, so it always runs in the browser. */
+/** A fresh, unique key for a track row. */
 export function newTrack(): TrackDraft {
 	return { key: crypto.randomUUID(), title: "", url: "" };
 }
@@ -34,8 +34,8 @@ export function emptyDraft(): AlbumDraft {
 }
 
 /**
- * A stored album, ready to edit. Keys are derived from positions so the
- * server and the browser render the same markup.
+ * A stored album, ready to edit. Keys are derived from positions, so they
+ * are stable between renders.
  */
 export function draftFromAlbum(album: StoredAlbum): AlbumDraft {
 	const tracks = album.tracks.map(({ title, url }, i) => ({

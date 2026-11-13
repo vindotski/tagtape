@@ -4,11 +4,11 @@
 
 export const UNSUPPORTED_LINK = "TagTape can't read tracks from this link";
 
-/** A site's anti-bot check or rate limit: about this server, not the track. */
+/** A site's anti-bot check or rate limit: about this device's connection, not the track. */
 export const BLOCKED =
 	/confirm you(?:'|\u2019)?re not a (?:ro)?bot|unusual traffic|HTTP Error 429|too many requests/i;
 export const BLOCKED_MESSAGE =
-	"The site is refusing this server right now (it suspects automated access). Try again later";
+	"The site is refusing requests from this device right now (it suspects automated access). Try again later";
 
 const KNOWN_ERRORS: ReadonlyArray<readonly [RegExp, string]> = [
 	// With `generic` excluded, yt-dlp 2026.10.26 says "No suitable extractor".
@@ -18,7 +18,7 @@ const KNOWN_ERRORS: ReadonlyArray<readonly [RegExp, string]> = [
 		/Tunnel connection failed|ProxyError|Unable to connect to proxy|HTTP Error 403: Forbidden.*proxy/i,
 		"This link couldn't be reached",
 	],
-	// Anti-bot checks and rate limits are about this server, not the track.
+	// Anti-bot checks and rate limits are about this connection, not the track.
 	// Before the sign-in rule below: the bot check also says "Use --cookies".
 	[BLOCKED, BLOCKED_MESSAGE],
 	[/private (?:video|track)|this track is private/i, "This track is private"],
@@ -37,7 +37,7 @@ const KNOWN_ERRORS: ReadonlyArray<readonly [RegExp, string]> = [
 	],
 	[
 		/not available in your country|geo.?restrict|not available in your region/i,
-		"This track isn't available in our region",
+		"This track isn't available in your region",
 	],
 	[/copyright/i, "This track was removed for copyright reasons"],
 	[
@@ -89,5 +89,5 @@ export function describeYtDlpFailure(stderr: string): string {
 /** What a paused site's links answer until the pause ends. */
 export function pausedMessage(msLeft: number): string {
 	const minutes = Math.max(1, Math.ceil(msLeft / 60_000));
-	return `The site is refusing this server right now (it suspects automated access). Try again in about ${minutes} minute${minutes === 1 ? "" : "s"}`;
+	return `The site is refusing requests from this device right now (it suspects automated access). Try again in about ${minutes} minute${minutes === 1 ? "" : "s"}`;
 }

@@ -5,13 +5,10 @@ import { albumMeta } from "#/components/album/album-shell";
 import type { AlbumSummary } from "#/lib/albums";
 import { cn } from "#/lib/utils";
 
-// A fixed locale and time zone, so the server and browser render the same text.
-const dateFormat = new Intl.DateTimeFormat("en", {
-	dateStyle: "medium",
-	timeZone: "UTC",
-});
+// A fixed locale (the app is in English), in this computer's time zone.
+const dateFormat = new Intl.DateTimeFormat("en", { dateStyle: "medium" });
 
-/** The visitor's albums under a "Your albums" heading (the /new page). */
+/** Past albums under a "Your albums" heading (the first page). */
 export function RecentAlbums({
 	albums,
 	action,

@@ -16,6 +16,7 @@ blockExoticSubdeps: true
 strictDepBuilds: true
 
 allowBuilds:
+  electron: true
   esbuild: true
   lightningcss: true
   sharp: true

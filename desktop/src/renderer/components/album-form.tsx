@@ -1,5 +1,11 @@
-import { CircleAlert, Download, ImageIcon, ImagePlus } from "lucide-react";
-import { useState } from "react";
+import {
+	CircleAlert,
+	FolderOpen,
+	ImageIcon,
+	ImagePlus,
+	Music,
+} from "lucide-react";
+import { useEffect, useState } from "react";
 import { AlbumCover } from "#/components/album/album-cover";
 import {
 	AlbumFooter,
@@ -19,15 +25,14 @@ import {
 	type TrackDraft,
 	validateDraft,
 } from "#/lib/album-draft";
-import { startJob } from "#/lib/jobs.functions";
-import { usePow } from "#/lib/use-pow";
+import { chooseDestination, fetchDestination, startJob } from "#/lib/bridge";
 import { TextField } from "./text-field";
 import { TrackLimitsNote, TrackList } from "./track-list";
 
 interface AlbumFormProps {
 	draft: AlbumDraft;
 	onDraftChange: (draft: AlbumDraft) => void;
-	/** Errors from a previous attempt, e.g. per-track problems the API found. */
+	/** Errors from a previous attempt, e.g. per-track problems the check found. */
 	initialErrors?: FieldErrors;
 	/** The stored album being made again, if any: it's updated, not duplicated. */
 	albumId?: string | undefined;
@@ -44,7 +49,17 @@ export function AlbumForm({
 	const [errors, setErrors] = useState<FieldErrors>(initialErrors ?? {});
 	const [formError, setFormError] = useState<string>();
 	const [submitting, setSubmitting] = useState(false);
-	const takeProof = usePow();
+	// Where albums are saved: the app remembers it between albums.
+	const [destination, setDestination] = useState<string>();
+	useEffect(() => {
+		let current = true;
+		void fetchDestination().then((folder) => {
+			if (current) setDestination(folder);
+		});
+		return () => {
+			current = false;
+		};
+	}, []);
 	const [coverOpen, setCoverOpen] = useState(false);
 	// Always shown once it has something to show (a link, or an error about it).
 	const coverShown =
@@ -84,17 +99,7 @@ export function AlbumForm({
 		}
 		setSubmitting(true);
 		try {
-			// A proof-of-work keeps scripts from starting albums in bulk; it's
-			// usually solved already, in the background, while the form was filled in.
-			let response = await startJob({
-				data: { album: result.input, proof: await takeProof(), albumId },
-			});
-			if (!response.ok && response.retryProof) {
-				// Expired or used up (e.g. the server restarted): one fresh try.
-				response = await startJob({
-					data: { album: result.input, proof: await takeProof(), albumId },
-				});
-			}
+			const response = await startJob({ album: result.input, albumId });
 			if (response.ok) {
 				onStarted(response.jobId, response.albumId);
 				return;
@@ -249,7 +254,26 @@ export function AlbumForm({
 					}
 				/>
 
-				<AlbumFooter className="border-t-0">
+				<div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t px-4 py-3 text-sm sm:px-6">
+					<span className="text-muted-foreground">Save in</span>
+					<span
+						className="min-w-0 flex-1 truncate font-medium"
+						title={destination}
+					>
+						{destination ?? "…"}
+					</span>
+					<Button
+						variant="outline"
+						size="sm"
+						isDisabled={submitting}
+						onPress={() => void chooseDestination().then(setDestination)}
+					>
+						<FolderOpen data-icon="inline-start" />
+						Change…
+					</Button>
+				</div>
+
+				<AlbumFooter>
 					<TrackLimitsNote />
 					<div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
 						{formError && (
@@ -267,9 +291,9 @@ export function AlbumForm({
 							{submitting ? (
 								<Spinner aria-hidden="true" />
 							) : (
-								<Download aria-hidden="true" />
+								<Music aria-hidden="true" />
 							)}
-							{submitting ? "Starting…" : "Convert & download"}
+							{submitting ? "Starting…" : "Make album"}
 						</Button>
 					</div>
 				</AlbumFooter>

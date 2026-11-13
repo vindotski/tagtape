@@ -1,16 +1,16 @@
-import { FileArchive } from "lucide-react";
+import { Folder } from "lucide-react";
 import type { ComponentProps, ReactNode } from "react";
 import { cn } from "#/lib/utils";
 
-/** The ZIP's name as the download will roughly call it. */
+/** The album folder's name, roughly as it will be saved. */
 export function albumFileName(artist: string, title: string): string {
 	const parts = [artist.trim(), title.trim()].filter(Boolean);
-	return `${parts.length > 0 ? parts.join(" - ") : "Untitled album"}.zip`;
+	return parts.length > 0 ? parts.join(" - ") : "Untitled album";
 }
 
 /**
- * The album card shared by the home page, the editor and the progress view:
- * a file name strip, then whatever the album shows (header, playlist, footer).
+ * The album card shared by the editor and the progress view: a folder name
+ * strip, then whatever the album shows (header, playlist, footer).
  */
 export function AlbumShell({
 	fileName,
@@ -24,7 +24,7 @@ export function AlbumShell({
 			{...props}
 		>
 			<div className="flex items-center gap-2 border-b px-4 py-2.5 text-sm text-muted-foreground">
-				<FileArchive className="size-4 shrink-0" aria-hidden="true" />
+				<Folder className="size-4 shrink-0" aria-hidden="true" />
 				<span className="truncate">{fileName}</span>
 			</div>
 			{children}

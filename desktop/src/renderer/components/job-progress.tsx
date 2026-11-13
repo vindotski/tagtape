@@ -1,6 +1,12 @@
-import type { JobStatus, TrackSnapshot, TrackStatus } from "@tagtape/shared";
-import { Check, CircleAlert, Download } from "lucide-react";
-import { useEffect, useRef } from "react";
+import {
+	isJobFinished,
+	type JobSnapshot,
+	type JobStatus,
+	type TrackSnapshot,
+	type TrackStatus,
+} from "@tagtape/shared";
+import { Check, CircleAlert, FolderOpen } from "lucide-react";
+import { useState } from "react";
 import { AlbumCover } from "#/components/album/album-cover";
 import {
 	AlbumFooter,
@@ -10,19 +16,19 @@ import {
 	albumMeta,
 } from "#/components/album/album-shell";
 import { Alert, AlertDescription } from "#/components/ui/alert";
-import { Button, LinkButton } from "#/components/ui/button";
+import { Button } from "#/components/ui/button";
 import { Progress } from "#/components/ui/progress";
 import { Spinner } from "#/components/ui/spinner";
 import type { AlbumDraft } from "#/lib/album-draft";
-import { type JobView, useJob } from "#/lib/use-job";
+import { cancelJob, showJobFolder } from "#/lib/bridge";
+import { useJob } from "#/lib/use-job";
 import { cn } from "#/lib/utils";
 
 const JOB_LABELS: Record<JobStatus, string> = {
-	queued: "Waiting for a free slot…",
+	queued: "Waiting for a turn…",
 	probing: "Checking your tracks…",
-	ready: "Starting your download…",
-	streaming: "Converting and downloading…",
-	done: "Your album has downloaded",
+	streaming: "Converting and saving…",
+	done: "Your album is saved",
 	failed: "That didn't work",
 };
 
@@ -33,9 +39,8 @@ const TRACK_LABELS: Record<TrackStatus, string> = {
 	error: "Problem",
 };
 
-/** Shown while the download runs: closing the tab stops the conversion. */
-const KEEP_OPEN =
-	"Tracks are converted while your browser downloads the ZIP. Keep this tab open until it finishes. The music is never stored on our side.";
+/** What a cancelled job reports as its error (see the job manager). */
+const CANCELLED = "Cancelled";
 
 interface JobProgressProps {
 	jobId: string;
@@ -53,22 +58,17 @@ export function JobProgress({
 	onStartOver,
 }: JobProgressProps) {
 	const state = useJob(jobId);
+	const [cancelling, setCancelling] = useState(false);
 
 	if (state.kind === "loading") {
 		return <Panel album={album} title="Starting…" />;
 	}
-	if (state.kind === "missing" || state.kind === "unreachable") {
+	if (state.kind === "missing") {
 		return (
 			<Panel
 				album={album}
-				title={
-					state.kind === "missing" ? "This job has expired" : "Lost connection"
-				}
-				message={
-					state.kind === "missing"
-						? "Albums can be downloaded for 30 minutes after they're checked. Your form is still filled in, so you can convert it again."
-						: "We can't reach TagTape right now. Check your connection and try again."
-				}
+				title="This album isn't running any more"
+				message="TagTape was restarted, or the album finished a while ago. Your form is still filled in, so you can make it again."
 			>
 				<AlbumFooter>
 					<Actions onEdit={() => onEdit({})} onStartOver={onStartOver} />
@@ -77,45 +77,50 @@ export function JobProgress({
 		);
 	}
 
-	const { job, downloadUrl } = state.view;
-	const streamFailed = job.status === "failed" && job.downloadReady;
-	const message =
-		job.status === "streaming" || job.status === "queued"
-			? KEEP_OPEN
-			: undefined;
+	const { job } = state;
+	const working = !isJobFinished(job.status);
+	const cancelled = job.status === "failed" && job.error === CANCELLED;
 	return (
 		<Panel
 			album={album}
-			title={JOB_LABELS[job.status]}
-			message={message}
+			title={cancelled ? "Cancelled" : JOB_LABELS[job.status]}
+			message={
+				job.status === "done"
+					? job.folder
+					: cancelled
+						? "Nothing was saved."
+						: undefined
+			}
 			tone={job.status}
-			error={job.error}
-			progress={<ProgressBar view={state.view} />}
+			error={cancelled ? undefined : job.error}
+			progress={<ProgressBar job={job} />}
 		>
 			<ol aria-label="Tracks" className="border-t">
 				{job.tracks.map((track) => (
 					<TrackLine key={track.number} track={track} />
 				))}
 			</ol>
-			{/* The download *is* the conversion: start it as soon as the check passes. */}
-			{job.status === "ready" && downloadUrl && (
-				<AutoDownload url={downloadUrl} />
-			)}
-			{job.status === "ready" && downloadUrl && (
+			{working && (
 				<AlbumFooter>
 					<p className="text-sm text-muted-foreground">
-						Download didn't start?{" "}
-						<DownloadLink
-							url={downloadUrl}
-							variant="link"
-							className="h-auto p-0 align-baseline"
-						>
-							Start it here
-						</DownloadLink>
+						You can keep using your computer. Quitting TagTape cancels the
+						album.
 					</p>
+					<Button
+						variant="outline"
+						size="lg"
+						isPending={cancelling}
+						onPress={() => {
+							setCancelling(true);
+							void cancelJob(job.id);
+						}}
+					>
+						{cancelling && <Spinner aria-hidden="true" />}
+						Cancel
+					</Button>
 				</AlbumFooter>
 			)}
-			{job.status === "failed" && !streamFailed && (
+			{job.status === "failed" && (
 				<AlbumFooter>
 					<Actions
 						onEdit={() =>
@@ -131,34 +136,15 @@ export function JobProgress({
 					/>
 				</AlbumFooter>
 			)}
-			{(job.status === "done" || streamFailed) && (
+			{job.status === "done" && (
 				<AlbumFooter>
-					{job.status === "done" && !downloadUrl && (
-						<p className="text-sm text-muted-foreground">
-							This album can't be downloaded again. Edit it to convert it once
-							more.
-						</p>
-					)}
 					<ActionsRow>
-						{job.status === "done" && !downloadUrl && (
-							<Button size="lg" onPress={() => onEdit({})}>
-								Edit the album
-							</Button>
-						)}
-						{downloadUrl && (
-							<DownloadLink url={downloadUrl} size="lg">
-								<Download aria-hidden="true" />
-								{streamFailed ? "Try the download again" : "Download again"}
-							</DownloadLink>
-						)}
-						<Button
-							variant="ghost"
-							size="lg"
-							onPress={job.status === "done" ? onStartOver : () => onEdit({})}
-						>
-							{job.status === "done"
-								? "Convert another album"
-								: "Edit the album"}
+						<Button size="lg" onPress={() => void showJobFolder(job.id)}>
+							<FolderOpen aria-hidden="true" />
+							Show in folder
+						</Button>
+						<Button variant="ghost" size="lg" onPress={onStartOver}>
+							Make another album
 						</Button>
 					</ActionsRow>
 				</AlbumFooter>
@@ -219,7 +205,9 @@ function Panel({
 						{title}
 					</h2>
 					{message && (
-						<p className="mt-1 text-sm text-muted-foreground">{message}</p>
+						<p className="mt-1 text-sm break-all text-muted-foreground">
+							{message}
+						</p>
 					)}
 				</div>
 				{progress}
@@ -235,8 +223,8 @@ function Panel({
 	);
 }
 
-function ProgressBar({ view }: { view: JobView }) {
-	const { tracks, status } = view.job;
+function ProgressBar({ job }: { job: JobSnapshot }) {
+	const { tracks, status } = job;
 	if (status === "failed") return null;
 	const done = tracks.filter((track) => track.status === "done").length;
 	const percent =
@@ -318,34 +306,4 @@ function Actions({
 			</Button>
 		</ActionsRow>
 	);
-}
-
-/**
- * A download link: `download` makes the browser save the response, and show a
- * failed download (instead of navigating away) if the server refuses.
- */
-function DownloadLink({
-	url,
-	...props
-}: { url: string } & Omit<
-	React.ComponentProps<typeof LinkButton>,
-	"href" | "download"
->) {
-	return <LinkButton href={url} download {...props} />;
-}
-
-/** Starts the download once, as soon as the album is ready. */
-function AutoDownload({ url }: { url: string }) {
-	const started = useRef(false);
-	useEffect(() => {
-		if (started.current) return;
-		started.current = true;
-		const link = document.createElement("a");
-		link.href = url;
-		link.download = "";
-		document.body.append(link);
-		link.click();
-		link.remove();
-	}, [url]);
-	return null;
 }

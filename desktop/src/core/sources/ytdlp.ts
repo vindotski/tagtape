@@ -12,7 +12,7 @@
  * - At most `maxChecks` yt-dlp checks run at once (each is a Python process
  *   of ~100 MB). Downloads aren't counted: `MAX_ACTIVE_STREAMS` caps them,
  *   and a shared cap would let two long downloads starve every album check.
- * - When a site's anti-bot check or rate limit refuses this server, that site
+ * - When a site's anti-bot check or rate limit refuses this device, that site
  *   is paused for `cooldownMs`: its links fail at once with a "try again"
  *   message instead of each asking yt-dlp to be refused again. TagTape never
  *   uses cookies, accounts, token helpers or rotating proxies to get past it.
@@ -49,7 +49,7 @@ export interface YtDlpOptions {
 	timeoutMs: number;
 	/** yt-dlp checks (probes) running at once. Downloads are capped by the job manager. */
 	maxChecks: number;
-	/** How long a site stays paused after it refused this server; 0 never pauses. */
+	/** How long a site stays paused after it refused this device; 0 never pauses. */
 	cooldownMs?: number;
 	/** Where the start of a pause is reported (the server's logger). */
 	log?: { warn(obj: object, msg: string): void };
@@ -172,7 +172,7 @@ export function ffmpegArgs(sourceCodec: string | null): string[] {
 	];
 }
 
-/** True when the site refused this server (bot check, rate limit), not the track. */
+/** True when the site refused this device (bot check, rate limit), not the track. */
 export function isBlockedFailure(error: unknown): boolean {
 	const cause = error instanceof UserFacingError ? error.cause : error;
 	return cause instanceof ExecError && isBlockedStderr(cause.stderr);
@@ -269,7 +269,7 @@ export function createYtDlpSource(options: YtDlpOptions): Source {
 		pausedUntil.set(site, at + cooldownMs);
 		options.log?.warn(
 			{ site, until: new Date(at + cooldownMs).toISOString() },
-			"Site refused this server (bot check or rate limit): pausing it",
+			"Site refused this device (bot check or rate limit): pausing it",
 		);
 	}
 

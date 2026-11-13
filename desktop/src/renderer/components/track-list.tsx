@@ -95,7 +95,7 @@ export function TrackList({
 				</p>
 			)}
 
-			{/* A fixed id keeps dnd-kit's aria attributes identical on server and client. */}
+			{/* A fixed id keeps dnd-kit's aria attributes stable between renders. */}
 			<DndContext
 				id="tracks"
 				sensors={sensors}

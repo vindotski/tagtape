@@ -5,35 +5,24 @@ import {
 	useNavigate,
 	useRouter,
 } from "@tanstack/react-router";
-import { ArrowLeft, CircleAlert, Trash2 } from "lucide-react";
+import { ArrowLeft, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { z } from "zod";
 import { AlbumWorkspace } from "#/components/album-workspace";
-import { Alert, AlertDescription } from "#/components/ui/alert";
 import { Button, buttonVariants } from "#/components/ui/button";
 import { Spinner } from "#/components/ui/spinner";
 import { draftFromAlbum } from "#/lib/album-draft";
-import { fetchAlbum, removeAlbum } from "#/lib/jobs.functions";
+import { fetchAlbum, removeAlbum } from "#/lib/bridge";
 
 const albumIdSchema = z.uuid();
 
 export const Route = createFileRoute("/albums/$albumId")({
 	loader: async ({ params }) => {
-		// Not an id at all: the same answer as someone else's album.
 		if (!albumIdSchema.safeParse(params.albumId).success) throw notFound();
-		const album = await fetchAlbum({ data: { id: params.albumId } });
+		const album = await fetchAlbum(params.albumId);
 		if (!album) throw notFound();
 		return album;
 	},
-	head: ({ loaderData }) => ({
-		meta: [
-			{
-				title: loaderData
-					? `${loaderData.title} · TagTape`
-					: "Album not found · TagTape",
-			},
-		],
-	}),
 	component: AlbumPage,
 	notFoundComponent: AlbumNotFound,
 });
@@ -54,21 +43,12 @@ function AlbumPage() {
 				<DeleteAlbum id={album.id} />
 			</div>
 			<h1 className="sr-only">{album.title}</h1>
-			{!album.complete && (
-				<Alert className="mb-6">
-					<CircleAlert aria-hidden="true" />
-					<AlertDescription>
-						This album was saved before TagTape kept track links. Add the tracks
-						again to make it once more.
-					</AlertDescription>
-				</Alert>
-			)}
 			<AlbumWorkspace
 				// A different album is a fresh editor.
 				key={album.id}
 				initialDraft={draftFromAlbum(album)}
 				albumId={album.id}
-				onStartOver={() => void navigate({ to: "/new" })}
+				onStartOver={() => void navigate({ to: "/" })}
 			/>
 		</>
 	);
@@ -85,10 +65,7 @@ function DeleteAlbum({ id }: { id: string }) {
 	async function remove() {
 		setPending(true);
 		setFailed(false);
-		const { ok } = await removeAlbum({ data: { id } }).catch(() => ({
-			ok: false,
-		}));
-		if (ok) {
+		if (await removeAlbum(id)) {
 			await router.invalidate();
 			await navigate({ to: "/albums" });
 			return;
@@ -139,8 +116,8 @@ function AlbumNotFound() {
 				This album isn't in your library
 			</h1>
 			<p className="text-muted-foreground">
-				It may have been deleted, or it was made in another browser. Albums
-				belong to the browser that made them.
+				It may have been deleted. TagTape remembers the last albums made on this
+				computer.
 			</p>
 			<Link to="/albums" className={buttonVariants({ variant: "outline" })}>
 				Your albums

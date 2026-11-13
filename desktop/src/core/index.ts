@@ -1,4 +1,5 @@
 import {
+	type Album,
 	albumInputSchema,
 	type JobSnapshot,
 	UNSUPPORTED_LINK,
@@ -25,7 +26,7 @@ export interface FieldIssue {
 }
 
 export type CreateJobOutcome =
-	| { kind: "ok"; jobId: string }
+	| { kind: "ok"; jobId: string; album: Album }
 	| { kind: "invalid"; issues: FieldIssue[] }
 	| { kind: "busy"; message: string };
 
@@ -164,7 +165,7 @@ export function fromPipeline(
 				{ jobId: created.job.id, tracks: created.job.tracks.length },
 				"Job created",
 			);
-			return { kind: "ok", jobId: created.job.id };
+			return { kind: "ok", jobId: created.job.id, album: parsed.data };
 		},
 		getJob(id) {
 			const job = jobs.get(id);

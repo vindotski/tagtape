@@ -3,11 +3,10 @@ import { ArrowRight } from "lucide-react";
 import { AlbumGrid } from "#/components/recent-albums";
 import { buttonVariants } from "#/components/ui/button";
 import { HISTORY_LIMIT } from "#/lib/albums";
-import { fetchAlbums } from "#/lib/jobs.functions";
+import { fetchAlbums } from "#/lib/bridge";
 
 export const Route = createFileRoute("/albums/")({
-	head: () => ({ meta: [{ title: "Your albums · TagTape" }] }),
-	loader: () => fetchAlbums({ data: { limit: HISTORY_LIMIT } }),
+	loader: () => fetchAlbums(HISTORY_LIMIT),
 	component: Albums,
 });
 
@@ -21,7 +20,7 @@ function Albums() {
 						Your albums
 					</h1>
 					<p className="mt-3 text-muted-foreground">
-						The albums you've made in this browser, up to the last{" "}
+						The albums you've made on this computer, up to the last{" "}
 						{HISTORY_LIMIT}. Open one to edit it, make it again, or delete it.
 						TagTape keeps what you typed, never the music.
 					</p>
@@ -34,7 +33,7 @@ function Albums() {
 					<p className="text-muted-foreground">
 						No albums yet. The albums you make show up here.
 					</p>
-					<Link to="/new" className={buttonVariants()}>
+					<Link to="/" className={buttonVariants()}>
 						Make an album
 						<ArrowRight data-icon="inline-end" />
 					</Link>

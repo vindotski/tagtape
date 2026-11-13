@@ -145,15 +145,15 @@ describe("describeYtDlpFailure", () => {
 		// Its wording ends in a cookies hint, which must not read as "members only".
 		[
 			"ERROR: [example] abc: Sign in to confirm you\u2019re not a bot. Use --cookies-from-browser or --cookies for the authentication.",
-			"The site is refusing this server right now (it suspects automated access). Try again later",
+			"The site is refusing requests from this device right now (it suspects automated access). Try again later",
 		],
 		[
 			"ERROR: [example] abc: Sign in to confirm you're not a bot",
-			"The site is refusing this server right now (it suspects automated access). Try again later",
+			"The site is refusing requests from this device right now (it suspects automated access). Try again later",
 		],
 		[
 			"ERROR: [example] abc: Unable to download webpage: HTTP Error 429: Too Many Requests",
-			"The site is refusing this server right now (it suspects automated access). Try again later",
+			"The site is refusing requests from this device right now (it suspects automated access). Try again later",
 		],
 		[
 			"ERROR: [example] abc: Private video. Sign in if you've been granted access",
@@ -299,7 +299,7 @@ describe("source", () => {
 		await check;
 	});
 
-	describe("pausing a site that refused this server", () => {
+	describe("pausing a site that refused this device", () => {
 		const BOT_CHECK =
 			"WARNING: x\nERROR: [example] abc: Sign in to confirm you\u2019re not a bot. Use --cookies-from-browser or --cookies for the authentication.";
 		const OTHER = "https://other.example.org/track/1";
@@ -338,7 +338,7 @@ describe("source", () => {
 		test("a bot check pauses the site: the next link fails at once", async () => {
 			const t = setup("video.example.com");
 			await expect(t.probe(TRACK)).rejects.toThrow(
-				"The site is refusing this server right now (it suspects automated access). Try again later",
+				"The site is refusing requests from this device right now (it suspects automated access). Try again later",
 			);
 			await expect(
 				t.probe("https://video.example.com/watch/other"),

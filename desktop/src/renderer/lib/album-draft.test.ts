@@ -16,7 +16,6 @@ const stored: StoredAlbum = {
 		{ title: "Paper Lanterns", url: "https://example.com/1.mp3" },
 		{ title: "Night Bus", url: "https://example.com/2.mp3" },
 	],
-	complete: true,
 };
 
 describe("draftFromAlbum", () => {
@@ -49,7 +48,6 @@ describe("draftFromAlbum", () => {
 			...stored,
 			coverUrl: null,
 			tracks: [],
-			complete: false,
 		});
 		expect(draft.coverUrl).toBe("");
 		expect(draft.tracks).toEqual([{ key: "stored-0", title: "", url: "" }]);

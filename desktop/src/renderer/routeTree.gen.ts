@@ -8,140 +8,88 @@
 // You should NOT make any changes in this file as it will be overwritten.
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
-import { Route as rootRouteImport } from './routes/__root'
-import { Route as IndexRouteImport } from './routes/index'
-import { Route as NewRouteImport } from './routes/new'
-import { Route as AlbumsIndexRouteImport } from './routes/albums.index'
-import { Route as AlbumsAlbumIdRouteImport } from './routes/albums.$albumId'
-import { Route as DownloadJobIdRouteImport } from './routes/download.$jobId'
+import { Route as rootRouteImport } from "./routes/__root";
+import { Route as IndexRouteImport } from "./routes/index";
+import { Route as AlbumsIndexRouteImport } from "./routes/albums.index";
+import { Route as AlbumsAlbumIdRouteImport } from "./routes/albums.$albumId";
 
 const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+  id: "/",
+  path: "/",
   getParentRoute: () => rootRouteImport,
-} as any)
-const NewRoute = NewRouteImport.update({
-  id: '/new',
-  path: '/new',
-  getParentRoute: () => rootRouteImport,
-} as any)
+} as any);
 const AlbumsIndexRoute = AlbumsIndexRouteImport.update({
-  id: '/albums/',
-  path: '/albums/',
+  id: "/albums/",
+  path: "/albums/",
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any);
 const AlbumsAlbumIdRoute = AlbumsAlbumIdRouteImport.update({
-  id: '/albums/$albumId',
-  path: '/albums/$albumId',
+  id: "/albums/$albumId",
+  path: "/albums/$albumId",
   getParentRoute: () => rootRouteImport,
-} as any)
-const DownloadJobIdRoute = DownloadJobIdRouteImport.update({
-  id: '/download/$jobId',
-  path: '/download/$jobId',
-  getParentRoute: () => rootRouteImport,
-} as any)
+} as any);
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
-  '/new': typeof NewRoute
-  '/albums/$albumId': typeof AlbumsAlbumIdRoute
-  '/download/$jobId': typeof DownloadJobIdRoute
-  '/albums/': typeof AlbumsIndexRoute
+  "/": typeof IndexRoute;
+  "/albums/$albumId": typeof AlbumsAlbumIdRoute;
+  "/albums/": typeof AlbumsIndexRoute;
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
-  '/new': typeof NewRoute
-  '/albums/$albumId': typeof AlbumsAlbumIdRoute
-  '/download/$jobId': typeof DownloadJobIdRoute
-  '/albums': typeof AlbumsIndexRoute
+  "/": typeof IndexRoute;
+  "/albums/$albumId": typeof AlbumsAlbumIdRoute;
+  "/albums": typeof AlbumsIndexRoute;
 }
 export interface FileRoutesById {
-  __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
-  '/new': typeof NewRoute
-  '/albums/$albumId': typeof AlbumsAlbumIdRoute
-  '/download/$jobId': typeof DownloadJobIdRoute
-  '/albums/': typeof AlbumsIndexRoute
+  __root__: typeof rootRouteImport;
+  "/": typeof IndexRoute;
+  "/albums/$albumId": typeof AlbumsAlbumIdRoute;
+  "/albums/": typeof AlbumsIndexRoute;
 }
 export interface FileRouteTypes {
-  fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/new' | '/albums/$albumId' | '/download/$jobId' | '/albums/'
-  fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/new' | '/albums/$albumId' | '/download/$jobId' | '/albums'
-  id:
-    | '__root__'
-    | '/'
-    | '/new'
-    | '/albums/$albumId'
-    | '/download/$jobId'
-    | '/albums/'
-  fileRoutesById: FileRoutesById
+  fileRoutesByFullPath: FileRoutesByFullPath;
+  fullPaths: "/" | "/albums/$albumId" | "/albums/";
+  fileRoutesByTo: FileRoutesByTo;
+  to: "/" | "/albums/$albumId" | "/albums";
+  id: "__root__" | "/" | "/albums/$albumId" | "/albums/";
+  fileRoutesById: FileRoutesById;
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
-  NewRoute: typeof NewRoute
-  AlbumsAlbumIdRoute: typeof AlbumsAlbumIdRoute
-  DownloadJobIdRoute: typeof DownloadJobIdRoute
-  AlbumsIndexRoute: typeof AlbumsIndexRoute
+  IndexRoute: typeof IndexRoute;
+  AlbumsAlbumIdRoute: typeof AlbumsAlbumIdRoute;
+  AlbumsIndexRoute: typeof AlbumsIndexRoute;
 }
 
-declare module '@tanstack/react-router' {
+declare module "@tanstack/react-router" {
   interface FileRoutesByPath {
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/new': {
-      id: '/new'
-      path: '/new'
-      fullPath: '/new'
-      preLoaderRoute: typeof NewRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/albums/': {
-      id: '/albums/'
-      path: '/albums'
-      fullPath: '/albums/'
-      preLoaderRoute: typeof AlbumsIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/albums/$albumId': {
-      id: '/albums/$albumId'
-      path: '/albums/$albumId'
-      fullPath: '/albums/$albumId'
-      preLoaderRoute: typeof AlbumsAlbumIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/download/$jobId': {
-      id: '/download/$jobId'
-      path: '/download/$jobId'
-      fullPath: '/download/$jobId'
-      preLoaderRoute: typeof DownloadJobIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
+    "/": {
+      id: "/";
+      path: "/";
+      fullPath: "/";
+      preLoaderRoute: typeof IndexRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/albums/": {
+      id: "/albums/";
+      path: "/albums";
+      fullPath: "/albums/";
+      preLoaderRoute: typeof AlbumsIndexRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/albums/$albumId": {
+      id: "/albums/$albumId";
+      path: "/albums/$albumId";
+      fullPath: "/albums/$albumId";
+      preLoaderRoute: typeof AlbumsAlbumIdRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  NewRoute: NewRoute,
   AlbumsAlbumIdRoute: AlbumsAlbumIdRoute,
-  DownloadJobIdRoute: DownloadJobIdRoute,
   AlbumsIndexRoute: AlbumsIndexRoute,
-}
+};
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
-  ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
+  ._addFileTypes<FileRouteTypes>();
