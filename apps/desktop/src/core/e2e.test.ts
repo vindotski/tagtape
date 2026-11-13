@@ -4,11 +4,13 @@
  *
  *   TAGTAPE_E2E=1 pnpm --filter @tagtape/desktop exec vitest run src/core/e2e.test.ts
  *
- * Converts two public, freely licensed MP3 files through the built-in direct
- * source: both are CBR, so they're copied, not re-encoded.
+ * Every link comes from the environment, never from the repo (which names
+ * no sites); a part without its links is skipped:
  *
- * With TAGTAPE_E2E_SITE_URLS (comma-separated track links, kept out of the
- * repo), it also converts those through the yt-dlp source.
+ * - TAGTAPE_E2E_MP3_URLS: comma-separated direct links to freely licensed,
+ *   constant-bitrate MP3 files, for the built-in direct source (they are
+ *   copied, not re-encoded). TAGTAPE_E2E_COVER_URL: an image for the cover.
+ * - TAGTAPE_E2E_SITE_URLS: comma-separated track links for the yt-dlp source.
  */
 import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -21,10 +23,14 @@ import { createTagTape, type TagTape } from "./index.ts";
 import { binaryPaths } from "./lib/binaries.ts";
 
 const ENABLED = process.env.TAGTAPE_E2E === "1";
-const SITE_URLS = (process.env.TAGTAPE_E2E_SITE_URLS ?? "")
-	.split(",")
-	.map((url) => url.trim())
-	.filter(Boolean);
+const list = (value: string | undefined) =>
+	(value ?? "")
+		.split(",")
+		.map((url) => url.trim())
+		.filter(Boolean);
+const MP3_URLS = list(process.env.TAGTAPE_E2E_MP3_URLS);
+const COVER_URL = process.env.TAGTAPE_E2E_COVER_URL?.trim() || undefined;
+const SITE_URLS = list(process.env.TAGTAPE_E2E_SITE_URLS);
 
 const log = {
 	info() {},
@@ -60,21 +66,12 @@ function splitTag(file: Buffer): { tag: Buffer; audio: Buffer } {
 	return { tag: file.subarray(0, 10 + size), audio: file.subarray(10 + size) };
 }
 
-const tracks = [
-	{
-		title: "Тест ✓ Helix",
-		// SoundHelix's generated demo songs, widely used as test audio.
-		url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
-		kbps: 192,
-		seconds: 373,
-	},
-	{
-		title: "Archive test",
-		url: "archive.org/download/testmp3testfile/mpthreetest.mp3",
-		kbps: 128,
-		seconds: 12,
-	},
-];
+// The first title checks that tags and file names keep non-ASCII text.
+const tracks = MP3_URLS.map((url, index) => ({
+	title: index === 0 ? "Тест ✓ One" : `Track ${index + 1}`,
+	url,
+}));
+const number = (index: number) => String(index + 1).padStart(2, "0");
 
 describe.skipIf(!ENABLED)("end to end (bundled ffmpeg and yt-dlp)", () => {
 	let tagtape: TagTape;
@@ -117,59 +114,65 @@ describe.skipIf(!ENABLED)("end to end (bundled ffmpeg and yt-dlp)", () => {
 		expect(versions.ytdlp).toMatch(/^\d{4}\.\d{2}\.\d{2}/);
 	});
 
-	test("MP3 links + cover → a folder of tagged MP3s", {
-		timeout: 300_000,
-	}, async () => {
-		const started = Date.now();
-		const folder = await make({
-			title: "E2E Album",
-			artist: "Various",
-			year: "2005",
-			genre: "Test",
-			coverUrl:
-				"https://upload.wikimedia.org/wikipedia/commons/a/a9/Example.jpg",
-			tracks: tracks.map(({ title, url }) => ({ title, url })),
-		});
-		expect(folder).toBe(join(destination, "Various - E2E Album"));
-		expect((await readdir(folder)).sort()).toEqual([
-			"01 - Тест ✓ Helix.mp3",
-			"02 - Archive test.mp3",
-		]);
-
-		let bytes = 0;
-		for (const [index, expected] of tracks.entries()) {
-			const file = await readFile(
-				join(folder, `0${index + 1} - ${expected.title}.mp3`),
-			);
-			bytes += file.length;
-			const { tag, audio } = splitTag(file);
-
-			const tags = NodeID3.read(tag);
-			expect(tags).toMatchObject({
-				title: expected.title,
+	test.skipIf(tracks.length === 0)(
+		"MP3 links + cover → a folder of tagged MP3s",
+		{
+			timeout: 300_000,
+		},
+		async () => {
+			const started = Date.now();
+			const folder = await make({
+				title: "E2E Album",
 				artist: "Various",
-				performerInfo: "Various",
-				album: "E2E Album",
-				trackNumber: `${index + 1}/2`,
 				year: "2005",
 				genre: "Test",
+				...(COVER_URL ? { coverUrl: COVER_URL } : {}),
+				tracks: tracks.map(({ title, url }) => ({ title, url })),
 			});
-			const image = tags.image as { type: { id: number }; imageBuffer: Buffer };
-			expect(image.type.id).toBe(3);
-			expect(await sharp(image.imageBuffer).metadata()).toMatchObject({
-				format: "jpeg",
-				width: 1000,
-				height: 1000,
-			});
+			expect(folder).toBe(join(destination, "Various - E2E Album"));
+			expect((await readdir(folder)).sort()).toEqual(
+				tracks.map((track, index) => `${number(index)} - ${track.title}.mp3`),
+			);
 
-			expectOnlyOurTag(audio);
-			expect(MP3_BITRATES[(audio[2] as number) >> 4]).toBe(expected.kbps);
-			// CBR: duration follows from size and bitrate.
-			const seconds = (audio.length * 8) / (expected.kbps * 1000);
-			expect(Math.abs(seconds - expected.seconds)).toBeLessThan(2);
-		}
-		console.info(`saved ${bytes} bytes in ${Date.now() - started} ms`);
-	});
+			let bytes = 0;
+			for (const [index, expected] of tracks.entries()) {
+				const file = await readFile(
+					join(folder, `${number(index)} - ${expected.title}.mp3`),
+				);
+				bytes += file.length;
+				const { tag, audio } = splitTag(file);
+
+				const tags = NodeID3.read(tag);
+				expect(tags).toMatchObject({
+					title: expected.title,
+					artist: "Various",
+					performerInfo: "Various",
+					album: "E2E Album",
+					trackNumber: `${index + 1}/${tracks.length}`,
+					year: "2005",
+					genre: "Test",
+				});
+				if (COVER_URL) {
+					const image = tags.image as {
+						type: { id: number };
+						imageBuffer: Buffer;
+					};
+					expect(image.type.id).toBe(3);
+					expect(await sharp(image.imageBuffer).metadata()).toMatchObject({
+						format: "jpeg",
+						width: 1000,
+						height: 1000,
+					});
+				}
+
+				expectOnlyOurTag(audio);
+				// Copied as it was: a real MPEG bitrate, and real audio after the tag.
+				expect(MP3_BITRATES[(audio[2] as number) >> 4]).toBeGreaterThan(0);
+				expect(audio.length).toBeGreaterThan(100_000);
+			}
+			console.info(`saved ${bytes} bytes in ${Date.now() - started} ms`);
+		},
+	);
 
 	test.skipIf(SITE_URLS.length === 0)(
 		"site links → a folder of tagged MP3s",

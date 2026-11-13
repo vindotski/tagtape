@@ -91,7 +91,7 @@ function get(
 				// `lookup`, and with it the private-address check.
 				agent: false,
 				signal,
-				// Many hosts (Wikimedia, some CDNs) answer 403 without a User-Agent.
+				// Many hosts answer 403 without a User-Agent.
 				headers: { accept, "user-agent": USER_AGENT },
 			},
 			resolve,

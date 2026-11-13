@@ -19,7 +19,6 @@ allowBuilds:
   electron: true
   # Only needed for Squirrel installers; TagTape builds NSIS ones.
   electron-winstaller: false
-  esbuild: true
   lightningcss: true
   sharp: true
 

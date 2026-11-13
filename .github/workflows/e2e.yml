@@ -1,9 +1,10 @@
 name: End-to-end (real links)
 
 # Converts real public links with the bundled ffmpeg and yt-dlp, weekly and on
-# demand. Site links come from the repo variable TAGTAPE_E2E_SITE_URLS
-# (comma-separated, never written into the repo); without it only the public
-# MP3 files in the test are used.
+# demand. Every link comes from a repository variable (comma-separated, never
+# written into the repo): TAGTAPE_E2E_MP3_URLS and TAGTAPE_E2E_COVER_URL for
+# direct links, TAGTAPE_E2E_SITE_URLS for the yt-dlp source. A part without
+# its variable is skipped.
 on:
   schedule:
     - cron: "17 5 * * 1"
@@ -17,10 +18,10 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
-      # Scheduled runs start from the default branch (dev): test what's released.
+      # Scheduled runs test the default branch (dev). Once 4.0.0 is released
+      # from main, this can test main instead: what people actually have.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.event_name == 'schedule' && 'main' || github.ref }}
           persist-credentials: false
 
       - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
@@ -36,5 +37,8 @@ jobs:
       - name: Convert real links
         env:
           TAGTAPE_E2E: "1"
+          # Repository variables; a part of the test without its links is skipped.
+          TAGTAPE_E2E_MP3_URLS: ${{ vars.TAGTAPE_E2E_MP3_URLS }}
+          TAGTAPE_E2E_COVER_URL: ${{ vars.TAGTAPE_E2E_COVER_URL }}
           TAGTAPE_E2E_SITE_URLS: ${{ vars.TAGTAPE_E2E_SITE_URLS }}
         run: pnpm --filter @tagtape/desktop exec vitest run src/core/e2e.test.ts

@@ -28,8 +28,12 @@ updates:
         update-types: [minor, patch]
     open-pull-requests-limit: 5
     # @types/node follows the Node major the project uses: bump them together.
+    # TypeScript majors are bumped by hand: the website stays one behind
+    # until `astro check` supports the new one, and a group PR can't know that.
     ignore:
       - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "typescript"
         update-types: ["version-update:semver-major"]
 
   # Base images of the test container, pinned by digest.

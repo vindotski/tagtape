@@ -24,15 +24,51 @@ jobs:
         with:
           persist-credentials: false
 
+      # A release tag must match the version in package.json (bump it first).
+      # Checked here, once, before any installer is built.
+      - name: Check the version
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          REF: ${{ github.ref }}
+        run: |
+          pkg="$(grep -m1 '"version"' package.json | sed -E 's/.*"version": *"([^"]+)".*/\1/')"
+          if [ "${REF#refs/tags/v}" != "$pkg" ]; then
+            echo "::error::Tag ${REF#refs/tags/} doesn't match package.json version $pkg"
+            exit 1
+          fi
+
       # No version: reads "packageManager" from package.json.
       - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
 
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 26
-          cache: pnpm
+
+      # The pnpm store is restored everywhere but saved only from dev and
+      # main: a copy per pull request (about 1 GB across the platforms) put
+      # the repository over GitHub's 10 GB cache limit, and evictions then
+      # made the caches miss.
+      - name: Find the pnpm store
+        id: pnpm-store
+        shell: bash
+        run: echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        id: pnpm-cache
+        with:
+          path: ${{ steps.pnpm-store.outputs.path }}
+          key: pnpm-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: pnpm-${{ runner.os }}-${{ runner.arch }}-
 
       - run: pnpm install --frozen-lockfile
+
+      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        if: >-
+          (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main')
+          && steps.pnpm-cache.outputs.cache-hit != 'true'
+        with:
+          path: ${{ steps.pnpm-store.outputs.path }}
+          key: ${{ steps.pnpm-cache.outputs.cache-primary-key }}
 
       # `biome ci` never writes files and reports problems as PR annotations.
       - name: Biome
@@ -65,7 +101,7 @@ jobs:
             os: ubuntu-24.04
             app: apps/desktop/dist/linux-unpacked/tagtape
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 40
+    timeout-minutes: 25
     defaults:
       run:
         shell: bash
@@ -79,25 +115,36 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 26
-          cache: pnpm
+
+      # The pnpm store is restored everywhere but saved only from dev and
+      # main: a copy per pull request (about 1 GB across the platforms) put
+      # the repository over GitHub's 10 GB cache limit, and evictions then
+      # made the caches miss.
+      - name: Find the pnpm store
+        id: pnpm-store
+        shell: bash
+        run: echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        id: pnpm-cache
+        with:
+          path: ${{ steps.pnpm-store.outputs.path }}
+          key: pnpm-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: pnpm-${{ runner.os }}-${{ runner.arch }}-
 
       - run: pnpm install --frozen-lockfile
+
+      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        if: >-
+          (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main')
+          && steps.pnpm-cache.outputs.cache-hit != 'true'
+        with:
+          path: ${{ steps.pnpm-store.outputs.path }}
+          key: ${{ steps.pnpm-cache.outputs.cache-primary-key }}
 
       # The pipeline's tests on this platform too: process handling and file
       # naming differ between them.
       - run: pnpm --filter @tagtape/desktop test
-
-      # A release tag must match the version in package.json (bump it first).
-      - name: Check the version
-        if: startsWith(github.ref, 'refs/tags/v')
-        env:
-          REF: ${{ github.ref }}
-        run: |
-          pkg="$(node -p "require('./package.json').version")"
-          if [ "${REF#refs/tags/v}" != "$pkg" ]; then
-            echo "::error::Tag ${REF#refs/tags/} doesn't match package.json version $pkg"
-            exit 1
-          fi
 
       # Fetches the pinned ffmpeg and yt-dlp (checksum-verified), builds the
       # app and the installers.
@@ -154,7 +201,13 @@ jobs:
           GH_REPO: ${{ github.repository }}
           TAG: ${{ github.ref_name }}
         run: |
-          (cd installers && sha256sum -- * > SHA256SUMS.txt)
-          gh release create "$TAG" --draft --verify-tag --title "TagTape ${TAG#v}" \
-            --notes "See CHANGELOG.md for what changed. Installers are unsigned: the website explains how to open them." \
-            installers/*
+          (cd installers && rm -f SHA256SUMS.txt && sha256sum -- * > SHA256SUMS.txt)
+          # Run again for the same tag (a re-run after a failed upload): the
+          # draft is there already, so replace its files instead of failing.
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            gh release upload "$TAG" --clobber installers/*
+          else
+            gh release create "$TAG" --draft --verify-tag --title "TagTape ${TAG#v}" \
+              --notes "See CHANGELOG.md for what changed. Installers are unsigned: the website explains how to open them." \
+              installers/*
+          fi
