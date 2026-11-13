@@ -46,10 +46,24 @@ function run(command, args) {
 	}
 }
 
-/** Unpacks into `to`. bsdtar (macOS, Windows) reads zips too; GNU tar doesn't. */
+/**
+ * Unpacks into `to`.
+ * - Windows: the system's own tar (bsdtar, reads zips). By full path, because
+ *   a Git Bash shell puts GNU tar first, which can't read zips and takes
+ *   `C:\\…` for a remote host.
+ * - macOS: tar is bsdtar too.
+ * - Linux: GNU tar for tarballs, unzip for zips.
+ */
 function unpack(archive, to) {
 	mkdirSync(to, { recursive: true });
-	if (archive.endsWith(".zip") && process.platform === "linux") {
+	if (process.platform === "win32") {
+		const tar = join(
+			process.env.SystemRoot ?? "C:\\Windows",
+			"System32",
+			"tar.exe",
+		);
+		run(tar, ["-xf", archive, "-C", to]);
+	} else if (archive.endsWith(".zip") && process.platform === "linux") {
 		run("unzip", ["-q", "-o", archive, "-d", to]);
 	} else {
 		run("tar", ["-xf", archive, "-C", to]);
