@@ -1,9 +1,9 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
-import { dirname } from "node:path";
+import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
 import type { Album } from "@tagtape/shared";
 import { z } from "zod";
-import type { AlbumSummary, StoredAlbum } from "../ipc.ts";
+import type { AlbumSummary } from "../ipc.ts";
 
 /** How many albums are remembered; older ones are dropped as new ones come. */
 export const HISTORY_LIMIT = 50;
@@ -19,7 +19,13 @@ const storedAlbumSchema = z.object({
 	updatedAt: z.string(),
 	coverUrl: z.string().nullable(),
 	tracks: z.array(z.object({ title: z.string(), url: z.string() })),
+	/** Where the album was last saved; unset until one has finished. */
+	folder: z.string().optional(),
+	/** A small copy of the cover is in the covers folder. */
+	hasCover: z.boolean().optional(),
 });
+/** An album as the file holds it. */
+export type LibraryAlbum = z.infer<typeof storedAlbumSchema>;
 
 const fileSchema = z.object({
 	version: z.literal(1),
@@ -32,15 +38,26 @@ type LibraryFile = z.infer<typeof fileSchema>;
 /**
  * What TagTape remembers on this computer, in one small JSON file: the albums
  * as they were typed (details, track titles and links, the cover's URL), so
- * they can be opened and made again, and where albums are saved. Never media
- * or images.
+ * they can be opened and made again, where each was saved, and where albums
+ * are saved. Next to it, a folder with one small JPEG per album that has a
+ * cover. Never media.
  */
 export interface Library {
 	/** Stores a started album, or updates `albumId`; resolves to its id. */
 	record(album: Album, albumId: string | undefined): Promise<string>;
+	/**
+	 * Notes where a finished album was saved and keeps its small cover (or
+	 * drops the old one when it was made without). False if the album is gone.
+	 */
+	finished(
+		albumId: string,
+		result: { folder: string; cover?: Uint8Array | undefined },
+	): Promise<boolean>;
+	/** The album's small cover (a JPEG), or null without one. */
+	cover(id: string): Promise<Buffer | null>;
 	/** Most recently made first. */
 	list(limit: number): Promise<AlbumSummary[]>;
-	get(id: string): Promise<StoredAlbum | null>;
+	get(id: string): Promise<LibraryAlbum | null>;
 	remove(id: string): Promise<boolean>;
 	destination(): Promise<string | undefined>;
 	setDestination(folder: string): Promise<void>;
@@ -51,6 +68,14 @@ export function openLibrary(
 	options: { now?: () => Date } = {},
 ): Library {
 	const now = options.now ?? (() => new Date());
+	const covers = join(dirname(file), "covers");
+	const coverFile = (id: string) => join(covers, `${id}.jpg`);
+	const dropCovers = (albums: LibraryAlbum[]) =>
+		Promise.all(
+			albums
+				.filter((album) => album.hasCover)
+				.map((album) => rm(coverFile(album.id), { force: true })),
+		);
 	let cache: LibraryFile | undefined;
 	// One change at a time, so two quick saves can't interleave.
 	let queue: Promise<unknown> = Promise.resolve();
@@ -68,10 +93,12 @@ export function openLibrary(
 	}
 
 	/** Applies `change` and writes the file atomically (a temp file, renamed). */
-	function update<T>(change: (data: LibraryFile) => T): Promise<T> {
+	function update<T>(
+		change: (data: LibraryFile) => T | Promise<T>,
+	): Promise<T> {
 		const run = queue.then(async () => {
 			const data = await load();
-			const result = change(data);
+			const result = await change(data);
 			await mkdir(dirname(file), { recursive: true });
 			const temp = `${file}.${process.pid}.tmp`;
 			await writeFile(temp, JSON.stringify(data, null, "\t"), { mode: 0o600 });
@@ -85,17 +112,19 @@ export function openLibrary(
 	const summary = ({
 		coverUrl: _coverUrl,
 		tracks: _tracks,
+		folder: _folder,
+		hasCover,
 		...rest
-	}: StoredAlbum): AlbumSummary => rest;
+	}: LibraryAlbum): AlbumSummary => ({ ...rest, hasCover: hasCover === true });
 
 	return {
 		record(album, albumId) {
-			return update((data) => {
+			return update(async (data) => {
 				const at = now().toISOString();
 				const existing = albumId
 					? data.albums.find((stored) => stored.id === albumId)
 					: undefined;
-				const stored: StoredAlbum = {
+				const stored: LibraryAlbum = {
 					id: existing?.id ?? randomUUID(),
 					title: album.title,
 					artist: album.artist,
@@ -106,13 +135,43 @@ export function openLibrary(
 					updatedAt: at,
 					coverUrl: album.coverUrl ?? null,
 					tracks: album.tracks.map(({ title, url }) => ({ title, url })),
+					// Until this run finishes, the last one's folder and cover stand.
+					...(existing?.folder ? { folder: existing.folder } : {}),
+					...(existing?.hasCover ? { hasCover: true } : {}),
 				};
-				data.albums = [
+				const all = [
 					stored,
 					...data.albums.filter((other) => other.id !== stored.id),
-				].slice(0, HISTORY_LIMIT);
+				];
+				data.albums = all.slice(0, HISTORY_LIMIT);
+				await dropCovers(all.slice(HISTORY_LIMIT));
 				return stored.id;
 			});
+		},
+
+		finished(albumId, { folder, cover }) {
+			return update(async (data) => {
+				const stored = data.albums.find((album) => album.id === albumId);
+				if (!stored) return false;
+				if (cover) {
+					await mkdir(covers, { recursive: true });
+					const temp = `${coverFile(albumId)}.${process.pid}.tmp`;
+					await writeFile(temp, cover, { mode: 0o600 });
+					await rename(temp, coverFile(albumId));
+					stored.hasCover = true;
+				} else if (stored.hasCover) {
+					await rm(coverFile(albumId), { force: true });
+					delete stored.hasCover;
+				}
+				stored.folder = folder;
+				return true;
+			});
+		},
+
+		async cover(id) {
+			const stored = (await load()).albums.find((album) => album.id === id);
+			if (!stored?.hasCover) return null;
+			return readFile(coverFile(id)).catch(() => null);
 		},
 
 		async list(limit) {
@@ -126,10 +185,11 @@ export function openLibrary(
 		},
 
 		remove(id) {
-			return update((data) => {
-				const before = data.albums.length;
+			return update(async (data) => {
+				const removed = data.albums.filter((stored) => stored.id === id);
 				data.albums = data.albums.filter((stored) => stored.id !== id);
-				return data.albums.length < before;
+				await dropCovers(removed);
+				return removed.length > 0;
 			});
 		},
 

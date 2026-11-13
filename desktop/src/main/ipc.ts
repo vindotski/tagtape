@@ -1,7 +1,9 @@
 import { stat } from "node:fs/promises";
+import { isJobFinished } from "@tagtape/shared";
 import { type BrowserWindow, dialog, ipcMain, shell } from "electron";
 import { z } from "zod";
 import type { TagTape } from "../core/index.ts";
+import { thumbnail } from "../core/pipeline/cover.ts";
 import {
 	CHANNELS,
 	type FieldErrors,
@@ -37,18 +39,44 @@ type Handlers = {
  * is validated here: the page is never trusted to send the right shape.
  */
 export function registerIpc(ctx: IpcContext): void {
+	const isFolder = (path: string) =>
+		stat(path).then(
+			(info) => info.isDirectory(),
+			() => false,
+		);
+
 	/** The remembered folder, if it still exists; otherwise the default. */
 	async function destination(): Promise<string> {
 		const remembered = await ctx.library.destination().catch(() => undefined);
-		if (remembered) {
-			const exists = await stat(remembered).then(
-				(info) => info.isDirectory(),
-				() => false,
-			);
-			if (exists) return remembered;
-		}
+		if (remembered && (await isFolder(remembered))) return remembered;
 		return ctx.defaultDestination;
 	}
+
+	// A finished album's folder and cover go into the library. The job and the
+	// library entry are made a moment apart, so either may come first.
+	type Finished = { folder: string; cover: Uint8Array | undefined };
+	const albumOfJob = new Map<string, string>();
+	const finishedEarly = new Map<string, Finished>();
+	async function remember(albumId: string, result: Finished): Promise<void> {
+		try {
+			await ctx.library.finished(albumId, {
+				folder: result.folder,
+				cover: result.cover && (await thumbnail(result.cover)),
+			});
+		} catch (error) {
+			ctx.log.error({ err: error }, "Remembering the finished album failed");
+		}
+	}
+	ctx.tagtape.subscribe((job) => {
+		if (!isJobFinished(job.status)) return;
+		const albumId = albumOfJob.get(job.id);
+		albumOfJob.delete(job.id);
+		if (job.status !== "done" || !job.folder) return;
+		// The cover is only in memory during this call.
+		const result = { folder: job.folder, cover: ctx.tagtape.jobCover(job.id) };
+		if (albumId) void remember(albumId, result);
+		else finishedEarly.set(job.id, result);
+	});
 
 	const handlers: Handlers = {
 		sources: async () => ctx.tagtape.sources(),
@@ -85,6 +113,15 @@ export function registerIpc(ctx: IpcContext): void {
 				albumId = await ctx.library.record(outcome.album, parsed.data.albumId);
 			} catch (error) {
 				ctx.log.error({ err: error }, "Recording the album failed");
+			}
+			const early = finishedEarly.get(outcome.jobId);
+			finishedEarly.delete(outcome.jobId);
+			if (albumId) {
+				const status = ctx.tagtape.getJob(outcome.jobId)?.status;
+				if (early) void remember(albumId, early);
+				else if (status && !isJobFinished(status)) {
+					albumOfJob.set(outcome.jobId, albumId);
+				}
 			}
 			return albumId
 				? { ok: true, jobId: outcome.jobId, albumId }
@@ -131,13 +168,24 @@ export function registerIpc(ctx: IpcContext): void {
 			const folder = parsed.success
 				? ctx.tagtape.getJob(parsed.data)?.folder
 				: undefined;
-			if (!folder) return false;
-			const exists = await stat(folder).then(
-				(info) => info.isDirectory(),
-				() => false,
-			);
-			if (!exists) return false;
+			if (!folder || !(await isFolder(folder))) return false;
 			return (await shell.openPath(folder)) === "";
+		},
+
+		// By album id, for the same reason.
+		async showAlbumFolder(albumId) {
+			const parsed = idSchema.safeParse(albumId);
+			if (!parsed.success) return false;
+			const folder = (await ctx.library.get(parsed.data))?.folder;
+			if (!folder || !(await isFolder(folder))) return false;
+			return (await shell.openPath(folder)) === "";
+		},
+
+		async albumCover(albumId) {
+			const parsed = idSchema.safeParse(albumId);
+			if (!parsed.success) return null;
+			const cover = await ctx.library.cover(parsed.data).catch(() => null);
+			return cover && `data:image/jpeg;base64,${cover.toString("base64")}`;
 		},
 
 		async albums(limit) {
@@ -153,7 +201,15 @@ export function registerIpc(ctx: IpcContext): void {
 
 		async album(id) {
 			const parsed = idSchema.safeParse(id);
-			return parsed.success ? ctx.library.get(parsed.data) : null;
+			if (!parsed.success) return null;
+			const stored = await ctx.library.get(parsed.data);
+			if (!stored) return null;
+			const { folder, hasCover, ...album } = stored;
+			return {
+				...album,
+				hasCover: hasCover === true,
+				saved: folder !== undefined && (await isFolder(folder)),
+			};
 		},
 
 		async removeAlbum(id) {

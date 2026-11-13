@@ -120,6 +120,86 @@ describe("album history", () => {
 	});
 });
 
+describe("finished albums", () => {
+	const covers = () => readdir(join(dir, "nested", "covers"));
+
+	test("remembers the folder and keeps a small cover", async () => {
+		const library = openLibrary(file);
+		const id = await library.record(album("Night Drive"), undefined);
+		expect((await library.list(10))[0]?.hasCover).toBe(false);
+		expect(await library.cover(id)).toBeNull();
+
+		expect(
+			await library.finished(id, {
+				folder: "/music/Night Drive",
+				cover: Buffer.from("jpeg"),
+			}),
+		).toBe(true);
+
+		const reopened = openLibrary(file);
+		expect(await reopened.get(id)).toMatchObject({
+			folder: "/music/Night Drive",
+			hasCover: true,
+		});
+		expect((await reopened.list(10))[0]).toMatchObject({ hasCover: true });
+		expect((await reopened.list(10))[0]).not.toHaveProperty("folder");
+		expect(await reopened.cover(id)).toEqual(Buffer.from("jpeg"));
+		expect(await covers()).toEqual([`${id}.jpg`]);
+	});
+
+	test("making it again keeps the old cover until the new run finishes", async () => {
+		const library = openLibrary(file);
+		const id = await library.record(album("Night Drive"), undefined);
+		await library.finished(id, { folder: "/a", cover: Buffer.from("one") });
+
+		await library.record(album("Night Drive"), id);
+		expect(await library.cover(id)).toEqual(Buffer.from("one"));
+
+		// Made again without a cover: the old one goes.
+		await library.finished(id, { folder: "/b" });
+		expect(await library.get(id)).toMatchObject({ folder: "/b" });
+		expect(await library.get(id)).not.toHaveProperty("hasCover");
+		expect(await library.cover(id)).toBeNull();
+		expect(await covers()).toEqual([]);
+	});
+
+	test("an album deleted while it was being made is not brought back", async () => {
+		const library = openLibrary(file);
+		const id = await library.record(album("Gone"), undefined);
+		await library.remove(id);
+		expect(
+			await library.finished(id, { folder: "/a", cover: Buffer.from("x") }),
+		).toBe(false);
+		expect(await library.list(10)).toEqual([]);
+		await expect(covers()).rejects.toMatchObject({ code: "ENOENT" });
+	});
+
+	test("covers go with their albums: removed, or pushed out by newer ones", async () => {
+		const library = openLibrary(file);
+		const oldest = await library.record(album("Oldest"), undefined);
+		await library.finished(oldest, { folder: "/a", cover: Buffer.from("x") });
+		const removed = await library.record(album("Removed"), undefined);
+		await library.finished(removed, { folder: "/b", cover: Buffer.from("y") });
+		expect((await covers()).length).toBe(2);
+
+		await library.remove(removed);
+		expect(await covers()).toEqual([`${oldest}.jpg`]);
+
+		for (let i = 0; i < HISTORY_LIMIT; i++) {
+			await library.record(album(`Album ${i}`), undefined);
+		}
+		expect(await library.get(oldest)).toBeNull();
+		expect(await covers()).toEqual([]);
+	});
+
+	test("a library file from before folders and covers still loads", async () => {
+		const id = await openLibrary(file).record(album("Old"), undefined);
+		const library = openLibrary(file);
+		expect(await library.get(id)).not.toHaveProperty("folder");
+		expect((await library.list(10))[0]?.hasCover).toBe(false);
+	});
+});
+
 test("remembers where albums are saved", async () => {
 	const library = openLibrary(file);
 	expect(await library.destination()).toBeUndefined();

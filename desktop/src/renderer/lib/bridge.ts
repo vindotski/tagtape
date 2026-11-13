@@ -47,6 +47,12 @@ export const chooseDestination = (): Promise<string> =>
 export const showJobFolder = (jobId: string): Promise<boolean> =>
 	window.tagtape.showJobFolder(jobId);
 
+export const showAlbumFolder = (albumId: string): Promise<boolean> =>
+	window.tagtape.showAlbumFolder(albumId).catch(() => false);
+
+export const fetchAlbumCover = (albumId: string): Promise<string | null> =>
+	window.tagtape.albumCover(albumId).catch(() => null);
+
 export const fetchAlbums = (limit: number): Promise<AlbumSummary[]> =>
 	window.tagtape.albums(limit).catch(() => []);
 

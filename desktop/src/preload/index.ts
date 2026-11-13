@@ -12,6 +12,9 @@ const api: TagTapeApi = {
 	destination: () => ipcRenderer.invoke(CHANNELS.destination),
 	chooseDestination: () => ipcRenderer.invoke(CHANNELS.chooseDestination),
 	showJobFolder: (jobId) => ipcRenderer.invoke(CHANNELS.showJobFolder, jobId),
+	showAlbumFolder: (albumId) =>
+		ipcRenderer.invoke(CHANNELS.showAlbumFolder, albumId),
+	albumCover: (albumId) => ipcRenderer.invoke(CHANNELS.albumCover, albumId),
 	albums: (limit) => ipcRenderer.invoke(CHANNELS.albums, limit),
 	album: (id) => ipcRenderer.invoke(CHANNELS.album, id),
 	removeAlbum: (id) => ipcRenderer.invoke(CHANNELS.removeAlbum, id),

@@ -5,7 +5,13 @@ import NodeID3 from "node-id3";
 import sharp from "sharp";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { UserFacingError } from "../lib/errors.ts";
-import { COVER_SIZE, downloadImage, processCover } from "./cover.ts";
+import {
+	COVER_SIZE,
+	downloadImage,
+	processCover,
+	THUMBNAIL_SIZE,
+	thumbnail,
+} from "./cover.ts";
 
 describe("cover", () => {
 	let server: Server;
@@ -109,6 +115,16 @@ describe("cover", () => {
 			width: COVER_SIZE,
 			height: COVER_SIZE,
 		});
+	});
+
+	test("the library's copy is a small JPEG of it", async () => {
+		const small = await thumbnail(await processCover(await png()));
+		expect(await sharp(small).metadata()).toMatchObject({
+			format: "jpeg",
+			width: THUMBNAIL_SIZE,
+			height: THUMBNAIL_SIZE,
+		});
+		expect(small.length).toBeLessThan(60_000);
 	});
 
 	test.each([

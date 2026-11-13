@@ -128,6 +128,17 @@ export async function processCover(input: Buffer): Promise<Buffer> {
 	}
 }
 
+/** The side of the small cover the library keeps, in pixels. */
+export const THUMBNAIL_SIZE = 320;
+
+/** A small JPEG of an already squared cover, for the library's shelves. */
+export async function thumbnail(cover: Uint8Array): Promise<Buffer> {
+	return sharp(cover, { failOn: "error", limitInputPixels: MAX_COVER_PIXELS })
+		.resize(THUMBNAIL_SIZE, THUMBNAIL_SIZE, { fit: "cover" })
+		.jpeg({ quality: 80, mozjpeg: true })
+		.toBuffer();
+}
+
 export async function fetchCover(input: {
 	url: string;
 	signal: AbortSignal;

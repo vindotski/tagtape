@@ -24,6 +24,8 @@ export interface AlbumSummary {
 	genre: string | null;
 	year: number | null;
 	trackCount: number;
+	/** A small copy of the cover is kept (see `albumCover`). */
+	hasCover: boolean;
 	/** ISO 8601. */
 	createdAt: string;
 	/** ISO 8601: when it was last made (or made again). */
@@ -34,6 +36,8 @@ export interface AlbumSummary {
 export interface StoredAlbum extends AlbumSummary {
 	coverUrl: string | null;
 	tracks: { title: string; url: string }[];
+	/** The album's folder is known and still where it was saved. */
+	saved: boolean;
 }
 
 export interface TagTapeApi {
@@ -53,6 +57,10 @@ export interface TagTapeApi {
 	chooseDestination(): Promise<string>;
 	/** Shows a finished job's album folder in the file manager. */
 	showJobFolder(jobId: string): Promise<boolean>;
+	/** Shows a stored album's folder, if it is still where it was saved. */
+	showAlbumFolder(albumId: string): Promise<boolean>;
+	/** The album's small cover as a `data:` URL, or null without one. */
+	albumCover(albumId: string): Promise<string | null>;
 	albums(limit: number): Promise<AlbumSummary[]>;
 	album(id: string): Promise<StoredAlbum | null>;
 	removeAlbum(id: string): Promise<boolean>;
@@ -67,6 +75,8 @@ export const CHANNELS = {
 	destination: "tagtape:destination",
 	chooseDestination: "tagtape:choose-destination",
 	showJobFolder: "tagtape:show-job-folder",
+	showAlbumFolder: "tagtape:show-album-folder",
+	albumCover: "tagtape:album-cover",
 	albums: "tagtape:albums",
 	album: "tagtape:album",
 	removeAlbum: "tagtape:remove-album",
