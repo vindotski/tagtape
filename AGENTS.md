@@ -46,14 +46,14 @@ Versions 2 and 3 were a hosted web app (TanStack Start + a Fastify API in one Do
 
 | Path | What |
 |---|---|
-| `desktop/` | `@tagtape/desktop`: the Electron app (electron-vite, electron-builder). |
-| `desktop/src/main/` | Main process: window, IPC handlers (`ipc.ts`), the local library (`library.ts`), the application menu (`menu.ts`), the remembered window place (`window-state.ts`). |
-| `desktop/src/preload/` | The sandboxed bridge that exposes `window.tagtape`. |
-| `desktop/src/renderer/` | The React UI (TanStack Router, hash history; shadcn/ui on React Aria). |
-| `desktop/src/core/` | The pipeline: jobs, sources, plugins, process handling, the album-folder writer. No Electron imports; tested in plain Node. |
-| `desktop/src/ipc.ts` | The contract between page and main process (types + channel names). |
-| `website/` | `@tagtape/website`: the static Astro product site, deployed to GitHub Pages. |
-| `shared/` | `@tagtape/shared`: zod schemas, limits, `parseWebUrl`, the ID3v2.3 writer, file naming, probe rules, yt-dlp error mapping. Exports TS source directly. |
+| `apps/desktop/` | `@tagtape/desktop`: the Electron app (electron-vite, electron-builder). |
+| `apps/desktop/src/main/` | Main process: window, IPC handlers (`ipc.ts`), the local library (`library.ts`), the application menu (`menu.ts`), the remembered window place (`window-state.ts`). |
+| `apps/desktop/src/preload/` | The sandboxed bridge that exposes `window.tagtape`. |
+| `apps/desktop/src/renderer/` | The React UI (TanStack Router, hash history; shadcn/ui on React Aria). |
+| `apps/desktop/src/core/` | The pipeline: jobs, sources, plugins, process handling, the album-folder writer. No Electron imports; tested in plain Node. |
+| `apps/desktop/src/ipc.ts` | The contract between page and main process (types + channel names). |
+| `apps/website/` | `@tagtape/website`: the static Astro product site, deployed to GitHub Pages. |
+| `packages/shared/` | `@tagtape/shared`: zod schemas, limits, `parseWebUrl`, the ID3v2.3 writer, file naming, probe rules, yt-dlp error mapping. Exports TS source directly. |
 
 How the parts talk: the page calls `window.tagtape` (see `renderer/lib/bridge.ts`); the preload forwards each call over IPC; the main process validates the arguments and calls the pipeline (`createTagTape` in `core/index.ts`). For anything Electron-specific, load the `electron` skill first.
 
@@ -75,7 +75,7 @@ pnpm install
 pnpm binaries      # fetch the pinned ffmpeg and yt-dlp for this platform (checksum-verified)
 pnpm dev           # the desktop app with hot reload
 pnpm build         # build the app's code and the website
-pnpm package       # installers for this platform, in desktop/dist
+pnpm package       # installers for this platform, in apps/desktop/dist
 pnpm typecheck
 pnpm test
 pnpm check         # Biome lint + format; `pnpm fix` applies fixes
@@ -109,20 +109,20 @@ Run `pnpm check`, `pnpm typecheck` and `pnpm test` before calling a task done, a
   - After any pipeline change, run the e2e test and cancel an album mid-save in the real window; check the destination and the temp folder for leftovers.
 - **The local library** (`main/library.ts`): one JSON file in the app's data folder with the last 50 albums as typed (details, track titles and links, the cover's URL), where each was saved, and the save folder; next to it, `covers/<album id>.jpg`, a 320 px copy of each album's cover. **Never media.** Atomic writes, one at a time. Failures never block an album. A cover goes when its album does.
   - The page gets covers and folders **by album id only** (`albumCover` returns a `data:` URL, so the page's security policy needs no new image source).
-- **Sharing** (`shared/src/share.ts`): an album travels as a `.tagtape` JSON file or inside a link's fragment (`…/open/#a=<base64url>`, or `tagtape://open#a=…`). It holds what was typed (details, track titles and links, the cover's URL), **never media**, and there is **no public list of shared albums** anywhere (that would have the website naming sites).
+- **Sharing** (`packages/shared/src/share.ts`): an album travels as a `.tagtape` JSON file or inside a link's fragment (`…/open/#a=<base64url>`, or `tagtape://open#a=…`). It holds what was typed (details, track titles and links, the cover's URL), **never media**, and there is **no public list of shared albums** anywhere (that would have the website naming sites).
   - Whatever arrives is untrusted: it is decoded with `decodeShare` / `albumFromFragment` (the album form's schema, a size cap, never a throw) and **only ever shown in the editor** (`/shared`). Nothing starts by itself, and it reaches the library only when the user makes it.
   - Ways in (`main/open-share.ts`, `main/index.ts`): File > Open Album File, macOS `open-file` / `open-url`, the command line on Windows and Linux (first start and `second-instance`), and a file dropped on the window (read by the page itself).
   - Out: `shareAlbum` in `main/ipc.ts`, by album id. The link's address is `LINKS.open` in `main/links.ts`.
-- **Bundled programs** are pinned by URL and SHA-256 in `desktop/binaries.lock.json` (Dependabot can't bump them). Their licence texts ship next to them. ffmpeg comes from third-party builds for now; a minimal build of our own is planned.
-- **The website** (`website/`): static Astro, self-hosted fonts, a strict content security policy in a `<meta>` tag. **No JavaScript, except on `/open/`**, the page share links land on: it runs one self-hosted script (`src/scripts/open.ts`) that reads the album from the address, makes no requests, and sets text only, never HTML. A page gets scripts only by passing `scripts` to `layouts/Page.astro`. Installer links use the fixed file names from `electron-builder.config.mjs` (`website/src/site.ts`). It lives under `/tagtape` on `github.io` until the domain is pointed at it (then: `site`, remove `base`, add `public/CNAME`).
+- **Bundled programs** are pinned by URL and SHA-256 in `apps/desktop/binaries.lock.json` (Dependabot can't bump them). Their licence texts ship next to them. ffmpeg comes from third-party builds for now; a minimal build of our own is planned.
+- **The website** (`apps/website/`): static Astro, self-hosted fonts, a strict content security policy in a `<meta>` tag. **No JavaScript, except on `/open/`**, the page share links land on: it runs one self-hosted script (`src/scripts/open.ts`) that reads the album from the address, makes no requests, and sets text only, never HTML. A page gets scripts only by passing `scripts` to `layouts/Page.astro`. Installer links use the fixed file names from `electron-builder.config.mjs` (`apps/website/src/site.ts`). It lives under `/tagtape` on `github.io` until the domain is pointed at it (then: `site`, remove `base`, add `public/CNAME`).
 - pnpm settings live in `pnpm-workspace.yaml`. `.npmrc` is for auth only (see the `pnpm` skill).
 - Versions used by more than one package (zod, vitest, typescript) go in the pnpm **catalog**. (The website pins TypeScript 6: `astro check` doesn't support 7 yet.)
-- Code in `shared/` must run in browsers (the website's open page) and Node: web-standard APIs only (no `node:*` imports, no `Buffer`), relative imports with `.ts` extensions, and erasable TypeScript syntax only.
+- Code in `packages/shared/` must run in browsers (the website's open page) and Node: web-standard APIs only (no `node:*` imports, no `Buffer`), relative imports with `.ts` extensions, and erasable TypeScript syntax only.
 - Tests are Vitest, written as `*.test.ts` files next to the code they test. Pipeline tests use the fake pipeline in `core/test/helpers.ts` and need no binaries or network.
-- **UI** is **shadcn/ui** on the React Aria base (`desktop/components.json`: vega style, green on olive, no radius, Oxanium, lucide icons).
+- **UI** is **shadcn/ui** on the React Aria base (`apps/desktop/components.json`: vega style, green on olive, no radius, Oxanium, lucide icons).
   - **It is a desktop window, not a web page.** The root route (`routes/__root.tsx`) is the whole window: the sidebar (`components/app-sidebar.tsx`), a strip that stands in for the title bar and drags the window (`.app-drag` in `styles.css`), and a screen that scrolls on its own. The window itself never scrolls. Chrome is `select-none`; add `select-text` where text should be copyable.
   - Screens: `/` (new album), `/albums` (library), `/albums/$albumId` (an album), `/albums/$albumId/edit` (make it again), `/settings`.
-  - Anything the system does better stays native, in the main process: the application menu, right-click menus, confirm dialogs, notifications, the dock/taskbar progress. The main process changes the screen only through the one `navigate` event (`Screen` in `desktop/src/ipc.ts`).
+  - Anything the system does better stays native, in the main process: the application menu, right-click menus, confirm dialogs, notifications, the dock/taskbar progress. The main process changes the screen only through the one `navigate` event (`Screen` in `apps/desktop/src/ipc.ts`).
   - `renderer/components/ui/` is vendor code: prefer composing over editing those files.
   - Use theme tokens (`bg-card`, `text-muted-foreground`, `text-primary`), never raw palette colours. Dark mode follows `prefers-color-scheme`.
   - Track reordering stays on dnd-kit: a React Aria GridList is a single Tab stop, and its arrow-key row navigation fights the text inputs inside the rows.
@@ -135,7 +135,7 @@ Run `pnpm check`, `pnpm typecheck` and `pnpm test` before calling a task done, a
   - `checks`: `biome ci`, `pnpm typecheck`, `pnpm test`, `pnpm build`, with a frozen lockfile.
   - `package` (macOS arm64 and x64, Windows, Linux): the desktop tests on that platform, `pnpm package`, then the packaged app started once in smoke mode (`TAGTAPE_SMOKE_TEST=1`). Installers are uploaded as artifacts.
   - `release` (version tags only): a draft GitHub Release with every installer.
-- **`pages.yml`** deploys the website from `main` when `website/` or `shared/` changes. Never deploy it from `dev` or PRs.
+- **`pages.yml`** deploys the website from `main` when `apps/website/` or `packages/shared/` changes. Never deploy it from `dev` or PRs.
 - **`e2e.yml`** runs weekly (and on demand): real public links through the bundled binaries. Site links come from the repo variable `TAGTAPE_E2E_SITE_URLS`.
 - **Dependabot** (`.github/dependabot.yml`) opens weekly grouped PRs against `dev`, with a 7-day cooldown. It skips Node and `@types/node` majors.
 - **pnpm supply chain** (`pnpm-workspace.yaml`): `minimumReleaseAge`, `trustPolicy: no-downgrade`, `blockExoticSubdeps` and `strictDepBuilds` are written out explicitly. If `trustPolicy` flags a package, find out why before adding an exception. Security fixes for transitive packages go in `overrides:`, scoped to the vulnerable range, with a comment.

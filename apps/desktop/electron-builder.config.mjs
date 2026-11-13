@@ -5,7 +5,7 @@ import { readFileSync } from "node:fs";
 
 // One version for everything: the root package.json.
 const { version } = JSON.parse(
-	readFileSync(new URL("../package.json", import.meta.url), "utf8"),
+	readFileSync(new URL("../../package.json", import.meta.url), "utf8"),
 );
 
 /** The bundled ffmpeg and yt-dlp for the platform being built (`pnpm binaries`). */
@@ -27,7 +27,7 @@ export default {
 	// sharp's native code can't be loaded from inside the archive.
 	asarUnpack: ["**/node_modules/sharp/**", "**/node_modules/@img/**"],
 	// Fixed names, without the version, so the website can link to the latest
-	// release's files (website/src/site.ts lists the same names).
+	// release's files (apps/website/src/site.ts lists the same names).
 	// biome-ignore lint/suspicious/noTemplateCurlyInString: electron-builder fills these in
 	artifactName: "TagTape-${os}-${arch}.${ext}",
 	// The app updates by downloading a new installer: nothing to publish to.

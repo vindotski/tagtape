@@ -43,16 +43,16 @@ pnpm dev        # the app, with hot reload
 | `pnpm typecheck` | TypeScript, in every package |
 | `pnpm test` | Unit tests (no binaries or network needed) |
 | `pnpm build` | Builds the app's code and the website |
-| `pnpm package` | Installers for this platform, in `desktop/dist` |
+| `pnpm package` | Installers for this platform, in `apps/desktop/dist` |
 | `pnpm docker:test` | Check, typecheck and test in a clean Linux container |
 
 The repository is a pnpm workspace:
 
 | Path | What |
 |---|---|
-| `desktop/` | The Electron app: main process, preload bridge, the React UI, and the pipeline that checks, converts and tags tracks (`src/core`) |
-| `website/` | The product site ([Astro](https://astro.build)), published on GitHub Pages |
-| `shared/` | Code every part uses: validation schemas, limits, the ID3 tag writer |
+| `apps/desktop/` | The Electron app: main process, preload bridge, the React UI, and the pipeline that checks, converts and tags tracks (`src/core`) |
+| `apps/website/` | The product site ([Astro](https://astro.build)), published on GitHub Pages |
+| `packages/shared/` | Code every part uses: validation schemas, limits, the ID3 tag writer |
 
 An end-to-end test converts real public links with the bundled programs:
 
@@ -66,7 +66,7 @@ The version lives in the root `package.json`. Bump it, date the `## Unreleased` 
 
 ### Bundled programs
 
-[`desktop/binaries.lock.json`](desktop/binaries.lock.json) pins ffmpeg and yt-dlp for each platform by URL and SHA-256. yt-dlp is its official release. ffmpeg has no official binaries, so TagTape uses [BtbN's builds](https://github.com/BtbN/FFmpeg-Builds) (LGPL) on Windows and Linux and [Martin Riedl's builds](https://ffmpeg.martin-riedl.de) (GPL) on macOS. Their licence texts ship inside the app, next to the programs.
+[`apps/desktop/binaries.lock.json`](apps/desktop/binaries.lock.json) pins ffmpeg and yt-dlp for each platform by URL and SHA-256. yt-dlp is its official release. ffmpeg has no official binaries, so TagTape uses [BtbN's builds](https://github.com/BtbN/FFmpeg-Builds) (LGPL) on Windows and Linux and [Martin Riedl's builds](https://ffmpeg.martin-riedl.de) (GPL) on macOS. Their licence texts ship inside the app, next to the programs.
 
 ## Sources and plugins
 
@@ -77,7 +77,7 @@ A **source** turns one kind of link into MP3 audio: it claims links (`match`), c
 
 More sources come from **plugins**: JavaScript modules listed in the `TAGTAPE_PLUGINS` environment variable (absolute paths, comma-separated) when the app starts.
 
-The contract, with every rule a plugin must follow (strict link matching, no shell, nothing written to disk), is in [`desktop/src/core/plugins/api.ts`](desktop/src/core/plugins/api.ts). It depends only on Node's types, so a plugin can copy it for type checking. Plugins get TagTape's helpers (the no-shell process runner, the error types, ffmpeg's path) through a context object. You're responsible for the plugins you run, and for the terms of the sites TagTape reads from (built in or through plugins).
+The contract, with every rule a plugin must follow (strict link matching, no shell, nothing written to disk), is in [`apps/desktop/src/core/plugins/api.ts`](apps/desktop/src/core/plugins/api.ts). It depends only on Node's types, so a plugin can copy it for type checking. Plugins get TagTape's helpers (the no-shell process runner, the error types, ffmpeg's path) through a context object. You're responsible for the plugins you run, and for the terms of the sites TagTape reads from (built in or through plugins).
 
 ## Meta
 

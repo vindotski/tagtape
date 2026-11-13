@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 // Fetches the pinned ffmpeg and yt-dlp for one platform into
-// desktop/resources/bin/<platform>-<arch>/ (git-ignored). Every download is
+// apps/desktop/resources/bin/<platform>-<arch>/ (git-ignored). Every download is
 // checked against the SHA-256 in binaries.lock.json before it's unpacked.
 // Nothing is installed system-wide.
 //
-//   node desktop/scripts/fetch-binaries.mjs [--platform darwin|win32|linux] [--arch arm64|x64] [--force]
+//   node apps/desktop/scripts/fetch-binaries.mjs [--platform darwin|win32|linux] [--arch arm64|x64] [--force]
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {

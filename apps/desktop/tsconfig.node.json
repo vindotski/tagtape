@@ -1,5 +1,5 @@
 {
-	"extends": "../tsconfig.base.json",
+	"extends": "../../tsconfig.base.json",
 	// The main process, the preload script and the pipeline: Node code.
 	"include": [
 		"src/main",

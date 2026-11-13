@@ -54,16 +54,16 @@ jobs:
         include:
           - name: macOS arm64
             os: macos-15
-            app: desktop/dist/mac-arm64/TagTape.app/Contents/MacOS/TagTape
+            app: apps/desktop/dist/mac-arm64/TagTape.app/Contents/MacOS/TagTape
           - name: macOS x64
             os: macos-15-intel
-            app: desktop/dist/mac/TagTape.app/Contents/MacOS/TagTape
+            app: apps/desktop/dist/mac/TagTape.app/Contents/MacOS/TagTape
           - name: Windows x64
             os: windows-2025
-            app: desktop/dist/win-unpacked/TagTape.exe
+            app: apps/desktop/dist/win-unpacked/TagTape.exe
           - name: Linux x64
             os: ubuntu-24.04
-            app: desktop/dist/linux-unpacked/tagtape
+            app: apps/desktop/dist/linux-unpacked/tagtape
     runs-on: ${{ matrix.os }}
     timeout-minutes: 40
     defaults:
@@ -124,11 +124,11 @@ jobs:
           if-no-files-found: error
           retention-days: 14
           path: |
-            desktop/dist/*.dmg
-            desktop/dist/*.zip
-            desktop/dist/*.exe
-            desktop/dist/*.AppImage
-            desktop/dist/*.deb
+            apps/desktop/dist/*.dmg
+            apps/desktop/dist/*.zip
+            apps/desktop/dist/*.exe
+            apps/desktop/dist/*.AppImage
+            apps/desktop/dist/*.deb
 
   # On a version tag: a draft GitHub Release with every installer attached.
   # Publishing it (which makes it the "latest" the website links to) is a

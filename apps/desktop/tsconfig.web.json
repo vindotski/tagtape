@@ -1,5 +1,5 @@
 {
-	"extends": "../tsconfig.base.json",
+	"extends": "../../tsconfig.base.json",
 	// The window's page: browser code, bundled by Vite.
 	"include": ["src/renderer", "src/ipc.ts", "src/env.d.ts"],
 	"compilerOptions": {

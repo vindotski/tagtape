@@ -13,13 +13,13 @@ __unconfig*
 todos.json
 
 # Bundled programs, fetched by `pnpm binaries`
-desktop/resources/bin/
+apps/desktop/resources/bin/
 
 # electron-vite build output
 out/
 
 # electron-builder output
-desktop/dist/
+apps/desktop/dist/
 
 # Astro
 .astro/

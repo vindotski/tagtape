@@ -8,10 +8,10 @@
 	"files": {
 		"ignoreUnknown": true,
 		"includes": [
-			"desktop/**",
-			"shared/**",
-			"website/**",
-			"!website/src/styles/global.css",
+			"apps/desktop/**",
+			"packages/shared/**",
+			"apps/website/**",
+			"!apps/website/src/styles/global.css",
 			"!**/*.astro",
 			".vscode/**",
 			"*.json",
@@ -46,7 +46,7 @@
 	},
 	"overrides": [
 		{
-			"includes": ["desktop/src/renderer/components/ui/**"],
+			"includes": ["apps/desktop/src/renderer/components/ui/**"],
 			"linter": {
 				"enabled": false
 			},

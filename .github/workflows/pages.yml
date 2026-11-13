@@ -1,15 +1,15 @@
 name: Website
 
-# Builds website/ and publishes it on GitHub Pages. Only from main, and only
-# when the site (or what it reads from shared/) changed; also on demand.
+# Builds apps/website/ and publishes it on GitHub Pages. Only from main, and only
+# when the site (or what it reads from packages/shared/) changed; also on demand.
 # Needs, once, in the repository settings: Pages → Source "GitHub Actions",
 # and `main` allowed in the github-pages environment (the default branch is dev).
 on:
   push:
     branches: [main]
     paths:
-      - website/**
-      - shared/**
+      - apps/website/**
+      - packages/shared/**
       - .github/workflows/pages.yml
   workflow_dispatch:
 
@@ -41,7 +41,7 @@ jobs:
 
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
-          path: website/dist
+          path: apps/website/dist
 
   deploy:
     needs: build

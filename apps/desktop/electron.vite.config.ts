@@ -9,7 +9,7 @@ import type { Plugin } from "vite";
 // One version for everything: the root package.json. CI may pass
 // TAGTAPE_VERSION (e.g. 4.0.0+main.abc1234) for builds that aren't releases.
 const rootPackage = JSON.parse(
-	readFileSync(new URL("../package.json", import.meta.url), "utf8"),
+	readFileSync(new URL("../../package.json", import.meta.url), "utf8"),
 ) as { version: string };
 const define = {
 	__APP_VERSION__: JSON.stringify(
