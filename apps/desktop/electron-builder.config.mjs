@@ -8,11 +8,29 @@ const { version } = JSON.parse(
 	readFileSync(new URL("../../package.json", import.meta.url), "utf8"),
 );
 
-/** The bundled ffmpeg and yt-dlp for the platform being built (`pnpm binaries`). */
+/**
+ * What ships beside the app's own archive: the bundled ffmpeg and yt-dlp for
+ * the platform being built (`pnpm binaries`), with their licences, and the
+ * licences of the npm code inside the app (written by the build, see
+ * scripts/notices-plugin.ts). Help > Third-Party Licences opens the folder.
+ */
 const binaries = (platform) => [
 	{
 		from: `resources/bin/${platform}-\${arch}`,
 		to: `bin/${platform}-\${arch}`,
+	},
+	{
+		from: "out/main/THIRD-PARTY-NOTICES.txt",
+		to: "licenses/TagTape app.txt",
+	},
+	{
+		from: "out/renderer/THIRD-PARTY-NOTICES.txt",
+		to: "licenses/TagTape window.txt",
+	},
+	{
+		from: `resources/bin/${platform}-\${arch}`,
+		to: "licenses",
+		filter: ["*.LICENSE.txt", "*.NOTICE.txt"],
 	},
 ];
 

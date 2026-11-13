@@ -68,6 +68,8 @@ The version lives in the root `package.json`. Bump it, date the `## Unreleased` 
 
 [`apps/desktop/binaries.lock.json`](apps/desktop/binaries.lock.json) pins ffmpeg and yt-dlp for each platform by URL and SHA-256. yt-dlp is its official release. ffmpeg has no official binaries, so TagTape uses [BtbN's builds](https://github.com/BtbN/FFmpeg-Builds) (LGPL) on Windows and Linux and [Martin Riedl's builds](https://ffmpeg.martin-riedl.de) (GPL) on macOS. Their licence texts ship inside the app, next to the programs.
 
+The macOS build of ffmpeg is licensed GPL-3.0-or-later; the Windows and Linux builds are LGPL. Each installer carries the licence texts of the programs and of the npm packages inside the app (Help > Third-Party Licences).
+
 ## Sources and plugins
 
 A **source** turns one kind of link into MP3 audio: it claims links (`match`), checks a track (`probe`) and streams it (`stream`). TagTape does everything else: limits, the cover, the ID3 tags and the album folder. Sources are tried in order: plugins, then the two built-in ones:

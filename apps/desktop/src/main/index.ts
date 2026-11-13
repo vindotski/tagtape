@@ -373,16 +373,20 @@ async function start(): Promise<void> {
 		showSaveFolder: () => void ipc.showDestination(),
 		openAlbumFile: () => void chooseShare(),
 		showLogs: () => shell.showItemInFolder(logFile()),
+		// Packaged: the folder the installer put them in. Otherwise: the build's.
+		showLicences: () =>
+			void shell.openPath(
+				app.isPackaged
+					? join(process.resourcesPath, "licenses")
+					: join(here, ".."),
+			),
 	});
 	// Links to shared albums open this app (the installer registers the
 	// file type; in development nothing is registered).
 	if (app.isPackaged) app.setAsDefaultProtocolClient(SHARE_SCHEME);
 
 	window = createWindow();
-	log.info(
-		{ version: app.getVersion(), platform: process.platform },
-		"Started",
-	);
+	log.info({ version: __APP_VERSION__, platform: process.platform }, "Started");
 
 	if (process.env.TAGTAPE_SMOKE_TEST === "1") {
 		void smokeTest(tagtape, window);

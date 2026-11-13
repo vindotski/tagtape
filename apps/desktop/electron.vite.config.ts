@@ -5,12 +5,25 @@ import { tanstackRouter } from "@tanstack/router-plugin/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "electron-vite";
 import type { Plugin } from "vite";
+import { thirdPartyNotices } from "./scripts/notices-plugin.ts";
 
 // One version for everything: the root package.json (electron-builder reads
 // the same one).
 const rootPackage = JSON.parse(
 	readFileSync(new URL("../../package.json", import.meta.url), "utf8"),
 ) as { version: string };
+const desktopPackage = JSON.parse(
+	readFileSync(new URL("./package.json", import.meta.url), "utf8"),
+) as {
+	dependencies: Record<string, string>;
+	optionalDependencies: Record<string, string>;
+};
+// Shipped beside the bundle (native code), so the bundler never sees them.
+const shippedBeside = Object.keys({
+	...desktopPackage.dependencies,
+	...desktopPackage.optionalDependencies,
+}).filter((name) => name !== "@tagtape/shared");
+
 const define = {
 	__APP_VERSION__: JSON.stringify(rootPackage.version),
 };
@@ -53,6 +66,7 @@ const bundled = { exclude: ["@tagtape/shared"] };
 export default defineConfig({
 	main: {
 		define,
+		plugins: [thirdPartyNotices(shippedBeside)],
 		build: {
 			externalizeDeps: bundled,
 			rollupOptions: { input: "src/main/index.ts" },
@@ -91,6 +105,9 @@ export default defineConfig({
 			}),
 			react(),
 			contentSecurityPolicy,
+			// The font arrives through CSS, which the bundle's module list
+			// doesn't show.
+			thirdPartyNotices(["@fontsource-variable/oxanium"]),
 		],
 	},
 });

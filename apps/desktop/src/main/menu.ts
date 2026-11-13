@@ -11,6 +11,8 @@ export interface MenuActions {
 	openAlbumFile(): void;
 	/** Shows the app's log file in the file manager. */
 	showLogs(): void;
+	/** Opens the folder with the licences of everything TagTape includes. */
+	showLicences(): void;
 }
 
 /**
@@ -115,6 +117,10 @@ export function installMenu(actions: MenuActions): void {
 				},
 				{ type: "separator" },
 				{ label: "Show Logs", click: () => actions.showLogs() },
+				{
+					label: "Third-Party Licences",
+					click: () => actions.showLicences(),
+				},
 			],
 		},
 	];
