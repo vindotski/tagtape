@@ -4,5 +4,6 @@ export * from "./id3.ts";
 export * from "./jobs.ts";
 export * from "./limits.ts";
 export * from "./probe.ts";
+export * from "./share.ts";
 export * from "./site-errors.ts";
 export * from "./web-url.ts";
