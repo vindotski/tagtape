@@ -27,7 +27,7 @@ TagTape becomes a desktop app for macOS, Windows and Linux. It runs entirely on 
 ### Changed
 - A site's bot check or rate limit is now about your device's connection: "The site is refusing requests from this device right now…". The 10-minute pause for that site stays.
 - yt-dlp runs sites' JavaScript challenges with the app's own runtime; nothing extra is installed.
-- ID3 tags are written by TagTape's own small writer (shared with the coming mobile app) instead of `node-id3`. The tags are the same: ID3v2.3 with the front cover.
+- ID3 tags are written by TagTape's own small writer instead of `node-id3`. The tags are the same: ID3v2.3 with the front cover.
 
 ### Removed
 - **The hosted web app, the API service and the Docker image** (`vindotski/tagtape`), with everything only a public service needs: guest accounts and Postgres, the proof-of-work, per-visitor limits, the request middleware, and its environment-variable configuration.

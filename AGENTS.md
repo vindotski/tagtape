@@ -38,7 +38,7 @@ tanstackIntent:
 
 # TagTape — agent instructions
 
-TagTape turns 1–10 track links plus album details (title, artist, genre, year, cover) into a folder of ID3-tagged MP3s laid out as an album, so the tracks sort and display correctly on any plain MP3 player. It is a desktop app (Electron) that runs entirely on the user's computer: no server, no accounts. Out of the box it reads direct links to MP3 files and, through the bundled yt-dlp, single tracks from any site yt-dlp has an extractor for; more sources can come from plugins. A React Native mobile app is planned as 4.1.0. https://tagtape.app
+TagTape turns 1–10 track links plus album details (title, artist, genre, year, cover) into a folder of ID3-tagged MP3s laid out as an album, so the tracks sort and display correctly on any plain MP3 player. It is a desktop app (Electron) that runs entirely on the user's computer: no server, no accounts. Out of the box it reads direct links to MP3 files and, through the bundled yt-dlp, single tracks from any site yt-dlp has an extractor for; more sources can come from plugins. https://tagtape.app
 
 Versions 2 and 3 were a hosted web app (TanStack Start + a Fastify API in one Docker image); that code ends at tag `v3.2.0`. Version 1 was a 2020 PHP app (tag `v1.0.0`).
 
@@ -54,7 +54,6 @@ Versions 2 and 3 were a hosted web app (TanStack Start + a Fastify API in one Do
 | `desktop/src/ipc.ts` | The contract between page and main process (types + channel names). |
 | `website/` | `@tagtape/website`: the static Astro product site, deployed to GitHub Pages. |
 | `shared/` | `@tagtape/shared`: zod schemas, limits, `parseWebUrl`, the ID3v2.3 writer, file naming, probe rules, yt-dlp error mapping. Exports TS source directly. |
-| `spike/mobile/` | Throwaway proof that the pipeline runs in a React Native app (Android and iOS). Outside the workspace, Biome and CI; replaced by `mobile/` in 4.1.0. |
 
 How the parts talk: the page calls `window.tagtape` (see `renderer/lib/bridge.ts`); the preload forwards each call over IPC; the main process validates the arguments and calls the pipeline (`createTagTape` in `core/index.ts`). For anything Electron-specific, load the `electron` skill first.
 
@@ -118,7 +117,7 @@ Run `pnpm check`, `pnpm typecheck` and `pnpm test` before calling a task done, a
 - **The website** (`website/`): static Astro, self-hosted fonts, a strict content security policy in a `<meta>` tag. **No JavaScript, except on `/open/`**, the page share links land on: it runs one self-hosted script (`src/scripts/open.ts`) that reads the album from the address, makes no requests, and sets text only, never HTML. A page gets scripts only by passing `scripts` to `layouts/Page.astro`. Installer links use the fixed file names from `electron-builder.config.mjs` (`website/src/site.ts`). It lives under `/tagtape` on `github.io` until the domain is pointed at it (then: `site`, remove `base`, add `public/CNAME`).
 - pnpm settings live in `pnpm-workspace.yaml`. `.npmrc` is for auth only (see the `pnpm` skill).
 - Versions used by more than one package (zod, vitest, typescript) go in the pnpm **catalog**. (The website pins TypeScript 6: `astro check` doesn't support 7 yet.)
-- Code in `shared/` must run in browsers, Node and React Native: web-standard APIs only (no `node:*` imports, no `Buffer`), relative imports with `.ts` extensions, and erasable TypeScript syntax only.
+- Code in `shared/` must run in browsers (the website's open page) and Node: web-standard APIs only (no `node:*` imports, no `Buffer`), relative imports with `.ts` extensions, and erasable TypeScript syntax only.
 - Tests are Vitest, written as `*.test.ts` files next to the code they test. Pipeline tests use the fake pipeline in `core/test/helpers.ts` and need no binaries or network.
 - **UI** is **shadcn/ui** on the React Aria base (`desktop/components.json`: vega style, green on olive, no radius, Oxanium, lucide icons).
   - **It is a desktop window, not a web page.** The root route (`routes/__root.tsx`) is the whole window: the sidebar (`components/app-sidebar.tsx`), a strip that stands in for the title bar and drags the window (`.app-drag` in `styles.css`), and a screen that scrolls on its own. The window itself never scrolls. Chrome is `select-none`; add `select-text` where text should be copyable.

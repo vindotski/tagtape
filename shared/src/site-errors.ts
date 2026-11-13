@@ -1,6 +1,4 @@
-// What yt-dlp's errors mean for the person using TagTape. Pure text handling,
-// shared by the desktop app (yt-dlp as a process) and the mobile app (yt-dlp
-// in-process).
+// What yt-dlp's errors mean for the person using TagTape. Pure text handling.
 
 export const UNSUPPORTED_LINK = "TagTape can't read tracks from this link";
 

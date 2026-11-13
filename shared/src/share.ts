@@ -111,8 +111,8 @@ export function shareFragmentOf(link: string): string | null {
 	return at === -1 ? null : link.slice(at);
 }
 
-// Written out because `Buffer` is Node's and `btoa` isn't everywhere this
-// package runs.
+// Written out because `Buffer` is Node's, and `btoa` takes a string of
+// single-byte characters, not bytes.
 const ALPHABET =
 	"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
 

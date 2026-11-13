@@ -1,5 +1,5 @@
-// A small ID3v2.3 writer on Uint8Array, so the same code tags tracks in
-// Node (desktop) and on Hermes (mobile). v2.3 because old MP3 players and
+// A small ID3v2.3 writer on Uint8Array: web-standard APIs only, like the
+// rest of this package. v2.3 because old MP3 players and
 // car stereos read it more reliably than v2.4.
 
 export interface TrackTags {

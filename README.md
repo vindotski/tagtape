@@ -53,7 +53,6 @@ The repository is a pnpm workspace:
 | `desktop/` | The Electron app: main process, preload bridge, the React UI, and the pipeline that checks, converts and tags tracks (`src/core`) |
 | `website/` | The product site ([Astro](https://astro.build)), published on GitHub Pages |
 | `shared/` | Code every part uses: validation schemas, limits, the ID3 tag writer |
-| `spike/mobile/` | An experiment proving the pipeline runs inside a React Native app; the mobile app comes later |
 
 An end-to-end test converts real public links with the bundled programs:
 
