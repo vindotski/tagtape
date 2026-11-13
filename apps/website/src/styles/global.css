@@ -54,7 +54,8 @@
 		@apply bg-muted text-foreground antialiased;
 	}
 	:focus-visible {
-		outline: 3px solid var(--ring);
+		/* The ring colour alone is too faint on a light page to see where focus is. */
+		outline: 3px solid var(--primary);
 		outline-offset: 2px;
 	}
 	@media (prefers-reduced-motion: reduce) {

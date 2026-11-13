@@ -9,10 +9,14 @@ interface Props {
 	 * share links needs it; every other page runs no script at all.
 	 */
 	scripts?: boolean;
+	/** Keep the page out of search results (a page that only means something with a link's data). */
+	noindex?: boolean;
 }
-const { title, description, scripts = false } = Astro.props;
+const { title, description, scripts = false, noindex = false } = Astro.props;
 const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 const canonical = new URL(Astro.url.pathname, Astro.site);
+// Link previews need an absolute address.
+const preview = new URL(`${base}/og.png`, Astro.site);
 
 // Everything is served from this site: no remote anything, no connections,
 // and no scripts unless the page asked for the site's own.
@@ -37,14 +41,28 @@ const policy = [
 		{import.meta.env.PROD && <meta http-equiv="Content-Security-Policy" content={policy} />}
 		<title>{title}</title>
 		<meta name="description" content={description} />
-		<meta name="theme-color" content="#15803d" />
-		<meta property="og:title" content="TagTape" />
+		{noindex && <meta name="robots" content="noindex" />}
+		<meta name="theme-color" content="#f5f5f2" media="(prefers-color-scheme: light)" />
+		<meta name="theme-color" content="#0b0b09" media="(prefers-color-scheme: dark)" />
+		<meta property="og:type" content="website" />
+		<meta property="og:site_name" content="TagTape" />
+		<meta property="og:title" content={title} />
 		<meta property="og:description" content={description} />
 		<meta property="og:url" content={canonical} />
+		<meta property="og:image" content={preview} />
+		<meta property="og:image:width" content="1200" />
+		<meta property="og:image:height" content="630" />
+		<meta property="og:image:alt" content="The TagTape window: a library of album covers." />
+		<meta name="twitter:card" content="summary_large_image" />
 		<link rel="canonical" href={canonical} />
 		<link rel="icon" href={`${base}/favicon.svg`} type="image/svg+xml" />
 	</head>
 	<body>
+		<a
+			href="#content"
+			class="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-10 focus:border focus:bg-card focus:px-3 focus:py-2"
+			>Skip to the content</a
+		>
 		<div class="mx-auto flex min-h-dvh max-w-5xl flex-col px-4 sm:px-6">
 			<header class="flex items-center justify-between gap-4 py-6">
 				<a href={`${base}/`} class="flex items-center gap-2.5">
@@ -63,7 +81,7 @@ const policy = [
 					<a href={`${base}/#download`} class="border bg-card px-3 py-2 font-medium hover:bg-muted">Download</a>
 				</nav>
 			</header>
-			<main class="flex-1 pb-16">
+			<main id="content" class="flex-1 pb-16">
 				<slot />
 			</main>
 			<footer class="flex flex-wrap gap-x-6 gap-y-2 border-t py-6 text-sm text-muted-foreground">

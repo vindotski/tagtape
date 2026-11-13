@@ -13,7 +13,7 @@ const latest = (file: string) =>
 export const DOWNLOADS = [
 	{
 		platform: "macOS",
-		note: "macOS 12 or later",
+		note: "macOS 13 or later",
 		files: [
 			{ label: "Apple Silicon (.dmg)", href: latest("TagTape-mac-arm64.dmg") },
 			{ label: "Intel (.dmg)", href: latest("TagTape-mac-x64.dmg") },
