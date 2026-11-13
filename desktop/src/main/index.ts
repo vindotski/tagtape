@@ -100,7 +100,8 @@ async function confirmQuit(): Promise<boolean> {
 
 /**
  * The one way out: ask if an album is running, then cancel everything (which
- * removes what it wrote so far) and quit. Until then nothing is closed.
+ * removes what it wrote so far), and only then let the app quit. Until then
+ * nothing is closed, however often the user asks.
  */
 let asking = false;
 async function quitIfConfirmed(): Promise<void> {
@@ -108,8 +109,10 @@ async function quitIfConfirmed(): Promise<void> {
 	asking = true;
 	try {
 		if (!(await confirmQuit())) return;
-		quitting = true;
+		// Still not "quitting": closing the window again or pressing Cmd+Q
+		// while this runs is refused, so cleanup always finishes first.
 		await tagtape?.close().catch(() => {});
+		quitting = true;
 		app.quit();
 	} finally {
 		asking = false;
