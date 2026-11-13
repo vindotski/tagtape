@@ -131,7 +131,7 @@ Run `pnpm check`, `pnpm typecheck` and `pnpm test` before calling a task done, a
 
 - **`ci.yml`** runs on pushes to `main`/`dev`, tags and every PR:
   - `checks`: `biome ci`, `pnpm typecheck`, `pnpm test`, `pnpm build`, with a frozen lockfile.
-  - `package` (macOS arm64 and x64, Windows, Linux): the desktop tests on that platform, `pnpm package`, then the packaged app started once in smoke mode (`TAGTAPE_SMOKE_TEST=1`). Installers are uploaded as artifacts.
+  - `package` (macOS arm64 and x64, Windows, Linux; on a PR only when it touches the app, the shared package, the lockfile, the workspace files or `ci.yml`): the desktop tests on that platform, `pnpm package`, then the packaged app started once in smoke mode (`TAGTAPE_SMOKE_TEST=1`). Installers are uploaded as artifacts.
   - `release` (version tags only): a draft GitHub Release with every installer.
 - **`pages.yml`** deploys the website from `main` when `apps/website/` or `packages/shared/` changes. Never deploy it from `dev` or PRs.
 - **`e2e.yml`** runs weekly (and on demand): real public links through the bundled binaries. Every link comes from a repository variable, never the repo: `TAGTAPE_E2E_MP3_URLS` and `TAGTAPE_E2E_COVER_URL` (direct links), `TAGTAPE_E2E_SITE_URLS` (yt-dlp). A part without its variable is skipped.

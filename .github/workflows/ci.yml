@@ -19,7 +19,34 @@ jobs:
     name: Lint, typecheck, test, build
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      installers: ${{ steps.scope.outputs.installers }}
     steps:
+      # Installers are built on four platforms. On dev, main and tags, always.
+      # On a pull request, only when it touches something that ends up in
+      # them: a change to the website or the docs needs no installers.
+      - name: Decide whether to build installers
+        id: scope
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          EVENT: ${{ github.event_name }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          build=true
+          if [ "$EVENT" = pull_request ]; then
+            # If the list can't be read, build: never skip by accident.
+            if files="$(gh api "repos/$REPO/pulls/$PR/files" --paginate --jq '.[].filename')"; then
+              pattern='^(apps/desktop/|packages/shared/|\.github/workflows/ci\.yml$|package\.json$|pnpm-lock\.yaml$|pnpm-workspace\.yaml$|tsconfig\.base\.json$)'
+              echo "$files" | grep -qE "$pattern" || build=false
+            fi
+          fi
+          echo "installers=$build" >> "$GITHUB_OUTPUT"
+          echo "Build installers: $build"
+
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -84,6 +111,7 @@ jobs:
   package:
     name: Package (${{ matrix.name }})
     needs: checks
+    if: needs.checks.outputs.installers == 'true'
     strategy:
       fail-fast: false
       matrix:
