@@ -1,5 +1,5 @@
-import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, readdirSync, readFileSync, realpathSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Plugin } from "vite";
 
@@ -13,6 +13,41 @@ function packageDir(id: string): string | undefined {
 	const rest = id.slice(at + "node_modules/".length).split("/");
 	const name = rest[0]?.startsWith("@") ? `${rest[0]}/${rest[1]}` : rest[0];
 	return name ? id.slice(0, at + "node_modules/".length) + name : undefined;
+}
+
+/**
+ * A package that ships as it is, with everything it needs at run time: its
+ * dependencies and those of its optional ones that are installed, all the
+ * way down. Each is looked up next to its parent's real location, which is
+ * where pnpm links a package's own dependencies.
+ */
+function withRuntimeDependencies(dir: string, found = new Set<string>()) {
+	const real = realpathSync(dir);
+	if (found.has(real)) return found;
+	found.add(real);
+	let manifest: {
+		name?: string;
+		dependencies?: Record<string, string>;
+		optionalDependencies?: Record<string, string>;
+	};
+	try {
+		manifest = JSON.parse(readFileSync(join(real, "package.json"), "utf8"));
+	} catch {
+		return found;
+	}
+	// `.../node_modules/@scope/name` → `.../node_modules`.
+	const siblings = manifest.name?.startsWith("@")
+		? dirname(dirname(real))
+		: dirname(real);
+	for (const name of Object.keys({
+		...manifest.dependencies,
+		...manifest.optionalDependencies,
+	})) {
+		const dependency = join(siblings, name);
+		// Missing means it is another platform's package.
+		if (existsSync(dependency)) withRuntimeDependencies(dependency, found);
+	}
+	return found;
 }
 
 /** One package's entry: what it is, under which licence, and the licence text it ships. */
@@ -56,11 +91,19 @@ function notice(dir: string): { key: string; text: string } | undefined {
 
 /**
  * Writes THIRD-PARTY-NOTICES.txt next to a build's output: every npm package
- * whose code ended up in that bundle, with its licence. `also` names packages
- * that ship beside the bundle instead of inside it (native modules); ones
- * not installed on this platform are skipped.
+ * whose code ended up in that bundle, with its licence, plus the packages
+ * the bundler doesn't see:
+ *
+ * - `beside`: ones that ship next to the bundle as they are (native
+ *   modules), listed with everything they need at run time;
+ * - `named`: ones only part of which ships (a stylesheet, a font), listed
+ *   alone: what they depend on to do their own work isn't in the app.
+ *
+ * Ones not installed on this platform are skipped.
  */
-export function thirdPartyNotices(also: string[] = []): Plugin {
+export function thirdPartyNotices(
+	also: { beside?: string[]; named?: string[] } = {},
+): Plugin {
 	return {
 		name: "tagtape:third-party-notices",
 		apply: "build",
@@ -73,8 +116,13 @@ export function thirdPartyNotices(also: string[] = []): Plugin {
 					if (dir && existsSync(dir)) dirs.add(dir);
 				}
 			}
-			for (const name of also) {
-				// Missing means it is another platform's package.
+			// Missing means it is another platform's package.
+			for (const name of also.beside ?? []) {
+				const dir = join(modules, name);
+				if (!existsSync(dir)) continue;
+				for (const each of withRuntimeDependencies(dir)) dirs.add(each);
+			}
+			for (const name of also.named ?? []) {
 				const dir = join(modules, name);
 				if (existsSync(dir)) dirs.add(dir);
 			}

@@ -66,7 +66,7 @@ const bundled = { exclude: ["@tagtape/shared"] };
 export default defineConfig({
 	main: {
 		define,
-		plugins: [thirdPartyNotices(shippedBeside)],
+		plugins: [thirdPartyNotices({ beside: shippedBeside })],
 		build: {
 			externalizeDeps: bundled,
 			rollupOptions: { input: "src/main/index.ts" },
@@ -105,9 +105,16 @@ export default defineConfig({
 			}),
 			react(),
 			contentSecurityPolicy,
-			// The font arrives through CSS, which the bundle's module list
-			// doesn't show.
-			thirdPartyNotices(["@fontsource-variable/oxanium"]),
+			// What arrives through CSS (see styles.css), which the bundle's
+			// module list doesn't show.
+			thirdPartyNotices({
+				named: [
+					"@fontsource-variable/oxanium",
+					"shadcn",
+					"tailwindcss",
+					"tw-animate-css",
+				],
+			}),
 		],
 	},
 });
