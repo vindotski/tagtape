@@ -1,4 +1,4 @@
-import { useRouter } from "@tanstack/react-router";
+import { useNavigate, useRouter } from "@tanstack/react-router";
 import { useState } from "react";
 import { AlbumForm } from "#/components/album-form";
 import { JobProgress } from "#/components/job-progress";
@@ -7,73 +7,78 @@ import {
 	emptyDraft,
 	type FieldErrors,
 } from "#/lib/album-draft";
-
-type Phase =
-	| { kind: "edit"; errors?: FieldErrors }
-	| { kind: "job"; jobId: string };
+import { dismissJob, followJob, useCurrentJob } from "#/lib/current-job";
 
 interface AlbumWorkspaceProps {
 	initialDraft: AlbumDraft;
 	/** A stored album: converting it again updates it. */
 	albumId?: string;
-	/** What "Make another album" does; by default the editor starts empty. */
-	onStartOver?: () => void;
+	/**
+	 * The "New album" screen: it shows the album being made instead of an
+	 * empty form, so its progress is always one click away. Other editors
+	 * (a stored album, a shared one) keep their form and send the user there
+	 * once their album starts.
+	 */
+	home?: boolean;
 }
 
-/** The album editor and, once started, the conversion, in one place. */
+/** The album editor and, on the home screen, the album being made. */
 export function AlbumWorkspace({
 	initialDraft,
 	albumId: storedId,
-	onStartOver,
+	home = false,
 }: AlbumWorkspaceProps) {
-	// The draft lives here so going back from a failed job keeps everything filled in.
 	const [draft, setDraft] = useState<AlbumDraft>(initialDraft);
-	const [phase, setPhase] = useState<Phase>({ kind: "edit" });
+	const [errors, setErrors] = useState<FieldErrors>();
 	// Once an album is saved, converting it again updates it instead of adding another.
 	const [albumId, setAlbumId] = useState(storedId);
+	const current = useCurrentJob();
 	const router = useRouter();
+	const navigate = useNavigate();
 
-	if (phase.kind === "edit") {
+	if (home && current) {
 		return (
-			<AlbumForm
-				// Remount with fresh errors whenever we come back from a job.
-				key={JSON.stringify(phase.errors ?? {})}
-				draft={draft}
-				onDraftChange={setDraft}
-				initialErrors={phase.errors}
-				albumId={albumId}
-				onStarted={(jobId, savedId) => {
-					setPhase({ kind: "job", jobId });
-					if (savedId) setAlbumId(savedId);
-					// The album shows up in the lists.
-					void router.invalidate();
+			<JobProgress
+				state={current.state}
+				album={current.draft}
+				// Back to the form with everything still filled in.
+				onEdit={(trackErrors) => {
+					setDraft(current.draft);
+					setAlbumId(current.albumId);
+					setErrors(
+						Object.fromEntries(
+							Object.entries(trackErrors).map(([index, message]) => [
+								`tracks.${index}.url`,
+								message,
+							]),
+						),
+					);
+					dismissJob();
+				}}
+				onStartOver={() => {
+					setDraft(emptyDraft());
+					setAlbumId(undefined);
+					setErrors(undefined);
+					dismissJob();
 				}}
 			/>
 		);
 	}
 	return (
-		<JobProgress
-			jobId={phase.jobId}
-			album={draft}
-			onEdit={(trackErrors) =>
-				setPhase({
-					kind: "edit",
-					errors: Object.fromEntries(
-						Object.entries(trackErrors).map(([index, message]) => [
-							`tracks.${index}.url`,
-							message,
-						]),
-					),
-				})
-			}
-			onStartOver={
-				onStartOver ??
-				(() => {
-					setDraft(emptyDraft());
-					setAlbumId(undefined);
-					setPhase({ kind: "edit" });
-				})
-			}
+		<AlbumForm
+			// Remount with fresh errors whenever we come back from a job.
+			key={JSON.stringify(errors ?? {})}
+			draft={draft}
+			onDraftChange={setDraft}
+			initialErrors={errors}
+			albumId={albumId}
+			onStarted={(jobId, savedId) => {
+				if (savedId) setAlbumId(savedId);
+				followJob(jobId, draft, savedId ?? albumId);
+				// The album shows up in the lists.
+				void router.invalidate();
+				if (!home) void navigate({ to: "/" });
+			}}
 		/>
 	);
 }

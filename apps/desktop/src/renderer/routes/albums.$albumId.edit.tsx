@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeft } from "lucide-react";
 import { AlbumNotFound } from "#/components/album-not-found";
 import { AlbumWorkspace } from "#/components/album-workspace";
@@ -15,7 +15,6 @@ export const Route = createFileRoute("/albums/$albumId/edit")({
 /** A stored album back in the editor: making it again updates it. */
 function EditAlbum() {
 	const album = Route.useLoaderData();
-	const navigate = useNavigate();
 	return (
 		<>
 			<div className="mb-4">
@@ -34,7 +33,6 @@ function EditAlbum() {
 				key={album.id}
 				initialDraft={draftFromAlbum(album)}
 				albumId={album.id}
-				onStartOver={() => void navigate({ to: "/" })}
 			/>
 		</>
 	);

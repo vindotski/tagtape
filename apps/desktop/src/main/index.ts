@@ -268,15 +268,13 @@ function notifyFinished(
 			: `“${album.title}” didn't work. Open TagTape to see why.`,
 	});
 	notification.on("click", () => {
-		// A saved album opens on its own screen; a failed one is still on
-		// the screen that shows what went wrong.
-		if (saved && album.albumId) {
-			showScreen({ screen: "album", albumId: album.albumId });
-		} else if (window) {
-			if (window.isMinimized()) window.restore();
-			window.show();
-			window.focus();
-		}
+		// A saved album opens on its own screen; a failed one on the first
+		// screen, which shows what went wrong.
+		showScreen(
+			saved && album.albumId
+				? { screen: "album", albumId: album.albumId }
+				: { screen: "new" },
+		);
 	});
 	notification.show();
 }

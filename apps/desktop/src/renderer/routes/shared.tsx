@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { CircleAlert } from "lucide-react";
 import { AlbumWorkspace } from "#/components/album-workspace";
 import { Alert, AlertDescription } from "#/components/ui/alert";
@@ -17,7 +17,6 @@ export const Route = createFileRoute("/shared")({
  */
 function SharedAlbum() {
 	const shown = useSharedAlbum();
-	const navigate = useNavigate();
 
 	if (!shown?.share.ok) {
 		return (
@@ -55,7 +54,6 @@ function SharedAlbum() {
 				// Another shared album is a fresh editor.
 				key={shown.sequence}
 				initialDraft={draftFromShared(shown.share.album)}
-				onStartOver={() => void navigate({ to: "/" })}
 			/>
 		</>
 	);

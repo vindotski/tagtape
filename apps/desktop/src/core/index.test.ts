@@ -142,7 +142,6 @@ describe("job lifecycle", () => {
 		expect(seen.filter((entry, i) => entry !== seen[i - 1])).toEqual([
 			"queued:0",
 			"probing:0",
-			"queued:0",
 			"streaming:0",
 			"streaming:1",
 			"streaming:2",
@@ -282,15 +281,33 @@ describe("job lifecycle", () => {
 		expect(await readdir(destination)).toEqual([]);
 	});
 
-	test("finished jobs are forgotten after a while; unknown jobs are undefined", async () => {
-		let now = new Date("2026-11-13T10:00:00Z");
-		const { tagtape } = start({ now: () => now });
-		const id = jobId(tagtape.createJob(album(), destination));
+	test("one album at a time: a second one is refused until the first has ended", async () => {
+		const pipeline = fakePipeline();
+		let release: () => void = () => {};
+		pipeline.gate = new Promise<void>((resolve) => {
+			release = resolve;
+		});
+		const { tagtape } = start({ pipeline });
+		const first = jobId(tagtape.createJob(album(), destination));
+		expect(tagtape.activeJob()?.id).toBe(first);
+		expect(tagtape.createJob(album(), destination)).toEqual({
+			kind: "busy",
+			message: expect.stringContaining("still being made"),
+		});
+
+		release();
 		await tagtape.jobs.settled();
-		now = new Date("2026-11-13T10:29:00Z");
-		expect(tagtape.jobs.sweep()).toBe(0);
-		now = new Date("2026-11-13T10:31:00Z");
-		expect(tagtape.jobs.sweep()).toBe(1);
-		expect(tagtape.getJob(id)).toBeUndefined();
+		expect(tagtape.activeJob()).toBeUndefined();
+		// A finished job stays known (its folder can still be shown) ...
+		expect(tagtape.getJob(first)?.status).toBe("done");
+		// ... and the next album can start.
+		expect(tagtape.createJob(album(), destination).kind).toBe("ok");
+	});
+
+	test("unknown jobs are undefined", () => {
+		const { tagtape } = start();
+		expect(
+			tagtape.getJob("00000000-0000-4000-8000-000000000000"),
+		).toBeUndefined();
 	});
 });

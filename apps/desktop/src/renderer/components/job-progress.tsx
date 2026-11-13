@@ -22,11 +22,11 @@ import { Progress } from "#/components/ui/progress";
 import { Spinner } from "#/components/ui/spinner";
 import type { AlbumDraft } from "#/lib/album-draft";
 import { cancelJob, showJobFolder } from "#/lib/bridge";
-import { useJob } from "#/lib/use-job";
+import type { JobState } from "#/lib/current-job";
 import { cn } from "#/lib/utils";
 
 const JOB_LABELS: Record<JobStatus, string> = {
-	queued: "Waiting for a turn…",
+	queued: "Starting…",
 	probing: "Checking your tracks…",
 	streaming: "Converting and saving…",
 	done: "Your album is saved",
@@ -44,7 +44,8 @@ const TRACK_LABELS: Record<TrackStatus, string> = {
 const CANCELLED = "Cancelled";
 
 interface JobProgressProps {
-	jobId: string;
+	/** Where the job stands (followed outside this view, see lib/current-job). */
+	state: JobState;
 	/** The job only knows its tracks; the header shows the album as it was sent. */
 	album: AlbumDraft;
 	/** Go back to the form with the same album, plus any per-track errors. */
@@ -53,12 +54,11 @@ interface JobProgressProps {
 }
 
 export function JobProgress({
-	jobId,
+	state,
 	album,
 	onEdit,
 	onStartOver,
 }: JobProgressProps) {
-	const state = useJob(jobId);
 	const [cancelling, setCancelling] = useState(false);
 
 	if (state.kind === "loading") {
@@ -113,7 +113,13 @@ export function JobProgress({
 						isPending={cancelling}
 						onPress={() => {
 							setCancelling(true);
-							void cancelJob(job.id);
+							// Nothing to cancel any more (it just ended): the next
+							// update shows how, and the button must not hang.
+							void cancelJob(job.id)
+								.catch(() => false)
+								.then((stopping) => {
+									if (!stopping) setCancelling(false);
+								});
 						}}
 					>
 						{cancelling && <Spinner aria-hidden="true" />}

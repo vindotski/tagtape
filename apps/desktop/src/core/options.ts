@@ -24,18 +24,13 @@ export interface TagTapeOptions {
 }
 
 /**
- * Fixed limits. One person uses the app, so these only keep a big album from
- * starting everything at once. Checks and downloads have separate caps on
- * purpose: long downloads must not starve the checks.
+ * Fixed limits. One person uses the app and one album is made at a time, so
+ * these only keep a big album from starting everything at once, and a stuck
+ * source from hanging it.
  */
 export const LIMITS = {
-	/** How long a finished job is remembered. */
-	jobTtlMs: 30 * 60_000,
-	maxActiveProbes: 4,
-	maxQueuedJobs: 20,
-	/** Albums converting at once (each runs its source's tools + ffmpeg). */
-	maxActiveStreams: 2,
-	maxStoredJobs: 100,
+	/** Finished jobs remembered while the app runs (a status and a folder each). */
+	finishedJobsKept: 200,
 	/** A job's whole check (every track and the cover) must finish within this. */
 	checkTimeoutMs: 180_000,
 	/** Tracks checked in parallel within one job. */

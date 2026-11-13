@@ -1,8 +1,15 @@
 import { Link } from "@tanstack/react-router";
-import { LibraryBig, type LucideIcon, Plus, Settings } from "lucide-react";
+import {
+	LibraryBig,
+	LoaderCircle,
+	type LucideIcon,
+	Plus,
+	Settings,
+} from "lucide-react";
 import type { ReactNode } from "react";
 import type { AlbumSummary } from "#/lib/albums";
 import { appPlatform } from "#/lib/bridge";
+import { isWorking, useCurrentJob } from "#/lib/current-job";
 import { cn } from "#/lib/utils";
 
 const ITEM =
@@ -15,6 +22,14 @@ const ACTIVE = "bg-sidebar-accent font-medium text-sidebar-accent-foreground";
  */
 export function AppSidebar({ recent }: { recent: AlbumSummary[] }) {
 	const mac = appPlatform() === "darwin";
+	// The album being made lives on the first screen: say so here, on every
+	// screen, so its progress is always one click away.
+	const job = useCurrentJob();
+	const working = isWorking(job);
+	const ended = job?.state.kind === "ready" ? job.state.job : undefined;
+	// A cancelled album is the user's own doing: nothing to point out.
+	const failed = ended?.status === "failed" && ended.error !== "Cancelled";
+	const saved = ended?.status === "done";
 	return (
 		<aside className="app-drag flex w-14 shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground md:w-56">
 			{/* On macOS the traffic lights sit here. */}
@@ -26,8 +41,19 @@ export function AppSidebar({ recent }: { recent: AlbumSummary[] }) {
 				</span>
 			</div>
 			<nav aria-label="Main" className="mt-2 flex flex-col">
-				<NavItem to="/" icon={Plus} exact>
-					New album
+				<NavItem
+					to="/"
+					icon={working ? LoaderCircle : Plus}
+					spin={working}
+					exact
+				>
+					{working
+						? "Making album…"
+						: failed
+							? "Album didn't finish"
+							: saved
+								? "Album saved"
+								: "New album"}
 				</NavItem>
 				<NavItem to="/albums" icon={LibraryBig} exact>
 					Library
@@ -73,9 +99,12 @@ export function AppSidebar({ recent }: { recent: AlbumSummary[] }) {
 function NavItem({
 	to,
 	icon: Icon,
+	spin,
 	exact,
 	children,
 }: {
+	/** Turn the icon (something is in progress). */
+	spin?: boolean;
 	to: "/" | "/albums" | "/settings";
 	icon: LucideIcon;
 	exact?: boolean;
@@ -88,7 +117,13 @@ function NavItem({
 			activeProps={{ className: ACTIVE }}
 			activeOptions={{ exact: exact === true }}
 		>
-			<Icon className="size-4 shrink-0" aria-hidden="true" />
+			<Icon
+				className={cn(
+					"size-4 shrink-0",
+					spin && "animate-spin motion-reduce:animate-none",
+				)}
+				aria-hidden="true"
+			/>
 			<span className="max-md:sr-only">{children}</span>
 		</Link>
 	);

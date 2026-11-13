@@ -35,9 +35,9 @@ export interface TagTape {
 	/** The sources links can come from, in matching order. */
 	sources(): SourceInfo[];
 	/**
-	 * Validates the album, matches each link to a source and queues the job:
+	 * Validates the album, matches each link to a source and starts the job:
 	 * every track is checked, then the album is saved in its own folder inside
-	 * `destination`.
+	 * `destination`. One album at a time: a second one is `busy`.
 	 */
 	createJob(input: unknown, destination: string): CreateJobOutcome;
 	getJob(id: string): JobSnapshot | undefined;
@@ -53,7 +53,9 @@ export interface TagTape {
 	 * the check until the listeners have heard that the job ended.
 	 */
 	jobCover(id: string): Uint8Array | undefined;
-	/** True while any album is being checked or saved. */
+	/** The album being made right now, if any. */
+	activeJob(): JobSnapshot | undefined;
+	/** True while an album is being checked or saved. */
 	busy(): boolean;
 	/** Versions of ffmpeg and of each source; rejects when a binary doesn't run. */
 	versions(): Promise<Record<string, string>>;
@@ -123,18 +125,12 @@ export function fromPipeline(
 ): TagTape & { jobs: JobManager } {
 	const jobs = new JobManager({
 		pipeline,
-		ttlMs: LIMITS.jobTtlMs,
-		maxActiveProbes: LIMITS.maxActiveProbes,
-		maxQueuedJobs: LIMITS.maxQueuedJobs,
-		maxActiveStreams: LIMITS.maxActiveStreams,
-		maxStoredJobs: LIMITS.maxStoredJobs,
+		finishedKept: LIMITS.finishedJobsKept,
 		checkTimeoutMs: LIMITS.checkTimeoutMs,
 		trackConcurrency: LIMITS.trackConcurrency,
 		log: options.log,
 		...(options.now ? { now: options.now } : {}),
 	});
-	jobs.start();
-
 	return {
 		jobs,
 		sources: () => pipeline.sources,
@@ -168,7 +164,7 @@ export function fromPipeline(
 				return {
 					kind: "busy",
 					message:
-						"TagTape is busy with other albums. Try again when they're done.",
+						"Another album is still being made. Wait for it to finish, or cancel it.",
 				};
 			}
 			options.log.info(
@@ -184,6 +180,10 @@ export function fromPipeline(
 		cancelJob: (id) => jobs.cancel(id),
 		subscribe: (listener) => jobs.subscribe((job) => listener(toSnapshot(job))),
 		jobCover: (id) => jobs.get(id)?.cover,
+		activeJob() {
+			const job = jobs.active;
+			return job ? toSnapshot(job) : undefined;
+		},
 		busy: () => jobs.busy,
 		versions: () => pipeline.versions(),
 		close: () => jobs.close(),

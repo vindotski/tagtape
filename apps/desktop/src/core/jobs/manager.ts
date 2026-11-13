@@ -3,21 +3,13 @@ import type { Album } from "@tagtape/shared";
 import { UserFacingError } from "../lib/errors.ts";
 import type { Logger } from "../options.ts";
 import type { Pipeline, ResolvedLink } from "../pipeline/types.ts";
-import { Semaphore } from "./queue.ts";
 import { probeJob, saveJob } from "./runner.ts";
 import type { Job } from "./store.ts";
 
 export interface JobManagerOptions {
 	pipeline: Pipeline;
-	/** How long a finished job is remembered. */
-	ttlMs: number;
-	/** Jobs checked at the same time, and how many may wait for that. */
-	maxActiveProbes: number;
-	maxQueuedJobs: number;
-	/** Albums converting at the same time; the rest wait their turn. */
-	maxActiveStreams: number;
-	/** Jobs kept in memory (any status) before new ones are refused. */
-	maxStoredJobs: number;
+	/** Finished jobs kept in memory (their status and folder); older ones are forgotten. */
+	finishedKept: number;
 	/** A job's whole check (every track + the cover) must finish within this. */
 	checkTimeoutMs: number;
 	trackConcurrency: number;
@@ -27,37 +19,27 @@ export interface JobManagerOptions {
 
 export type CreateJobResult =
 	| { kind: "ok"; job: Job }
-	/** The check queue, or the job store, is full. */
+	/** Another album is still being made: one at a time. */
 	| { kind: "busy" };
 
-const SWEEP_INTERVAL_MS = 5 * 60 * 1000;
 const CANCELLED = "Cancelled";
 
 /**
- * Owns every job: creation, concurrency limits, the two phases (check every
- * track, then save the album), cancelling, forgetting and shutdown. Holds
- * metadata and the cover only, never audio.
+ * Owns every job: creation, the two phases (check every track, then save
+ * the album), cancelling and shutdown. One album is made at a time: one
+ * person uses the app, and a second album would only fight the first for the
+ * connection. Holds metadata and the cover only, never audio.
  */
 export class JobManager {
 	readonly #options: JobManagerOptions;
 	readonly #now: () => Date;
 	readonly #jobs = new Map<string, Job>();
-	readonly #probeSlots: Semaphore;
-	readonly #streamSlots: Semaphore;
 	readonly #running = new Set<Promise<void>>();
 	readonly #listeners = new Set<(job: Job) => void>();
-	#sweeper: NodeJS.Timeout | undefined;
 
 	constructor(options: JobManagerOptions) {
 		this.#options = options;
 		this.#now = options.now ?? (() => new Date());
-		this.#probeSlots = new Semaphore(options.maxActiveProbes);
-		this.#streamSlots = new Semaphore(options.maxActiveStreams);
-	}
-
-	start(): void {
-		this.#sweeper = setInterval(() => this.sweep(), SWEEP_INTERVAL_MS);
-		this.#sweeper.unref();
 	}
 
 	/**
@@ -69,18 +51,8 @@ export class JobManager {
 		links: ResolvedLink[],
 		destination: string,
 	): CreateJobResult {
-		const { maxActiveProbes, maxQueuedJobs, maxStoredJobs } = this.#options;
-		if (
-			this.#probeSlots.active + this.#probeSlots.waiting >=
-			maxActiveProbes + maxQueuedJobs
-		) {
-			return { kind: "busy" };
-		}
-		// Every job (even a finished one) holds metadata and a cover in memory
-		// until it's forgotten: cap how many exist at once.
-		if (this.#jobs.size >= maxStoredJobs && this.sweep() === 0) {
-			return { kind: "busy" };
-		}
+		if (this.busy) return { kind: "busy" };
+		this.#forgetOldest();
 		const job: Job = {
 			id: randomUUID(),
 			album,
@@ -140,24 +112,28 @@ export class JobManager {
 		}
 	}
 
-	/** Forgets jobs that finished more than `ttlMs` ago. */
-	sweep(now: Date = this.#now()): number {
-		let removed = 0;
+	/** The job being made right now, if any. */
+	get active(): Job | undefined {
 		for (const job of this.#jobs.values()) {
-			if (
-				job.finishedAt &&
-				now.getTime() - job.finishedAt.getTime() >= this.#options.ttlMs
-			) {
-				this.#jobs.delete(job.id);
-				removed++;
-			}
+			if (!job.finishedAt) return job;
 		}
-		return removed;
+		return undefined;
 	}
 
-	/** Stops the sweeper and cancels every job; nothing half-written stays behind. */
+	/**
+	 * Finished jobs hold only a status and a folder path, so they are kept
+	 * for as long as the app runs, up to a number nobody reaches in a day.
+	 */
+	#forgetOldest(): void {
+		// A Map keeps insertion order: the first finished ones are the oldest.
+		for (const job of this.#jobs.values()) {
+			if (this.#jobs.size < this.#options.finishedKept) return;
+			if (job.finishedAt) this.#jobs.delete(job.id);
+		}
+	}
+
+	/** Cancels every job; nothing half-written stays behind. */
 	async close(): Promise<void> {
-		clearInterval(this.#sweeper);
 		for (const job of this.#jobs.values()) {
 			job.controller.abort(new UserFacingError("TagTape was closed"));
 		}
@@ -175,18 +151,10 @@ export class JobManager {
 		};
 		try {
 			if (!(await this.#check(job, context))) return;
-			// Checked; now wait for a turn to convert.
-			job.status = "queued";
-			this.#notify(job);
-			const release = await this.#streamSlots.acquire(signal);
-			try {
-				this.#options.log.info({ jobId: job.id }, "Saving started");
-				if (await saveJob(job, context, signal)) {
-					job.status = "done";
-					return;
-				}
-			} finally {
-				release();
+			this.#options.log.info({ jobId: job.id }, "Saving started");
+			if (await saveJob(job, context, signal)) {
+				job.status = "done";
+				return;
 			}
 			const failed = job.tracks.find((track) => track.status === "error");
 			if (failed) {
@@ -217,13 +185,12 @@ export class JobManager {
 		}
 	}
 
-	/** Phase 1 under a check slot and a time budget. */
+	/** Phase 1 under a time budget. */
 	async #check(
 		job: Job,
 		context: Parameters<typeof probeJob>[1],
 	): Promise<boolean> {
-		const release = await this.#probeSlots.acquire(job.controller.signal);
-		// A slow source must not hold a check slot for long.
+		// A slow source must not keep the album waiting forever.
 		const budget = setTimeout(
 			() =>
 				job.controller.abort(
@@ -237,7 +204,6 @@ export class JobManager {
 			return await probeJob(job, context);
 		} finally {
 			clearTimeout(budget);
-			release();
 		}
 	}
 

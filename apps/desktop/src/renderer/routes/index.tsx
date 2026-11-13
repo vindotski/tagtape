@@ -10,7 +10,7 @@ function NewAlbum() {
 	return (
 		<>
 			<h1 className="sr-only">New album</h1>
-			<AlbumWorkspace initialDraft={emptyDraft()} />
+			<AlbumWorkspace initialDraft={emptyDraft()} home />
 		</>
 	);
 }
