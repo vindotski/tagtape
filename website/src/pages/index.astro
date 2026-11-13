@@ -1,0 +1,226 @@
+---
+import { Image } from "astro:assets";
+import appScreenshot from "../assets/app.png";
+import Page from "../layouts/Page.astro";
+import { DOWNLOADS, LIMITS, REPOSITORY } from "../site";
+
+const steps = [
+	{
+		title: "Paste the links",
+		text: `Add up to ${LIMITS.tracks} track links, one per track, and drag them into album order.`,
+	},
+	{
+		title: "Add the album details",
+		text: "Title, artist, genre, year and a cover image. Each track gets its own title.",
+	},
+	{
+		title: "Get the album folder",
+		text: "TagTape converts each track to MP3, writes the tags and cover, and saves the album as a folder where you choose.",
+	},
+];
+
+const features = [
+	{
+		title: "Works on any MP3 player",
+		text: "Standard ID3 tags, zero-padded track numbers and embedded cover art, so the album sorts and shows up right on old players, car stereos and phones alike.",
+	},
+	{
+		title: "Runs on your computer",
+		text: "Tracks are fetched over your own connection and converted on your machine. There is no TagTape server, no account and nothing to sign up for.",
+	},
+	{
+		title: "Nothing leaves your computer",
+		text: "TagTape remembers the albums you made, as you typed them, in a small file on your computer, so you can open one and make it again. You can delete any of them.",
+	},
+	{
+		title: "Links from many places",
+		text: "Direct links to MP3 files, and single tracks from the sites yt-dlp can read. Both tools TagTape needs, ffmpeg and yt-dlp, come inside the app.",
+	},
+	{
+		title: "Free and open",
+		text: "TagTape is in the public domain. The code is on GitHub, and nothing in the app phones home.",
+	},
+];
+
+const questions = [
+	{
+		question: "Which links work?",
+		answer:
+			"Direct links to MP3 files, and single tracks from sites yt-dlp can read. Playlists, live streams, anything behind a login and anything copy-protected are not supported. If a site decides your connection looks automated, TagTape says so and leaves that site alone for a few minutes instead of trying to get around it.",
+	},
+	{
+		question: "How big can an album be?",
+		answer: `Up to ${LIMITS.tracks} tracks, each up to ${LIMITS.trackLength} long, with a cover image of up to ${LIMITS.cover}. Anything that isn't a constant-bitrate MP3 is converted to 256 kbps MP3, so every player reads its length right.`,
+	},
+	{
+		question: "What does TagTape keep?",
+		answer:
+			"Only what you typed: album details, track titles and links, and the cover's link, in a file on your computer. The music goes straight into the album folder you chose and nowhere else.",
+	},
+	{
+		question: "Why does my computer warn me when I open it?",
+		answer:
+			"The installers aren't signed with a paid developer certificate yet, so macOS and Windows show a warning the first time. The steps under Download show how to open the app anyway. Each release lists SHA-256 checksums so you can check your download.",
+	},
+	{
+		question: "How do I update?",
+		answer:
+			"Download the new installer here and install it over the old one. Your albums are kept.",
+	},
+];
+---
+
+<Page
+	title="TagTape: track links to a tagged MP3 album"
+	description="A free desktop app that turns track links and album details into a folder of MP3s with titles, track numbers and cover art filled in. Works on any MP3 player."
+>
+	<section class="grid items-center gap-10 py-8 lg:grid-cols-[1fr_1.15fr] lg:py-14">
+		<div>
+			<h1 class="text-4xl font-bold tracking-tight text-balance sm:text-5xl">
+				Track links in, a tagged MP3 album out
+			</h1>
+			<p class="mt-5 text-lg text-muted-foreground">
+				Paste your track links, add the album details, and get a folder of MP3s with the album, artist,
+				track numbers and cover art already filled in. They sort and display properly on any MP3 player.
+			</p>
+			<div class="mt-7 flex flex-wrap items-center gap-3">
+				<a
+					href="#download"
+					class="bg-primary px-5 py-3 font-semibold text-primary-foreground hover:opacity-90"
+				>
+					Download TagTape
+				</a>
+				<a href="#how-it-works" class="px-3 py-3 font-medium underline-offset-4 hover:underline">
+					How it works
+				</a>
+			</div>
+			<p class="mt-5 text-sm text-muted-foreground">
+				Free, for macOS, Windows and Linux. No account, and no server in between.
+			</p>
+		</div>
+		<Image
+			src={appScreenshot}
+			alt="The TagTape window: an album called Harbour Lights with four numbered tracks, each with a title and a link."
+			widths={[640, 960, 1440]}
+			sizes="(min-width: 1024px) 560px, 100vw"
+			loading="eager"
+			class="w-full border bg-card shadow-sm"
+		/>
+	</section>
+
+	<section id="how-it-works" aria-labelledby="how-it-works-title" class="scroll-mt-6 py-10">
+		<h2 id="how-it-works-title" class="text-2xl font-bold tracking-tight sm:text-3xl">How it works</h2>
+		<ol class="mt-6 grid gap-px border bg-border sm:grid-cols-3">
+			{
+				steps.map((step, i) => (
+					<li class="bg-card p-6">
+						<p class="text-xs font-medium tracking-wide text-primary uppercase">Step {i + 1}</p>
+						<h3 class="mt-2 text-lg font-semibold">{step.title}</h3>
+						<p class="mt-2 text-sm text-muted-foreground">{step.text}</p>
+					</li>
+				))
+			}
+		</ol>
+	</section>
+
+	<section aria-labelledby="features-title" class="py-10">
+		<h2 id="features-title" class="text-2xl font-bold tracking-tight sm:text-3xl">
+			Made for plain MP3 players, and for your privacy
+		</h2>
+		<ul class="mt-6 grid gap-x-10 gap-y-7 sm:grid-cols-2">
+			{
+				features.map((feature) => (
+					<li class="border-l-2 border-primary pl-4">
+						<h3 class="font-semibold">{feature.title}</h3>
+						<p class="mt-1.5 text-sm text-muted-foreground">{feature.text}</p>
+					</li>
+				))
+			}
+		</ul>
+	</section>
+
+	<section id="download" aria-labelledby="download-title" class="scroll-mt-6 py-10">
+		<h2 id="download-title" class="text-2xl font-bold tracking-tight sm:text-3xl">Download</h2>
+		<p class="mt-2 text-muted-foreground">
+			The latest release. Older versions and checksums are on
+			<a href={`${REPOSITORY}/releases`} class="font-medium text-foreground underline underline-offset-4"
+				>GitHub</a
+			>.
+		</p>
+		<div class="mt-6 grid gap-px border bg-border md:grid-cols-3">
+			{
+				DOWNLOADS.map((item) => (
+					<div class="flex flex-col bg-card p-6">
+						<h3 class="text-lg font-semibold">{item.platform}</h3>
+						<p class="mt-1 text-sm text-muted-foreground">{item.note}</p>
+						<ul class="mt-5 flex flex-col gap-2">
+							{item.files.map((file, i) => (
+								<li>
+									<a
+										href={file.href}
+										class:list={[
+											"block px-4 py-2.5 text-center text-sm font-semibold",
+											i === 0
+												? "bg-primary text-primary-foreground hover:opacity-90"
+												: "border hover:bg-muted",
+										]}
+									>
+										{file.label}
+									</a>
+								</li>
+							))}
+						</ul>
+					</div>
+				))
+			}
+		</div>
+
+		<div class="mt-8 border bg-card p-6">
+			<h3 class="font-semibold">Opening it the first time</h3>
+			<p class="mt-1.5 text-sm text-muted-foreground">
+				The installers aren't signed yet, so your computer asks before running the app.
+			</p>
+			<dl class="mt-4 grid gap-5 text-sm sm:grid-cols-3">
+				<div>
+					<dt class="font-medium">macOS</dt>
+					<dd class="mt-1 text-muted-foreground">
+						Open the app once and dismiss the warning. Then go to System Settings, Privacy &amp; Security,
+						and choose Open Anyway next to TagTape.
+					</dd>
+				</div>
+				<div>
+					<dt class="font-medium">Windows</dt>
+					<dd class="mt-1 text-muted-foreground">
+						When "Windows protected your PC" appears, choose More info, then Run anyway.
+					</dd>
+				</div>
+				<div>
+					<dt class="font-medium">Linux</dt>
+					<dd class="mt-1 text-muted-foreground">
+						Make the AppImage executable (in its Properties, or with chmod +x) and run it, or install the
+						.deb with your package manager.
+					</dd>
+				</div>
+			</dl>
+		</div>
+	</section>
+
+	<section id="questions" aria-labelledby="questions-title" class="scroll-mt-6 py-10">
+		<h2 id="questions-title" class="text-2xl font-bold tracking-tight sm:text-3xl">Questions</h2>
+		<div class="mt-6 border bg-card">
+			{
+				questions.map((item) => (
+					<details class="group border-b last:border-b-0">
+						<summary class="flex cursor-pointer items-center justify-between gap-4 px-5 py-4 font-medium">
+							{item.question}
+							<span aria-hidden="true" class="text-muted-foreground transition-transform group-open:rotate-45">
+								+
+							</span>
+						</summary>
+						<p class="px-5 pb-5 text-sm text-muted-foreground">{item.answer}</p>
+					</details>
+				))
+			}
+		</div>
+	</section>
+</Page>

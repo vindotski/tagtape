@@ -1,0 +1,65 @@
+/* The same look as the app: green on olive, no rounded corners, Oxanium.
+   Dark mode follows the system setting, with no script. */
+@import "tailwindcss" source("..");
+@import "@fontsource-variable/oxanium";
+
+@custom-variant dark (@media (prefers-color-scheme: dark));
+
+@theme inline {
+	--font-sans: "Oxanium Variable", sans-serif;
+	--color-background: var(--background);
+	--color-foreground: var(--foreground);
+	--color-card: var(--card);
+	--color-primary: var(--primary);
+	--color-primary-foreground: var(--primary-foreground);
+	--color-muted: var(--muted);
+	--color-muted-foreground: var(--muted-foreground);
+	--color-border: var(--border);
+	--color-ring: var(--ring);
+}
+
+:root {
+	color-scheme: light dark;
+	--background: oklch(1 0 0);
+	--foreground: oklch(0.153 0.006 107.1);
+	--card: oklch(1 0 0);
+	--primary: oklch(0.527 0.154 150.069);
+	--primary-foreground: oklch(0.982 0.018 155.826);
+	--muted: oklch(0.966 0.005 106.5);
+	--muted-foreground: oklch(0.5 0.031 107.3);
+	--border: oklch(0.9 0.007 106.5);
+	--ring: oklch(0.737 0.021 106.9);
+}
+
+@media (prefers-color-scheme: dark) {
+	:root {
+		--background: oklch(0.153 0.006 107.1);
+		--foreground: oklch(0.988 0.003 106.5);
+		--card: oklch(0.228 0.013 107.4);
+		--primary: oklch(0.62 0.15 151);
+		--primary-foreground: oklch(0.153 0.006 107.1);
+		--muted: oklch(0.2 0.01 107.4);
+		--muted-foreground: oklch(0.737 0.021 106.9);
+		--border: oklch(1 0 0 / 14%);
+		--ring: oklch(0.58 0.031 107.3);
+	}
+}
+
+@layer base {
+	html {
+		@apply font-sans;
+		scroll-behavior: smooth;
+	}
+	body {
+		@apply bg-muted text-foreground antialiased;
+	}
+	:focus-visible {
+		outline: 3px solid var(--ring);
+		outline-offset: 2px;
+	}
+	@media (prefers-reduced-motion: reduce) {
+		html {
+			scroll-behavior: auto;
+		}
+	}
+}

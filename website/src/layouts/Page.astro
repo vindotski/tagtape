@@ -1,0 +1,69 @@
+---
+import "../styles/global.css";
+
+interface Props {
+	title: string;
+	description: string;
+}
+const { title, description } = Astro.props;
+const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+const canonical = new URL(Astro.url.pathname, Astro.site);
+
+// Everything is served from this site: no scripts at all, no remote anything.
+// (GitHub Pages can't set headers, so the policy is a meta tag; the dev
+// server is left alone, since its tooling needs scripts.)
+const policy = [
+	"default-src 'none'",
+	"style-src 'self' 'unsafe-inline'",
+	"img-src 'self'",
+	"font-src 'self'",
+	"base-uri 'none'",
+	"form-action 'none'",
+].join("; ");
+---
+
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		{import.meta.env.PROD && <meta http-equiv="Content-Security-Policy" content={policy} />}
+		<title>{title}</title>
+		<meta name="description" content={description} />
+		<meta name="theme-color" content="#15803d" />
+		<meta property="og:title" content="TagTape" />
+		<meta property="og:description" content={description} />
+		<meta property="og:url" content={canonical} />
+		<link rel="canonical" href={canonical} />
+		<link rel="icon" href={`${base}/favicon.svg`} type="image/svg+xml" />
+	</head>
+	<body>
+		<div class="mx-auto flex min-h-dvh max-w-5xl flex-col px-4 sm:px-6">
+			<header class="flex items-center justify-between gap-4 py-6">
+				<a href={`${base}/`} class="flex items-center gap-2.5">
+					<svg viewBox="0 0 32 32" class="size-8 text-primary" aria-hidden="true">
+						<rect x="2" y="7" width="28" height="18" rx="3" fill="currentColor"></rect>
+						<rect x="6" y="10" width="20" height="9" rx="1.5" fill="white" opacity="0.92"></rect>
+						<circle cx="11.5" cy="14.5" r="2.5" fill="currentColor"></circle>
+						<circle cx="20.5" cy="14.5" r="2.5" fill="currentColor"></circle>
+						<path d="M9 25l2-4h10l2 4" fill="white" opacity="0.5"></path>
+					</svg>
+					<span class="text-lg font-bold tracking-tight">TagTape</span>
+				</a>
+				<nav aria-label="Main" class="flex items-center gap-1 text-sm">
+					<a href="#how-it-works" class="hidden px-3 py-2 hover:underline sm:inline">How it works</a>
+					<a href="#questions" class="hidden px-3 py-2 hover:underline sm:inline">Questions</a>
+					<a href="#download" class="border bg-card px-3 py-2 font-medium hover:bg-muted">Download</a>
+				</nav>
+			</header>
+			<main class="flex-1 pb-16">
+				<slot />
+			</main>
+			<footer class="flex flex-wrap gap-x-6 gap-y-2 border-t py-6 text-sm text-muted-foreground">
+				<a href="https://github.com/vindotski/tagtape" class="underline-offset-4 hover:underline">Source on GitHub</a>
+				<a href="https://github.com/vindotski/tagtape/blob/main/CHANGELOG.md" class="underline-offset-4 hover:underline">What's new</a>
+				<span class="ml-auto">Public domain (Unlicense)</span>
+			</footer>
+		</div>
+	</body>
+</html>

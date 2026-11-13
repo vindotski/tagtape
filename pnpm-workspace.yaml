@@ -1,6 +1,7 @@
 packages:
   - desktop
   - shared
+  - website
 
 # Supply chain, written out explicitly (most are pnpm's defaults) so a change
 # of defaults can't quietly weaken them:

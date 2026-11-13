@@ -10,6 +10,9 @@
 		"includes": [
 			"desktop/**",
 			"shared/**",
+			"website/**",
+			"!website/src/styles/global.css",
+			"!**/*.astro",
 			".vscode/**",
 			"*.json",
 			"!skills-lock.json",

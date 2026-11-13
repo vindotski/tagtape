@@ -26,8 +26,10 @@ export default {
 	files: ["out/**", "package.json"],
 	// sharp's native code can't be loaded from inside the archive.
 	asarUnpack: ["**/node_modules/sharp/**", "**/node_modules/@img/**"],
+	// Fixed names, without the version, so the website can link to the latest
+	// release's files (website/src/site.ts lists the same names).
 	// biome-ignore lint/suspicious/noTemplateCurlyInString: electron-builder fills these in
-	artifactName: "TagTape-${version}-${os}-${arch}.${ext}",
+	artifactName: "TagTape-${os}-${arch}.${ext}",
 	// The app updates by downloading a new installer: nothing to publish to.
 	publish: null,
 
@@ -46,6 +48,7 @@ export default {
 		extraResources: binaries("win32"),
 	},
 	nsis: {
+		artifactName: "TagTape-win-x64.exe",
 		oneClick: false,
 		allowToChangeInstallationDirectory: true,
 	},
@@ -57,4 +60,7 @@ export default {
 		synopsis: "Track links to a folder of tagged MP3s",
 		extraResources: binaries("linux"),
 	},
+	// Linux tools name the same architecture differently (x86_64, amd64).
+	appImage: { artifactName: "TagTape-linux-x64.AppImage" },
+	deb: { artifactName: "TagTape-linux-x64.deb" },
 };
