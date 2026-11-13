@@ -59,6 +59,8 @@ export interface Library {
 	list(limit: number): Promise<AlbumSummary[]>;
 	get(id: string): Promise<LibraryAlbum | null>;
 	remove(id: string): Promise<boolean>;
+	/** Forgets every album and its cover; resolves to how many there were. */
+	clear(): Promise<number>;
 	destination(): Promise<string | undefined>;
 	setDestination(folder: string): Promise<void>;
 }
@@ -190,6 +192,15 @@ export function openLibrary(
 				data.albums = data.albums.filter((stored) => stored.id !== id);
 				await dropCovers(removed);
 				return removed.length > 0;
+			});
+		},
+
+		clear() {
+			return update(async (data) => {
+				const removed = data.albums;
+				data.albums = [];
+				await dropCovers(removed);
+				return removed.length;
 			});
 		},
 

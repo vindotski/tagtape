@@ -192,6 +192,20 @@ describe("finished albums", () => {
 		expect(await covers()).toEqual([]);
 	});
 
+	test("clearing forgets every album and cover, but not the save folder", async () => {
+		const library = openLibrary(file);
+		await library.setDestination("/music");
+		const id = await library.record(album("One"), undefined);
+		await library.finished(id, { folder: "/a", cover: Buffer.from("x") });
+		await library.record(album("Two"), undefined);
+
+		expect(await library.clear()).toBe(2);
+		const reopened = openLibrary(file);
+		expect(await reopened.list(10)).toEqual([]);
+		expect(await reopened.destination()).toBe("/music");
+		expect(await covers()).toEqual([]);
+	});
+
 	test("a library file from before folders and covers still loads", async () => {
 		const id = await openLibrary(file).record(album("Old"), undefined);
 		const library = openLibrary(file);

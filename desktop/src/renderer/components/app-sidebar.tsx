@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { LibraryBig, type LucideIcon, Plus } from "lucide-react";
+import { LibraryBig, type LucideIcon, Plus, Settings } from "lucide-react";
 import type { ReactNode } from "react";
 import type { AlbumSummary } from "#/lib/albums";
 import { appPlatform } from "#/lib/bridge";
@@ -61,6 +61,11 @@ export function AppSidebar({ recent }: { recent: AlbumSummary[] }) {
 					</ul>
 				</section>
 			)}
+			<div className="mt-auto flex flex-col pb-2">
+				<NavItem to="/settings" icon={Settings} exact>
+					Settings
+				</NavItem>
+			</div>
 		</aside>
 	);
 }
@@ -71,7 +76,7 @@ function NavItem({
 	exact,
 	children,
 }: {
-	to: "/" | "/albums";
+	to: "/" | "/albums" | "/settings";
 	icon: LucideIcon;
 	exact?: boolean;
 	children: ReactNode;

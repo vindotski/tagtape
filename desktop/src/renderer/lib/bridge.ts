@@ -48,6 +48,15 @@ export const fetchDestination = (): Promise<string> =>
 export const chooseDestination = (): Promise<string> =>
 	window.tagtape.chooseDestination();
 
+export const showDestination = (): Promise<boolean> =>
+	window.tagtape.showDestination().catch(() => false);
+
+export const fetchVersions = (): Promise<Record<string, string>> =>
+	window.tagtape.versions().catch(() => ({}));
+
+export const clearAlbums = (): Promise<boolean> =>
+	window.tagtape.clearAlbums().catch(() => false);
+
 export const showJobFolder = (jobId: string): Promise<boolean> =>
 	window.tagtape.showJobFolder(jobId);
 

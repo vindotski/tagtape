@@ -163,6 +163,43 @@ export function registerIpc(ctx: IpcContext): void {
 			return destination();
 		},
 
+		async showDestination() {
+			return (await shell.openPath(await destination())) === "";
+		},
+
+		async versions() {
+			return ctx.tagtape.versions().catch(() => ({}));
+		},
+
+		async clearAlbums() {
+			const window = ctx.window();
+			const count = (await ctx.library.list(100).catch(() => [])).length;
+			if (count === 0) return false;
+			const options = {
+				type: "warning" as const,
+				buttons: ["Cancel", "Clear Library"],
+				defaultId: 0,
+				cancelId: 0,
+				message:
+					count === 1
+						? "Forget the album in the library?"
+						: `Forget all ${count} albums in the library?`,
+				detail:
+					"TagTape forgets what you typed and the small covers. The album folders and their MP3s stay where they are.",
+			};
+			const { response } = window
+				? await dialog.showMessageBox(window, options)
+				: await dialog.showMessageBox(options);
+			if (response !== 1) return false;
+			try {
+				await ctx.library.clear();
+				return true;
+			} catch (error) {
+				ctx.log.error({ err: error }, "Clearing the library failed");
+				return false;
+			}
+		},
+
 		// By job id, never by path: the page can't make the app open arbitrary files.
 		async showJobFolder(jobId) {
 			const parsed = idSchema.safeParse(jobId);

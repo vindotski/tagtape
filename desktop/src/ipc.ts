@@ -63,6 +63,15 @@ export interface TagTapeApi {
 	destination(): Promise<string>;
 	/** Opens the system folder dialog; resolves to the folder now in use. */
 	chooseDestination(): Promise<string>;
+	/** Shows the folder albums are saved in. */
+	showDestination(): Promise<boolean>;
+	/** Versions of the bundled programs, by name; empty if they don't run. */
+	versions(): Promise<Record<string, string>>;
+	/**
+	 * Asks (a system dialog) and then forgets every album in the library;
+	 * resolves to whether it did. Album folders are never touched.
+	 */
+	clearAlbums(): Promise<boolean>;
 	/** Shows a finished job's album folder in the file manager. */
 	showJobFolder(jobId: string): Promise<boolean>;
 	/** Shows a stored album's folder, if it is still where it was saved. */
@@ -87,6 +96,9 @@ export const CHANNELS = {
 	cancelJob: "tagtape:cancel-job",
 	destination: "tagtape:destination",
 	chooseDestination: "tagtape:choose-destination",
+	showDestination: "tagtape:show-destination",
+	versions: "tagtape:versions",
+	clearAlbums: "tagtape:clear-albums",
 	showJobFolder: "tagtape:show-job-folder",
 	showAlbumFolder: "tagtape:show-album-folder",
 	albumCover: "tagtape:album-cover",

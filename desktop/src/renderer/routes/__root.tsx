@@ -24,6 +24,7 @@ function screenName(path: string): string {
 	if (path === "/") return "New album";
 	if (path === "/albums") return "Library";
 	if (path.startsWith("/albums/")) return "Album";
+	if (path === "/settings") return "Settings";
 	return "TagTape";
 }
 
