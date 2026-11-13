@@ -6,7 +6,7 @@ import { UserFacingError } from "./errors.ts";
 import { isPrivateAddress, publicOnlyLookup } from "./net.ts";
 
 const MAX_REDIRECTS = 3;
-const USER_AGENT = "TagTape/2 (+https://tagtape.app)";
+const USER_AGENT = "TagTape (+https://tagtape.app)";
 
 export interface OpenUrlOptions {
 	signal: AbortSignal;

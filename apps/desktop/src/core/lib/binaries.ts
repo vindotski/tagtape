@@ -7,7 +7,7 @@ export interface BinaryPaths {
 
 /**
  * Where `scripts/fetch-binaries.mjs` puts the bundled programs for one
- * platform, inside `root` (the repo's `desktop/resources/bin` in development,
+ * platform, inside `root` (the repo's `apps/desktop/resources/bin` in development,
  * the app's resources when packaged).
  */
 export function binaryPaths(

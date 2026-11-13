@@ -20,11 +20,14 @@ TagTape becomes a desktop app for macOS, Windows and Linux. It runs entirely on 
 - **Paste or drop several links at once:** each becomes a track. Drop an image link on the cover to set it.
 - **Right-click menus:** cut, copy and paste in text fields; open, show in folder, make again and delete on an album.
 - **Share an album** as a small `.tagtape` file or a link. It holds the album's details and track links, never the music; whoever opens it makes the album on their own computer. A link carries the album inside itself (after the `#`), so nothing is uploaded anywhere. Shared albums open in the editor (File > Open Album File, double-click, a dropped file, or the link's page on the website) and nothing starts until you press Make album.
+- **One album at a time, always in reach:** the sidebar shows the album being made on every screen, and the first screen shows its progress and Cancel.
 - **Settings:** the save folder, the kinds of links the app accepts, clearing the library, and the versions of the app and its bundled programs.
 - **Product website** with downloads, built with Astro and published on GitHub Pages.
 - Windows support in the pipeline: cancelling kills the whole process tree, and bundled programs get the environment they need to start.
 
 ### Changed
+- yt-dlp ignores plugins in your own yt-dlp folders, and the installed app takes no debugger flags.
+- If the library file can't be read, TagTape keeps it as `library.json.unreadable` instead of replacing it.
 - A site's bot check or rate limit is now about your device's connection: "The site is refusing requests from this device right now…". The 10-minute pause for that site stays.
 - yt-dlp runs sites' JavaScript challenges with the app's own runtime; nothing extra is installed.
 - ID3 tags are written by TagTape's own small writer instead of `node-id3`. The tags are the same: ID3v2.3 with the front cover.

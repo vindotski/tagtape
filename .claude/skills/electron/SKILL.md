@@ -77,7 +77,8 @@ Check real behaviour in the real window, not only in tests:
 - Start the built app with a debugging port and a scratch profile, so nothing touches the user's own data or Downloads folder:
   `apps/desktop/node_modules/.bin/electron apps/desktop --remote-debugging-port=9333 --user-data-dir=<scratch dir>`
   Put a `library.json` with `{"version":1,"destination":"<scratch dir>","albums":[]}` in that profile first.
-- To act as the main process (click a menu item, read what was sent to the dock), also pass `--inspect=9229` and use `Runtime.evaluate` with `includeCommandLineAPI: true` on that port: `require("electron")` works there.
+- `pnpm build` first: the command above starts the built app (`out/`), not the sources.
+- To act as the main process (click a menu item, read what was sent to the dock), also pass `--inspect=9229` (a dev build only: the packaged app's fuses refuse it) and use `Runtime.evaluate` with `includeCommandLineAPI: true` on that port: `require("electron")` works there.
 - The window is real and on the user's screen while you test: say so, and expect clicks that aren't yours.
 - Drive it over the DevTools protocol (`http://127.0.0.1:9333/json/list`, then `Runtime.evaluate` and `Page.captureScreenshot` on the page's WebSocket). React inputs need the native value setter plus an `input` event.
 - A packaged build has a smoke mode: `TAGTAPE_SMOKE_TEST=1 <app executable>` prints `SMOKE OK …` and exits 0 when the page rendered and both programs ran.

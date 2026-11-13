@@ -16,7 +16,6 @@
 			".vscode/**",
 			"*.json",
 			"!skills-lock.json",
-			"!**/.cta.json",
 			"!**/routeTree.gen.ts",
 			"!**/renderer/styles.css",
 			"!**/*.md"

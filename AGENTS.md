@@ -7,9 +7,6 @@ tanstackIntent:
   - id: "@tanstack/router-core#router-core"
     run: "pnpm exec intent load @tanstack/router-core#router-core"
     for: "Framework-agnostic core concepts for TanStack Router: route trees, createRouter, createRoute, createRootRoute, createRootRouteWithContext, addChildren, Register type declaration, route matching, route sorting, file naming conventions. Entry point for all router skills."
-  - id: "@tanstack/router-core#router-core/code-splitting"
-    run: "pnpm exec intent load @tanstack/router-core#router-core/code-splitting"
-    for: "Automatic code splitting (autoCodeSplitting), .lazy.tsx convention, createLazyFileRoute, createLazyRoute, lazyRouteComponent, getRouteApi for typed hooks in split files, codeSplitGroupings per-route override, splitBehavior programmatic config, critical vs non-critical properties."
   - id: "@tanstack/router-core#router-core/data-loading"
     run: "pnpm exec intent load @tanstack/router-core#router-core/data-loading"
     for: "Route loader option, loaderDeps for cache keys, staleTime/gcTime/ defaultPreloadStaleTime SWR caching, pendingComponent/pendingMs/ pendingMinMs, errorComponent/onError/onCatch, beforeLoad, router context and createRootRouteWithContext DI pattern, router.invalidate, Await component, deferred data loading with unawaited promises."
@@ -25,9 +22,6 @@ tanstackIntent:
   - id: "@tanstack/router-core#router-core/search-params"
     run: "pnpm exec intent load @tanstack/router-core#router-core/search-params"
     for: "validateSearch, search param validation with Zod/Valibot/ArkType adapters, fallback(), search middlewares (retainSearchParams, stripSearchParams), custom serialization (parseSearch, stringifySearch), search param inheritance, loaderDeps for cache keys, reading and writing search params."
-  - id: "@tanstack/router-core#router-core/ssr"
-    run: "pnpm exec intent load @tanstack/router-core#router-core/ssr"
-    for: "Non-streaming and streaming SSR, RouterClient/RouterServer, renderRouterToString/renderRouterToStream, createRequestHandler, defaultRenderHandler/defaultStreamHandler, HeadContent/Scripts components, head route option (meta/links/styles/scripts), ScriptOnce, automatic loader dehydration/hydration, memory history on server, data serialization, document head management."
   - id: "@tanstack/router-core#router-core/type-safety"
     run: "pnpm exec intent load @tanstack/router-core#router-core/type-safety"
     for: "Full type inference philosophy (never cast, never annotate inferred values), Register module declaration, from narrowing on hooks and Link, strict:false for shared components, getRouteApi for code-split typed access, addChildren with object syntax for TS perf, LinkProps and ValidateLinkOptions type utilities, as const satisfies pattern."
@@ -53,7 +47,7 @@ Versions 2 and 3 were a hosted web app (TanStack Start + a Fastify API in one Do
 | `apps/desktop/src/core/` | The pipeline: jobs, sources, plugins, process handling, the album-folder writer. No Electron imports; tested in plain Node. |
 | `apps/desktop/src/ipc.ts` | The contract between page and main process (types + channel names). |
 | `apps/website/` | `@tagtape/website`: the static Astro product site, deployed to GitHub Pages. |
-| `packages/shared/` | `@tagtape/shared`: zod schemas, limits, `parseWebUrl`, the ID3v2.3 writer, file naming, probe rules, yt-dlp error mapping. Exports TS source directly. |
+| `packages/shared/` | `@tagtape/shared`: zod schemas, limits, `parseWebUrl`, the ID3v2.3 writer, file naming, probe rules, yt-dlp error mapping, the share format. Exports TS source directly. |
 
 How the parts talk: the page calls `window.tagtape` (see `renderer/lib/bridge.ts`); the preload forwards each call over IPC; the main process validates the arguments and calls the pipeline (`createTagTape` in `core/index.ts`). For anything Electron-specific, load the `electron` skill first.
 
@@ -65,6 +59,7 @@ How the parts talk: the page calls `window.tagtape` (see `renderer/lib/bridge.ts
 - A `vX.Y.Z` tag (it must match `package.json`, or CI fails) makes CI attach every installer and a `SHA256SUMS.txt` to a **draft** GitHub Release. The user publishes it; the website links to the latest published release.
 - **Branches:** `dev` is the working branch and GitHub's default branch (PRs target it); `main` is production (the website deploys from it). Only the user merges, pushes and tags.
 - Installers are **unsigned** for now (macOS: ad-hoc). The website explains how to open them.
+- The packaged Electron binary has **fuses** set (`electronFuses` in `electron-builder.config.mjs`): no `--inspect`, no `NODE_OPTIONS`, code only from the app archive. `runAsNode` stays on, for yt-dlp's JavaScript runtime. So a packaged app can't be debugged through the main-process inspector; use a dev build.
 
 ## Commands (pnpm only)
 
@@ -95,7 +90,7 @@ Run `pnpm check`, `pnpm typecheck` and `pnpm test` before calling a task done, a
   - `ytdlp` (`sources/ytdlp.ts`): any other public link; yt-dlp decides at the check. Keep these rules:
     - **Never the `generic` extractor** (`--use-extractors default,-generic`), so arbitrary pages are never read.
     - Every request yt-dlp and its ffmpeg make goes through the **egress proxy** (`lib/egress-proxy.ts`: public addresses, ports 80/443 only).
-    - **No cookies, logins or account features, and never anything that gets around DRM** (refuse with a clear message).
+    - **No cookies, logins or account features, and never anything that gets around DRM** (refuse with a clear message). **No yt-dlp plugins** either: `--no-plugin-dirs`, so nothing in the user's own yt-dlp folders changes what the app does.
     - **Never get past a site's anti-bot checks or rate limits**: no cookies, accounts, PO-token helpers or rotating/residential proxies. When a site refuses the device, say so and pause that site (`LIMITS.ytdlpCooldownMs`, 10 minutes): its links then fail at once with when to retry.
     - Single tracks only: playlists and sets are refused. Checks and downloads have separate caps (`LIMITS` in `core/options.ts`); don't put both under one cap.
     - yt-dlp's JavaScript runtime is Electron's own binary run as Node (`ELECTRON_RUN_AS_NODE=1`).
@@ -107,7 +102,8 @@ Run `pnpm check`, `pnpm typecheck` and `pnpm test` before calling a task done, a
   - A failed or cancelled album removes every file it wrote, then its folder if empty. An existing folder is never reused (the new one gets ` (2)`).
   - ffmpeg writes no tags and no Xing header (we write the only tag), and CBR (VBR is re-encoded to 256 kbps).
   - After any pipeline change, run the e2e test and cancel an album mid-save in the real window; check the destination and the temp folder for leftovers.
-- **The local library** (`main/library.ts`): one JSON file in the app's data folder with the last 50 albums as typed (details, track titles and links, the cover's URL), where each was saved, and the save folder; next to it, `covers/<album id>.jpg`, a 320 px copy of each album's cover. **Never media.** Atomic writes, one at a time. Failures never block an album. A cover goes when its album does.
+- **Limits** (`LIMITS` in `core/options.ts`) are a single user's: a check timeout, a per-source timeout, how many tracks are checked at once. Don't bring back queue sizes, time-to-live sweeps or other caps a public server needed.
+- **The local library** (`main/library.ts`): one JSON file in the app's data folder with the last 50 albums as typed (details, track titles and links, the cover's URL), where each was saved, and the save folder; next to it, `covers/<album id>.jpg`, a 320 px copy of each album's cover. **Never media.** Atomic writes, one at a time. Failures never block an album. A cover goes when its album does. A file that can't be fully read is copied to `library.json.unreadable` before it is replaced; entries are checked one by one, so one bad entry never costs the rest.
   - The page gets covers and folders **by album id only** (`albumCover` returns a `data:` URL, so the page's security policy needs no new image source).
 - **Sharing** (`packages/shared/src/share.ts`): an album travels as a `.tagtape` JSON file or inside a link's fragment (`…/open/#a=<base64url>`, or `tagtape://open#a=…`). It holds what was typed (details, track titles and links, the cover's URL), **never media**, and there is **no public list of shared albums** anywhere (that would have the website naming sites).
   - Whatever arrives is untrusted: it is decoded with `decodeShare` / `albumFromFragment` (the album form's schema, a size cap, never a throw) and **only ever shown in the editor** (`/shared`). Nothing starts by itself, and it reaches the library only when the user makes it.
@@ -121,7 +117,9 @@ Run `pnpm check`, `pnpm typecheck` and `pnpm test` before calling a task done, a
 - Tests are Vitest, written as `*.test.ts` files next to the code they test. Pipeline tests use the fake pipeline in `core/test/helpers.ts` and need no binaries or network.
 - **UI** is **shadcn/ui** on the React Aria base (`apps/desktop/components.json`: vega style, green on olive, no radius, Oxanium, lucide icons).
   - **It is a desktop window, not a web page.** The root route (`routes/__root.tsx`) is the whole window: the sidebar (`components/app-sidebar.tsx`), a strip that stands in for the title bar and drags the window (`.app-drag` in `styles.css`), and a screen that scrolls on its own. The window itself never scrolls. Chrome is `select-none`; add `select-text` where text should be copyable.
-  - Screens: `/` (new album), `/albums` (library), `/albums/$albumId` (an album), `/albums/$albumId/edit` (make it again), `/settings`.
+  - Screens: `/` (new album, and the album being made), `/albums` (library), `/albums/$albumId` (an album), `/albums/$albumId/edit` (make it again), `/shared` (an album someone shared), `/settings`.
+  - Imports inside the renderer use the `#/` alias (`#/components/…`, `#/lib/…`). `routeTree.gen.ts` is generated by the router plugin: never edit it; a new file in `routes/` is picked up by `pnpm dev` or `pnpm build`.
+  - **One album is made at a time.** The pipeline refuses a second (`busy`), and the page follows the one in progress outside any screen (`lib/current-job.ts`): the first screen shows it, the sidebar says so everywhere. Never keep a job's id in one screen's state.
   - Anything the system does better stays native, in the main process: the application menu, right-click menus, confirm dialogs, notifications, the dock/taskbar progress. The main process changes the screen only through the one `navigate` event (`Screen` in `apps/desktop/src/ipc.ts`).
   - `renderer/components/ui/` is vendor code: prefer composing over editing those files.
   - Use theme tokens (`bg-card`, `text-muted-foreground`, `text-primary`), never raw palette colours. Dark mode follows `prefers-color-scheme`.
@@ -136,7 +134,8 @@ Run `pnpm check`, `pnpm typecheck` and `pnpm test` before calling a task done, a
   - `package` (macOS arm64 and x64, Windows, Linux): the desktop tests on that platform, `pnpm package`, then the packaged app started once in smoke mode (`TAGTAPE_SMOKE_TEST=1`). Installers are uploaded as artifacts.
   - `release` (version tags only): a draft GitHub Release with every installer.
 - **`pages.yml`** deploys the website from `main` when `apps/website/` or `packages/shared/` changes. Never deploy it from `dev` or PRs.
-- **`e2e.yml`** runs weekly (and on demand): real public links through the bundled binaries. Site links come from the repo variable `TAGTAPE_E2E_SITE_URLS`.
+- **`e2e.yml`** runs weekly (and on demand): real public links through the bundled binaries. Every link comes from a repository variable, never the repo: `TAGTAPE_E2E_MP3_URLS` and `TAGTAPE_E2E_COVER_URL` (direct links), `TAGTAPE_E2E_SITE_URLS` (yt-dlp). A part without its variable is skipped.
+- The pnpm store cache is **restored on every run but saved only from `dev` and `main`** (one copy per PR overfilled GitHub's 10 GB limit). Don't add `cache: pnpm` back to `setup-node` in `ci.yml`.
 - **Dependabot** (`.github/dependabot.yml`) opens weekly grouped PRs against `dev`, with a 7-day cooldown. It skips Node and `@types/node` majors.
 - **pnpm supply chain** (`pnpm-workspace.yaml`): `minimumReleaseAge`, `trustPolicy: no-downgrade`, `blockExoticSubdeps` and `strictDepBuilds` are written out explicitly. If `trustPolicy` flags a package, find out why before adding an exception. Security fixes for transitive packages go in `overrides:`, scoped to the vulnerable range, with a comment.
 - Actions are pinned to commit SHAs, with the version in a comment. To update one, resolve the new tag's SHA with `git ls-remote`, and prefer releases that are at least a few days old.

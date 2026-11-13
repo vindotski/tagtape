@@ -33,7 +33,7 @@ describe("albumInputSchema", () => {
 			tracks: [
 				{
 					title: "Track 1",
-					// Only normalised: sources canonicalise links on the server.
+					// Only normalised: the pipeline's sources canonicalise links.
 					url: "https://music.example.com/tracks/1.mp3",
 				},
 			],

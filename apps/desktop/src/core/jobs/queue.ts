@@ -18,7 +18,7 @@ export class Semaphore {
 
 	/**
 	 * Resolves with a `release` function once a slot is free. Aborting `signal`
-	 * while waiting leaves the queue (rejects), so a client that gave up never
+	 * while waiting leaves the queue (rejects), so a caller that gave up never
 	 * holds a place in line.
 	 */
 	async acquire(signal?: AbortSignal): Promise<() => void> {

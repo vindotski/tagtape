@@ -24,7 +24,7 @@ export function pluginPaths(value: string, cwd = process.cwd()): string[] {
 /**
  * Imports each plugin and collects its sources, in order. Any problem stops
  * the start-up with a clear message: a half-loaded set of sources would
- * silently reject links the operator expects to work.
+ * silently reject links the person who set it up expects to work.
  */
 export async function loadPlugins(
 	paths: string[],

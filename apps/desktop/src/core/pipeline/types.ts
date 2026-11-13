@@ -6,8 +6,8 @@ import type { TrackProbe } from "../plugins/api.ts";
  * the cover download), behind one interface so the runner can be tested with
  * fakes. Same idea as TagTape v1's Downloader / TagWriter interfaces.
  *
- * Nothing here touches the disk: probes stay in memory and audio streams
- * straight from the source to the client.
+ * Nothing here touches the disk: probes stay in memory, and audio streams
+ * straight from the source to whoever reads it (the album-folder writer).
  */
 export interface Pipeline {
 	/** The sources links can come from, in matching order. */

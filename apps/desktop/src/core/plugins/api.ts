@@ -8,7 +8,7 @@
  *
  * Plugins get everything they need from TagTape through `PluginContext`, so
  * they never import TagTape's files at runtime (only these types). The core
- * does the rest: limits, cover, ID3 tags, the streamed ZIP, the job queue.
+ * does the rest: limits, cover, ID3 tags, the album folder, the job itself.
  *
  * This file depends on nothing but Node's types, so a plugin kept in another
  * repository can copy it verbatim for type checking.

@@ -52,7 +52,7 @@ The repository is a pnpm workspace:
 |---|---|
 | `apps/desktop/` | The Electron app: main process, preload bridge, the React UI, and the pipeline that checks, converts and tags tracks (`src/core`) |
 | `apps/website/` | The product site ([Astro](https://astro.build)), published on GitHub Pages |
-| `packages/shared/` | Code every part uses: validation schemas, limits, the ID3 tag writer |
+| `packages/shared/` | Code every part uses: validation schemas, limits, the ID3 tag writer, the share format |
 
 An end-to-end test converts real public links with the bundled programs:
 
@@ -70,7 +70,7 @@ The version lives in the root `package.json`. Bump it, date the `## Unreleased` 
 
 ## Sources and plugins
 
-A **source** turns one kind of link into MP3 audio: it claims links (`match`), checks a track (`probe`) and streams it (`stream`). TagTape does everything else: limits, the cover, the ID3 tags, the album folder and the queue. Sources are tried in order: plugins, then the two built-in ones:
+A **source** turns one kind of link into MP3 audio: it claims links (`match`), checks a track (`probe`) and streams it (`stream`). TagTape does everything else: limits, the cover, the ID3 tags and the album folder. Sources are tried in order: plugins, then the two built-in ones:
 
 - **MP3 links:** http(s) links whose path ends in `.mp3`.
 - **Sites supported by yt-dlp:** any other public link, if one of yt-dlp's extractors claims it (checked when the album is checked). TagTape never uses yt-dlp's `generic` extractor, so it doesn't read arbitrary web pages; all of yt-dlp's traffic goes through a local proxy that refuses private network addresses; playlists, logins and DRM-protected media are refused.

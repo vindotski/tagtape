@@ -1,4 +1,4 @@
-/** Limits shared by the form, the server-function layer and the API. */
+/** Limits the album form, the pipeline and the website all go by. */
 
 export const MAX_TRACKS = 10;
 

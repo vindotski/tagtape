@@ -194,7 +194,7 @@ function reportError(
 			fallback,
 		);
 	} else if (error.cause) {
-		// Users see the friendly message; operators get the original (e.g. a tool's stderr).
+		// The user sees the friendly message; the log gets the original (e.g. a tool's stderr).
 		ctx.log.warn(
 			{ err: error.cause, jobId: job.id, track: track?.number },
 			error.message,

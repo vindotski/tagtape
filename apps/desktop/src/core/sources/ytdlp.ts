@@ -51,7 +51,7 @@ export interface YtDlpOptions {
 	maxChecks: number;
 	/** How long a site stays paused after it refused this device; 0 never pauses. */
 	cooldownMs?: number;
-	/** Where the start of a pause is reported (the server's logger). */
+	/** Where the start of a pause is reported (the app's log). */
 	log?: { warn(obj: object, msg: string): void };
 	/** For tests: the clock. */
 	now?: () => number;
@@ -188,7 +188,7 @@ function toUserFacing(error: unknown, action: string): unknown {
 		if (error.timedOut) {
 			return new UserFacingError(`Timed out while ${action}`);
 		}
-		if (error.exitCode === null) return error; // couldn't even start yt-dlp: operator problem
+		if (error.exitCode === null) return error; // couldn't even start yt-dlp: a broken install, not the link
 		// Keep the original (with yt-dlp's stderr) as the cause, for the logs.
 		return new UserFacingError(describeYtDlpFailure(error.stderr), {
 			cause: error,

@@ -38,7 +38,6 @@ description: Suggest Conventional Commits messages for the current changes in th
   - `desktop` (the Electron app and its pipeline)
   - `website` (the Astro site)
   - `shared` (`@tagtape/shared`)
-  - `legacy`
   - `repo` (root config, agent setup, monorepo wiring)
   - `deps`
   - Leave the scope out when the change spans the whole repo.

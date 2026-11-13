@@ -1,13 +1,11 @@
-/* Scan only src/ for class names. Automatic detection relies on .gitignore,
-   which the Docker build doesn't have, so it also scanned dist/ and the
-   server build's CSS hash stopped matching the client's (unstyled page). */
+/* Scan only this folder for class names, not the build output next to it. */
 @import "tailwindcss" source(".");
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/oxanium";
 
-/* Dark mode follows the system setting: no class toggle, so no script and
-   no flash of the wrong theme on a server-rendered page. */
+/* Dark mode follows the system setting: no class toggle, so no flash of the
+   wrong theme when the window opens. */
 @custom-variant dark (@media (prefers-color-scheme: dark));
 
 @theme inline {

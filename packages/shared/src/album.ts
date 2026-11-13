@@ -31,7 +31,7 @@ export const trackInputSchema = z.object({
 		.min(1, { error: "Track link is required" })
 		.max(MAX_URL_LENGTH, { error: "That link is too long" })
 		// Only the shape is checked here (it runs in the browser too). Which
-		// links work depends on the server's sources, which also canonicalise them.
+		// links work depends on the pipeline's sources, which also canonicalise them.
 		.refine((value) => parseWebUrl(value) !== null, {
 			error: "Enter a web link (https://…)",
 		})
@@ -72,8 +72,8 @@ export const albumInputSchema = z.object({
 		.max(MAX_TRACKS, { error: `You can add up to ${MAX_TRACKS} tracks` }),
 });
 
-/** What a client sends (raw form values). */
+/** What the form holds (raw values). */
 export type AlbumInput = z.input<typeof albumInputSchema>;
-/** What the server works with after validation: trimmed, blanks removed, URLs normalised. */
+/** What the pipeline works with after validation: trimmed, blanks removed, URLs normalised. */
 export type Album = z.output<typeof albumInputSchema>;
 export type Track = z.output<typeof trackInputSchema>;
