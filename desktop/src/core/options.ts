@@ -25,15 +25,13 @@ export interface TagTapeOptions {
  * purpose: long downloads must not starve the checks.
  */
 export const LIMITS = {
-	/** How long a checked or finished job is remembered. */
+	/** How long a finished job is remembered. */
 	jobTtlMs: 30 * 60_000,
 	maxActiveProbes: 4,
 	maxQueuedJobs: 20,
-	/** Downloads converting at once (each runs its source's tools + ffmpeg). */
+	/** Albums converting at once (each runs its source's tools + ffmpeg). */
 	maxActiveStreams: 2,
-	maxQueuedStreams: 10,
-	maxDownloadsPerJob: 5,
-	maxStoredJobs: 500,
+	maxStoredJobs: 100,
 	/** A job's whole check (every track and the cover) must finish within this. */
 	checkTimeoutMs: 180_000,
 	/** Tracks checked in parallel within one job. */

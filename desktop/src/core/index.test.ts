@@ -1,6 +1,8 @@
-import { buffer } from "node:stream/consumers";
+import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import NodeID3 from "node-id3";
-import { afterEach, describe, expect, test } from "vitest";
+import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import type { TagTape } from "./index.ts";
 import { UserFacingError } from "./lib/errors.ts";
 import {
@@ -8,14 +10,18 @@ import {
 	canonical,
 	fakeMp3,
 	fakePipeline,
-	readZip,
 	testTagTape,
 } from "./test/helpers.ts";
 
 let open: TagTape | undefined;
+let destination: string;
+beforeEach(async () => {
+	destination = await mkdtemp(join(tmpdir(), "tagtape-job-"));
+});
 afterEach(async () => {
 	await open?.close();
 	open = undefined;
+	await rm(destination, { recursive: true, force: true });
 });
 
 function start(options: Parameters<typeof testTagTape>[0] = {}) {
@@ -40,11 +46,14 @@ describe("creating a job", () => {
 	test("invalid albums come back with the form's field paths", () => {
 		const { tagtape } = start();
 		expect(
-			tagtape.createJob({
-				title: "",
-				artist: "A",
-				tracks: [{ title: "T", url: "" }],
-			}),
+			tagtape.createJob(
+				{
+					title: "",
+					artist: "A",
+					tracks: [{ title: "T", url: "" }],
+				},
+				destination,
+			),
 		).toMatchObject({
 			kind: "invalid",
 			issues: expect.arrayContaining([
@@ -61,7 +70,7 @@ describe("creating a job", () => {
 			title: "Other",
 			url: "https://elsewhere.example.org/x",
 		};
-		expect(tagtape.createJob(input)).toEqual({
+		expect(tagtape.createJob(input, destination)).toEqual({
 			kind: "invalid",
 			issues: [
 				{
@@ -74,50 +83,56 @@ describe("creating a job", () => {
 });
 
 describe("job lifecycle", () => {
-	test("checked → ready → the ZIP streams → done", async () => {
+	test("checked, then saved as a folder of tagged MP3s", async () => {
 		const { tagtape, pipeline } = start();
-		const id = jobId(tagtape.createJob(album()));
+		const id = jobId(tagtape.createJob(album(), destination));
+		expect(tagtape.busy()).toBe(true);
 		await tagtape.jobs.settled();
+
+		const folder = join(destination, "The Examples - Night Drive");
 		expect(tagtape.getJob(id)).toMatchObject({
 			id,
-			status: "ready",
-			downloadReady: true,
+			status: "done",
+			folder,
 			tracks: [
-				{ number: 1, title: "Track 1", status: "queued" },
-				{ number: 2, title: "Track 2", status: "queued" },
+				{ number: 1, title: "Track 1", status: "done" },
+				{ number: 2, title: "Track 2", status: "done" },
 			],
 		});
-		// Nothing is converted until the album is asked for.
-		expect(pipeline.streamed).toEqual([]);
-
-		const opened = await tagtape.openStream(id, new AbortController().signal);
-		if (opened.kind !== "ok") throw new Error(opened.message);
-		expect(opened.fileName).toBe("The Examples - Night Drive.zip");
-		const entries = readZip(await buffer(opened.stream));
-		expect(entries.map((entry) => entry.name)).toEqual([
+		expect(tagtape.busy()).toBe(false);
+		expect(await readdir(folder)).toEqual([
 			"01 - Track 1.mp3",
 			"02 - Track 2.mp3",
 		]);
-		// Each entry is our ID3 tag followed by the streamed MP3 bytes, nothing else.
-		const first = entries[0]?.data as Buffer;
+		// Each file is our ID3 tag followed by the streamed MP3 bytes, nothing else.
+		const first = await readFile(join(folder, "01 - Track 1.mp3"));
 		expect(NodeID3.read(first)).toMatchObject({
 			title: "Track 1",
 			artist: "The Examples",
+			performerInfo: "The Examples",
 			album: "Night Drive",
 			trackNumber: "1/2",
+			year: "2026",
+			genre: "Synthwave",
 		});
 		expect(first.subarray(-fakeMp3(canonical(1)).length)).toEqual(
 			fakeMp3(canonical(1)),
 		);
-
-		await tagtape.jobs.settled();
-		expect(tagtape.getJob(id)).toMatchObject({
-			status: "done",
-			tracks: [{ status: "done" }, { status: "done" }],
-		});
+		expect(pipeline.streamed).toEqual([canonical(1), canonical(2)]);
 	});
 
-	test("too-long, live and unavailable tracks fail the check; nothing streams", async () => {
+	test("making the same album again gets its own folder", async () => {
+		const { tagtape } = start();
+		tagtape.createJob(album(), destination);
+		await tagtape.jobs.settled();
+		const id = jobId(tagtape.createJob(album(), destination));
+		await tagtape.jobs.settled();
+		expect(tagtape.getJob(id)?.folder).toBe(
+			join(destination, "The Examples - Night Drive (2)"),
+		);
+	});
+
+	test("too-long, live and unavailable tracks fail the check; nothing is written", async () => {
 		const pipeline = fakePipeline();
 		pipeline.probes.set(canonical(1), {
 			title: "",
@@ -134,12 +149,13 @@ describe("job lifecycle", () => {
 			new UserFacingError("This track is private"),
 		);
 		const { tagtape } = start({ pipeline });
-		const id = jobId(tagtape.createJob(album(4)));
+		const id = jobId(tagtape.createJob(album(4), destination));
 		await tagtape.jobs.settled();
 
-		expect(tagtape.getJob(id)).toMatchObject({
+		const snapshot = tagtape.getJob(id);
+		expect(snapshot).toMatchObject({
 			status: "failed",
-			downloadReady: false,
+			error: "Some tracks can't be used. Fix or remove them and try again.",
 			tracks: [
 				{ status: "error", error: "Longer than 2 hours (2:03:04)" },
 				{
@@ -150,34 +166,83 @@ describe("job lifecycle", () => {
 				{ status: "queued" },
 			],
 		});
-		expect(
-			await tagtape.openStream(id, new AbortController().signal),
-		).toMatchObject({ kind: "unavailable" });
+		expect(snapshot?.folder).toBeUndefined();
 		expect(pipeline.streamed).toEqual([]);
+		expect(await readdir(destination)).toEqual([]);
 	});
 
-	test("an unexpected failure hides internals", async () => {
+	test("a track failing while saving removes the whole album and hides internals", async () => {
 		const pipeline = fakePipeline();
 		pipeline.failStreamOf = canonical(2);
 		const { tagtape } = start({ pipeline });
-		const id = jobId(tagtape.createJob(album()));
+		const id = jobId(tagtape.createJob(album(3), destination));
 		await tagtape.jobs.settled();
-		const opened = await tagtape.openStream(id, new AbortController().signal);
-		if (opened.kind !== "ok") throw new Error(opened.message);
-		await expect(buffer(opened.stream)).rejects.toThrow();
-		await tagtape.jobs.settled();
+
 		const snapshot = tagtape.getJob(id);
 		expect(snapshot).toMatchObject({
 			status: "failed",
 			error: "Track 2 failed: Couldn't convert this track",
+			tracks: [{ status: "done" }, { status: "error" }, { status: "queued" }],
 		});
 		expect(JSON.stringify(snapshot)).not.toContain("ffmpeg exploded");
+		expect(pipeline.streamed).toEqual([canonical(1), canonical(2)]);
+		expect(await readdir(destination)).toEqual([]);
 	});
 
-	test("unknown jobs are undefined", () => {
-		const { tagtape } = start();
-		expect(
-			tagtape.getJob("00000000-0000-4000-8000-000000000000"),
-		).toBeUndefined();
+	test("cancelling while saving stops the source and leaves nothing behind", async () => {
+		const pipeline = fakePipeline();
+		pipeline.holdStreams = true;
+		const { tagtape } = start({ pipeline });
+		const id = jobId(tagtape.createJob(album(), destination));
+		await expect.poll(() => pipeline.streamed).toEqual([canonical(1)]);
+		expect(tagtape.getJob(id)).toMatchObject({ status: "streaming" });
+
+		expect(tagtape.cancelJob(id)).toBe(true);
+		await tagtape.jobs.settled();
+		expect(tagtape.getJob(id)).toMatchObject({
+			status: "failed",
+			error: "Cancelled",
+		});
+		expect(pipeline.aborted).toEqual([canonical(1)]);
+		expect(await readdir(destination)).toEqual([]);
+		// Nothing left to cancel.
+		expect(tagtape.cancelJob(id)).toBe(false);
+	});
+
+	test("cancelling during the check fails the job before anything is written", async () => {
+		const pipeline = fakePipeline();
+		pipeline.gate = new Promise(() => {});
+		const { tagtape } = start({ pipeline });
+		const id = jobId(tagtape.createJob(album(), destination));
+		await expect.poll(() => tagtape.getJob(id)?.status).toBe("probing");
+		tagtape.cancelJob(id);
+		await tagtape.jobs.settled();
+		expect(tagtape.getJob(id)).toMatchObject({
+			status: "failed",
+			error: "Cancelled",
+		});
+		expect(pipeline.streamed).toEqual([]);
+	});
+
+	test("closing cancels running jobs and cleans up", async () => {
+		const pipeline = fakePipeline();
+		pipeline.holdStreams = true;
+		const { tagtape } = start({ pipeline });
+		tagtape.createJob(album(), destination);
+		await expect.poll(() => pipeline.streamed).toHaveLength(1);
+		await tagtape.close();
+		expect(await readdir(destination)).toEqual([]);
+	});
+
+	test("finished jobs are forgotten after a while; unknown jobs are undefined", async () => {
+		let now = new Date("2026-11-13T10:00:00Z");
+		const { tagtape } = start({ now: () => now });
+		const id = jobId(tagtape.createJob(album(), destination));
+		await tagtape.jobs.settled();
+		now = new Date("2026-11-13T10:29:00Z");
+		expect(tagtape.jobs.sweep()).toBe(0);
+		now = new Date("2026-11-13T10:31:00Z");
+		expect(tagtape.jobs.sweep()).toBe(1);
+		expect(tagtape.getJob(id)).toBeUndefined();
 	});
 });

@@ -116,9 +116,7 @@ describe("jobSnapshotSchema", () => {
 					error: "Track unavailable",
 				},
 			],
-			downloadReady: false,
 			createdAt: "2026-11-06T12:00:00.000Z",
-			expiresAt: "2026-11-06T12:30:00.000Z",
 		};
 		expect(jobSnapshotSchema.parse(snapshot)).toEqual(snapshot);
 	});

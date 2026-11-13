@@ -1,20 +1,16 @@
 import { z } from "zod";
 
 /**
- * Job lifecycle. Nothing is stored: the download *is* the conversion.
- *
- * queued → probing → ready → (download starts) → [queued →] streaming → done
- * Any phase can end in `failed`. After `done`, or a failure while streaming,
- * the album can be downloaded again (it's converted again) until the job expires.
+ * Job lifecycle: queued → probing → [queued →] streaming → done.
+ * Any phase can end in `failed` (a cancelled job fails with "Cancelled").
+ * A failed job leaves nothing on disk.
  */
 export const jobStatusSchema = z.enum([
-	/** Waiting for a free slot (to check the tracks, or to stream the download). */
+	/** Waiting for a free slot (to check the tracks, or to convert them). */
 	"queued",
 	/** Reading each track's details; nothing is downloaded yet. */
 	"probing",
-	/** Every track checked; the download can start. */
-	"ready",
-	/** Tracks are being converted while the ZIP streams to the browser. */
+	/** Tracks are being converted and saved into the album's folder. */
 	"streaming",
 	"done",
 	"failed",
@@ -45,21 +41,13 @@ export const jobSnapshotSchema = z.object({
 	tracks: z.array(trackSnapshotSchema),
 	/** Human-readable reason when `status` is `failed`. */
 	error: z.string().optional(),
-	/**
-	 * True when `GET /jobs/:id/archive` can start a (new) download: every track
-	 * passed the check and no download is running right now.
-	 */
-	downloadReady: z.boolean(),
+	/** The album's folder, once every track is saved (`status` is `done`). */
+	folder: z.string().optional(),
 	createdAt: z.iso.datetime(),
-	/** After this moment the job is forgotten. */
-	expiresAt: z.iso.datetime(),
 });
 export type JobSnapshot = z.infer<typeof jobSnapshotSchema>;
 
-export const createJobResponseSchema = z.object({ jobId: z.uuid() });
-export type CreateJobResponse = z.infer<typeof createJobResponseSchema>;
-
-/** Statuses where nothing happens until the user acts (or the job expires). */
+/** Statuses where nothing more will happen. */
 export function isJobFinished(status: JobStatus): boolean {
 	return status === "done" || status === "failed";
 }

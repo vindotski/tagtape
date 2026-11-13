@@ -1,14 +1,10 @@
 import { createServer, type Server } from "node:http";
 import type { AddressInfo, LookupFunction } from "node:net";
-import { Readable } from "node:stream";
-import { buffer } from "node:stream/consumers";
 import { createTag } from "@tagtape/shared";
 import NodeID3 from "node-id3";
 import sharp from "sharp";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { UserFacingError } from "../lib/errors.ts";
-import { readZip } from "../test/helpers.ts";
-import { streamZip } from "./archive.ts";
 import { COVER_SIZE, downloadImage, processCover } from "./cover.ts";
 
 describe("cover", () => {
@@ -161,7 +157,7 @@ describe("cover", () => {
 	});
 });
 
-describe("tags and archive", () => {
+describe("tags", () => {
 	test("builds an ID3 tag (with front cover) to put in front of the audio", () => {
 		const cover = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3]);
 		const tag = Buffer.from(
@@ -194,53 +190,5 @@ describe("tags and archive", () => {
 		const image = tags.image as { type: { id: number }; imageBuffer: Buffer };
 		expect(image.type.id).toBe(3);
 		expect(image.imageBuffer.equals(cover)).toBe(true);
-	});
-
-	test("streams a stored ZIP, opening entries one after another", async () => {
-		const opened: string[] = [];
-		const entry = (name: string, body: string) => ({
-			name,
-			open: () => {
-				opened.push(name);
-				return Readable.from([Buffer.from(body)]);
-			},
-		});
-		const zip = streamZip([
-			entry("01 - Ниночка.mp3", "one"),
-			entry("02 - Two.mp3", "two"),
-		]);
-		// yazl starts the first entry right away, but never two at once.
-		expect(opened.length).toBeLessThanOrEqual(1);
-
-		const entries = readZip(await buffer(zip));
-		expect(entries.map((e) => [e.name, e.method, e.data.toString()])).toEqual([
-			["01 - Ниночка.mp3", 0, "one"],
-			["02 - Two.mp3", 0, "two"],
-		]);
-		expect(opened).toEqual(["01 - Ниночка.mp3", "02 - Two.mp3"]);
-	});
-
-	test("a failing entry destroys the ZIP stream and later entries never open", async () => {
-		const opened: string[] = [];
-		const zip = streamZip([
-			{
-				name: "01.mp3",
-				open: () => {
-					opened.push("01");
-					const stream = new Readable({ read() {} });
-					setImmediate(() => stream.destroy(new Error("boom")));
-					return stream;
-				},
-			},
-			{
-				name: "02.mp3",
-				open: () => {
-					opened.push("02");
-					return Readable.from(["x"]);
-				},
-			},
-		]);
-		await expect(buffer(zip)).rejects.toThrow("boom");
-		expect(opened).toEqual(["01"]);
 	});
 });

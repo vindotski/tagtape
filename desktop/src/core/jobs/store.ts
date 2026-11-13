@@ -15,45 +15,31 @@ export interface TrackState {
 	source: string;
 	status: TrackStatus;
 	error?: string;
-	/** Set once the probe succeeded. */
-	probed: boolean;
 	/** What the source's probe returned for its stream step (in memory only). */
 	state?: unknown;
 }
 
 /**
- * A job lives only in memory; restarting the app forgets every job (stateless
- * by design). It holds metadata and the cover image, never any audio.
+ * A job lives only in memory; restarting the app forgets every job. It holds
+ * metadata and the cover image, never any audio.
  */
 export interface Job {
 	id: string;
 	album: Album;
+	/** The folder the user chose; the album gets its own folder inside it. */
+	destination: string;
+	/** The album's folder, once every track is saved. */
+	folder?: string;
 	status: JobStatus;
 	tracks: TrackState[];
 	error?: string;
 	createdAt: Date;
-	/** When the sweeper may forget the job. Refreshed when a phase ends. */
-	expiresAt: Date;
-	/** Squared JPEG cover, in memory. */
+	/** Set when the job ended (done or failed); it's forgotten a while later. */
+	finishedAt?: Date;
+	/** Squared JPEG cover, in memory while the job runs. */
 	cover?: Buffer;
-	/** Aborting cancels the probe phase. Each download has its own signal. */
+	/** Aborting cancels the job, whatever it's doing. */
 	controller: AbortController;
-	/** Downloads it may still start (`maxDownloadsPerJob` at first). */
-	downloadsLeft: number;
-}
-
-/** Every track probed successfully: the album can be streamed. */
-export function isProbed(job: Job): boolean {
-	return job.tracks.every((track) => track.probed);
-}
-
-/** A download can start now: probed, and no download queued or running. */
-export function canStream(job: Job): boolean {
-	return (
-		isProbed(job) &&
-		job.downloadsLeft > 0 &&
-		(job.status === "ready" || job.status === "done" || job.status === "failed")
-	);
 }
 
 export function toSnapshot(job: Job): JobSnapshot {
@@ -65,10 +51,9 @@ export function toSnapshot(job: Job): JobSnapshot {
 				? { number, title, status }
 				: { number, title, status, error },
 		),
-		downloadReady: canStream(job),
 		createdAt: job.createdAt.toISOString(),
-		expiresAt: job.expiresAt.toISOString(),
 	};
 	if (job.error !== undefined) snapshot.error = job.error;
+	if (job.folder !== undefined) snapshot.folder = job.folder;
 	return snapshot;
 }

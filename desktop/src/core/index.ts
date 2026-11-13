@@ -1,4 +1,3 @@
-import type { Readable } from "node:stream";
 import {
 	albumInputSchema,
 	type JobSnapshot,
@@ -30,22 +29,24 @@ export type CreateJobOutcome =
 	| { kind: "invalid"; issues: FieldIssue[] }
 	| { kind: "busy"; message: string };
 
-export type OpenStreamOutcome =
-	| { kind: "ok"; stream: Readable; fileName: string }
-	| { kind: "unavailable"; message: string };
-
 /** The whole pipeline behind one object: what the app's main process talks to. */
 export interface TagTape {
 	/** The sources links can come from, in matching order. */
 	sources(): SourceInfo[];
-	/** Validates the album, matches each link to a source and queues the check. */
-	createJob(input: unknown): CreateJobOutcome;
+	/**
+	 * Validates the album, matches each link to a source and queues the job:
+	 * every track is checked, then the album is saved in its own folder inside
+	 * `destination`.
+	 */
+	createJob(input: unknown, destination: string): CreateJobOutcome;
 	getJob(id: string): JobSnapshot | undefined;
-	/** The checked album as a ZIP stream; aborting `signal` stops the conversion. */
-	openStream(id: string, signal: AbortSignal): Promise<OpenStreamOutcome>;
+	/** Stops a job; whatever it wrote is removed. False if it already ended. */
+	cancelJob(id: string): boolean;
+	/** True while any album is being checked or saved. */
+	busy(): boolean;
 	/** Versions of ffmpeg and of each source; rejects when a binary doesn't run. */
 	versions(): Promise<Record<string, string>>;
-	/** Cancels everything and frees the egress proxy. */
+	/** Cancels every job (nothing half-written stays) and frees the egress proxy. */
 	close(): Promise<void>;
 }
 
@@ -114,8 +115,6 @@ export function fromPipeline(
 		maxActiveProbes: LIMITS.maxActiveProbes,
 		maxQueuedJobs: LIMITS.maxQueuedJobs,
 		maxActiveStreams: LIMITS.maxActiveStreams,
-		maxQueuedStreams: LIMITS.maxQueuedStreams,
-		maxDownloadsPerJob: LIMITS.maxDownloadsPerJob,
 		maxStoredJobs: LIMITS.maxStoredJobs,
 		checkTimeoutMs: LIMITS.checkTimeoutMs,
 		trackConcurrency: LIMITS.trackConcurrency,
@@ -127,7 +126,7 @@ export function fromPipeline(
 	return {
 		jobs,
 		sources: () => pipeline.sources,
-		createJob(input) {
+		createJob(input, destination) {
 			const parsed = albumInputSchema.safeParse(input);
 			if (!parsed.success) {
 				return {
@@ -152,7 +151,7 @@ export function fromPipeline(
 			});
 			if (issues.length > 0) return { kind: "invalid", issues };
 
-			const created = jobs.create(parsed.data, links);
+			const created = jobs.create(parsed.data, links, destination);
 			if (created.kind === "busy") {
 				return {
 					kind: "busy",
@@ -170,21 +169,9 @@ export function fromPipeline(
 			const job = jobs.get(id);
 			return job ? toSnapshot(job) : undefined;
 		},
-		async openStream(id, signal) {
-			const opened = await jobs.openStream(id, signal);
-			if (opened.kind === "ok") return opened;
-			return { kind: "unavailable", message: UNAVAILABLE[opened.kind] };
-		},
+		cancelJob: (id) => jobs.cancel(id),
+		busy: () => jobs.busy,
 		versions: () => pipeline.versions(),
 		close: () => jobs.close(),
 	};
 }
-
-const UNAVAILABLE = {
-	"not-found": "This album has expired. Make it again.",
-	"not-ready": "This album isn't ready yet.",
-	busy: "This album is already being saved.",
-	full: "TagTape is busy with other albums. Try again when they're done.",
-	exhausted: "This album was saved several times already. Make it again.",
-	aborted: "Cancelled.",
-} as const;
