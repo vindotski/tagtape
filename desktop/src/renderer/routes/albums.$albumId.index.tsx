@@ -1,12 +1,13 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { FolderOpen, Pencil } from "lucide-react";
+import { FolderOpen, Pencil, Share2 } from "lucide-react";
+import { useState } from "react";
 import { AlbumCover, storedCover } from "#/components/album/album-cover";
 import { albumMeta } from "#/components/album/album-shell";
 import { dateFormat } from "#/components/album-grid";
 import { AlbumNotFound } from "#/components/album-not-found";
 import { DeleteAlbum } from "#/components/delete-album";
 import { Button, buttonVariants } from "#/components/ui/button";
-import { showAlbumFolder } from "#/lib/bridge";
+import { shareAlbum, showAlbumFolder } from "#/lib/bridge";
 import { loadAlbum } from "#/lib/load-album";
 
 export const Route = createFileRoute("/albums/$albumId/")({
@@ -18,6 +19,8 @@ export const Route = createFileRoute("/albums/$albumId/")({
 /** A made album, as a music app would show it: cover, details, tracks. */
 function AlbumPage() {
 	const album = Route.useLoaderData();
+	// What the last share did, said once under the buttons.
+	const [shared, setShared] = useState<"file" | "link" | null>(null);
 	const tracks = `${album.trackCount} ${album.trackCount === 1 ? "track" : "tracks"}`;
 	return (
 		<article className="select-text">
@@ -60,10 +63,26 @@ function AlbumPage() {
 					<Pencil data-icon="inline-start" />
 					Edit and make again
 				</Link>
+				<Button
+					variant="outline"
+					onPress={async () => setShared(await shareAlbum(album.id))}
+				>
+					<Share2 data-icon="inline-start" />
+					Share
+				</Button>
 				<div className="ml-auto">
 					<DeleteAlbum id={album.id} />
 				</div>
 			</div>
+			<p
+				className="mt-2 text-sm text-muted-foreground empty:hidden"
+				role="status"
+			>
+				{shared === "link" &&
+					"Link copied. It holds the album's details and track links, never the music."}
+				{shared === "file" &&
+					"Saved. The file holds the album's details and track links, never the music."}
+			</p>
 			{album.folder !== "saved" && (
 				<p className="mt-2 text-sm text-muted-foreground">
 					{album.folder === "missing"

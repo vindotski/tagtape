@@ -1,5 +1,6 @@
 import { app, Menu, type MenuItemConstructorOptions, shell } from "electron";
 import type { Screen } from "../ipc.ts";
+import { LINKS } from "./links.ts";
 
 export interface MenuActions {
 	/** Shows a screen in the window (bringing the window forward). */
@@ -7,12 +8,6 @@ export interface MenuActions {
 	/** Opens the folder albums are saved in. */
 	showSaveFolder(): void;
 }
-
-const LINKS = {
-	website: "https://tagtape.app",
-	source: "https://github.com/vindotski/tagtape",
-	changelog: "https://github.com/vindotski/tagtape/blob/main/CHANGELOG.md",
-};
 
 /**
  * The application menu: what a desktop app is expected to have, with the

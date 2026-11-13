@@ -1,6 +1,23 @@
-import { stat } from "node:fs/promises";
-import { isJobFinished, type JobSnapshot } from "@tagtape/shared";
-import { type BrowserWindow, dialog, ipcMain, Menu, shell } from "electron";
+import { rename, stat, writeFile } from "node:fs/promises";
+import { join } from "node:path";
+import {
+	albumFolderName,
+	albumInputSchema,
+	encodeShare,
+	isJobFinished,
+	type JobSnapshot,
+	SHARE_EXTENSION,
+	shareFragment,
+} from "@tagtape/shared";
+import {
+	type BrowserWindow,
+	clipboard,
+	dialog,
+	ipcMain,
+	Menu,
+	type MenuItemConstructorOptions,
+	shell,
+} from "electron";
 import { z } from "zod";
 import type { TagTape } from "../core/index.ts";
 import { thumbnail } from "../core/pipeline/cover.ts";
@@ -8,10 +25,12 @@ import {
 	type AlbumMenuChoice,
 	CHANNELS,
 	type FieldErrors,
+	type ShareChoice,
 	type StartJobResult,
 	type TagTapeApi,
 } from "../ipc.ts";
-import type { Library } from "./library.ts";
+import type { Library, LibraryAlbum } from "./library.ts";
+import { LINKS } from "./links.ts";
 
 const idSchema = z.uuid();
 const startSchema = z.object({
@@ -60,6 +79,75 @@ export function registerIpc(ctx: IpcContext): {
 		if (remembered && (await isFolder(remembered))) return remembered;
 		return ctx.defaultDestination;
 	}
+
+	/** A stored album as the share format wants it; null if it no longer fits. */
+	const shareable = (stored: LibraryAlbum) =>
+		albumInputSchema.safeParse({
+			title: stored.title,
+			artist: stored.artist,
+			genre: stored.genre ?? "",
+			year: stored.year === null ? "" : String(stored.year),
+			coverUrl: stored.coverUrl ?? "",
+			tracks: stored.tracks,
+		}).data ?? null;
+
+	/** Shares a stored album as a file (after a save dialog) or a copied link. */
+	async function share(
+		stored: LibraryAlbum,
+		how: ShareChoice,
+	): Promise<ShareChoice | null> {
+		const album = shareable(stored);
+		if (!album) return null;
+		if (how === "link") {
+			clipboard.writeText(`${LINKS.open}#${shareFragment(album)}`);
+			return "link";
+		}
+		const window = ctx.window();
+		const options = {
+			title: "Save the album to share",
+			defaultPath: join(
+				await destination(),
+				`${albumFolderName(album.artist, album.title)}.${SHARE_EXTENSION}`,
+			),
+			filters: [{ name: "TagTape album", extensions: [SHARE_EXTENSION] }],
+		};
+		const { canceled, filePath } = window
+			? await dialog.showSaveDialog(window, options)
+			: await dialog.showSaveDialog(options);
+		if (canceled || !filePath) return null;
+		try {
+			// A temp file, renamed: never a half-written share.
+			const temp = `${filePath}.${process.pid}.tmp`;
+			await writeFile(temp, encodeShare(album));
+			await rename(temp, filePath);
+			return "file";
+		} catch (error) {
+			ctx.log.error({ err: error }, "Saving the shared album failed");
+			dialog.showErrorBox("The album couldn't be saved", "Try another folder.");
+			return null;
+		}
+	}
+
+	/** Pops up `template`; resolves to the value of the item clicked, or null. */
+	function popup<T>(
+		window: BrowserWindow,
+		template: (pick: (value: T) => () => void) => MenuItemConstructorOptions[],
+	): Promise<T | null> {
+		return new Promise((resolve) => {
+			// A click resolves at once. Closing the menu resolves to nothing, a
+			// moment later: on some systems "closed" arrives before the click.
+			Menu.buildFromTemplate(template((value) => () => resolve(value))).popup({
+				window,
+				callback: () => setTimeout(() => resolve(null), 200),
+			});
+		});
+	}
+	const shareItems = (
+		pick: (value: ShareChoice) => () => void,
+	): MenuItemConstructorOptions[] => [
+		{ label: "Save as File…", click: pick("file") },
+		{ label: "Copy Link", click: pick("link") },
+	];
 
 	// A finished album's folder and cover go into the library. The job and the
 	// library entry are made a moment apart, so either may come first.
@@ -239,6 +327,16 @@ export function registerIpc(ctx: IpcContext): {
 			return cover && `data:image/jpeg;base64,${cover.toString("base64")}`;
 		},
 
+		async shareAlbum(albumId) {
+			const parsed = idSchema.safeParse(albumId);
+			const window = ctx.window();
+			if (!parsed.success || !window) return null;
+			const stored = await ctx.library.get(parsed.data);
+			if (!stored) return null;
+			const how = await popup<ShareChoice>(window, shareItems);
+			return how && share(stored, how);
+		},
+
 		async albumMenu(albumId) {
 			const parsed = idSchema.safeParse(albumId);
 			const window = ctx.window();
@@ -248,21 +346,15 @@ export function registerIpc(ctx: IpcContext): {
 			const saved =
 				stored.folder !== undefined && (await isFolder(stored.folder));
 
-			const choice = await new Promise<AlbumMenuChoice | null>((resolve) => {
-				// A click resolves at once. Closing the menu resolves to nothing, a
-				// moment later: on some systems "closed" arrives before the click.
-				const pick = (value: AlbumMenuChoice) => () => resolve(value);
-				Menu.buildFromTemplate([
-					{ label: "Open", click: pick("open") },
-					{ label: "Show in Folder", enabled: saved, click: pick("folder") },
-					{ label: "Edit and Make Again", click: pick("again") },
-					{ type: "separator" },
-					{ label: "Delete from Library…", click: pick("delete") },
-				]).popup({
-					window,
-					callback: () => setTimeout(() => resolve(null), 200),
-				});
-			});
+			const choice = await popup<AlbumMenuChoice>(window, (pick) => [
+				{ label: "Open", click: pick("open") },
+				{ label: "Show in Folder", enabled: saved, click: pick("folder") },
+				{ label: "Edit and Make Again", click: pick("again") },
+				{ label: "Share", submenu: shareItems(pick) },
+				{ type: "separator" },
+				{ label: "Delete from Library…", click: pick("delete") },
+			]);
+			if (choice === "file" || choice === "link") return share(stored, choice);
 
 			if (choice === "folder" && stored.folder) {
 				await shell.openPath(stored.folder);

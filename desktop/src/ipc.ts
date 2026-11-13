@@ -52,7 +52,15 @@ export type Screen =
 	| { screen: "album"; albumId: string };
 
 /** What was picked from an album's right-click menu. */
-export type AlbumMenuChoice = "open" | "folder" | "again" | "delete";
+export type AlbumMenuChoice =
+	| "open"
+	| "folder"
+	| "again"
+	| "delete"
+	| ShareChoice;
+
+/** How an album was shared: saved as a `.tagtape` file, or as a copied link. */
+export type ShareChoice = "file" | "link";
 
 export interface TagTapeApi {
 	/** The app's version. */
@@ -89,8 +97,14 @@ export interface TagTapeApi {
 	/** The album's small cover as a `data:` URL, or null without one. */
 	albumCover(albumId: string): Promise<string | null>;
 	/**
+	 * Pops up the ways to share a stored album (a file, a link) and does the
+	 * one picked; resolves to it, or null if nothing was shared.
+	 */
+	shareAlbum(albumId: string): Promise<ShareChoice | null>;
+	/**
 	 * Pops up the album's menu at the pointer; resolves to what was picked, or
-	 * null. "delete" has already been confirmed and "folder" already shown.
+	 * null. "delete" has already been confirmed; "folder", "file" and "link"
+	 * are already done.
 	 */
 	albumMenu(albumId: string): Promise<AlbumMenuChoice | null>;
 	albums(limit: number): Promise<AlbumSummary[]>;
@@ -116,6 +130,7 @@ export const CHANNELS = {
 	showAlbumFolder: "tagtape:show-album-folder",
 	albumCover: "tagtape:album-cover",
 	albumMenu: "tagtape:album-menu",
+	shareAlbum: "tagtape:share-album",
 	albums: "tagtape:albums",
 	album: "tagtape:album",
 	removeAlbum: "tagtape:remove-album",

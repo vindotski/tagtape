@@ -6,6 +6,7 @@ import type {
 	AlbumMenuChoice,
 	AlbumSummary,
 	Screen,
+	ShareChoice,
 	SourceInfo,
 	StartJobResult,
 	StoredAlbum,
@@ -70,6 +71,9 @@ export const showAlbumFolder = (albumId: string): Promise<boolean> =>
 
 export const fetchAlbumCover = (albumId: string): Promise<string | null> =>
 	window.tagtape.albumCover(albumId).catch(() => null);
+
+export const shareAlbum = (albumId: string): Promise<ShareChoice | null> =>
+	window.tagtape.shareAlbum(albumId).catch(() => null);
 
 export const albumMenu = (albumId: string): Promise<AlbumMenuChoice | null> =>
 	window.tagtape.albumMenu(albumId).catch(() => null);
