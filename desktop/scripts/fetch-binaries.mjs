@@ -18,7 +18,6 @@ import {
 	rmSync,
 	writeFileSync,
 } from "node:fs";
-import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -105,11 +104,13 @@ if (
 	process.exit(0);
 }
 
-const work = mkdtempSync(join(tmpdir(), "tagtape-binaries-"));
+// Unpacked next to where the files end up, not in the system's temp folder:
+// that can be on another drive (C: and D: on CI's Windows runners), and a
+// file can't be renamed across drives.
+rmSync(out, { recursive: true, force: true });
+mkdirSync(out, { recursive: true });
+const work = mkdtempSync(join(dirname(out), ".fetch-"));
 try {
-	rmSync(out, { recursive: true, force: true });
-	mkdirSync(out, { recursive: true });
-
 	console.log(`ffmpeg ${wanted.ffmpeg.version} for ${target}`);
 	const ffmpegArchive = join(
 		work,
