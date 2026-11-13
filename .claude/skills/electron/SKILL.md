@@ -36,6 +36,12 @@ Main sends the page exactly one message: `NAVIGATE`, carrying a `Screen` (`deskt
 
 Native things stay in main: the application menu (`main/menu.ts`), right-click menus (`context-menu` in `main/index.ts`, `albumMenu` in `main/ipc.ts`), confirm dialogs, notifications and the dock/taskbar progress (both driven by `tagtape.subscribe`).
 
+## Files and links that open the app
+
+Shared albums (`.tagtape` files, `tagtape://` links; the format is in `shared/src/share.ts`) reach `openShare()` in `main/index.ts` from: the File menu, macOS `open-file` / `open-url` (registered before the app is ready, and held until it is), and the command line on Windows and Linux (`shareTargetIn` on the first start and on `second-instance`). The installers register both (`fileAssociations`, `protocols` in `electron-builder.config.mjs`); in development nothing is registered, so pass the file or link as an argument. The preload keeps a `navigate` message that arrives before the page listens. An AppImage registers nothing by itself.
+
+To check on macOS with the packaged app and a scratch profile: `open -n -a <TagTape.app> <file> --args --user-data-dir=<scratch>`, then `open <file or link>` again while it runs.
+
 ## The title bar
 
 The page draws the top of the window. macOS uses `titleBarStyle: "hiddenInset"` (the sidebar leaves room for the traffic lights), Windows `titleBarStyle: "hidden"` with `titleBarOverlay` (the top strip leaves room on the right; the overlay's colours follow light/dark), and Linux keeps the system's title bar. The page learns the system from `window.tagtape.platform`. Elements with `.app-drag` move the window; controls inside them opt out automatically, and `.app-no-drag` opts anything else out.

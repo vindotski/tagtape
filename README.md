@@ -7,7 +7,9 @@
 
 TagTape is a desktop app for macOS, Windows and Linux. Paste up to 10 track links (one track each, up to 2 hours long), add the album title, artist, year, genre and a cover image, and get a folder of MP3s with every tag filled in and the tracks numbered in your order. The albums show up properly on any plain MP3 player.
 
-**Everything happens on your computer.** There is no TagTape server and no account. Tracks are fetched over your own connection, converted, and written straight into the folder you choose. TagTape remembers each album as you typed it (details, track titles and links, the cover's link) in a small file on your computer, so you can open it from "Your albums" and make it again. Albums can be deleted.
+**Everything happens on your computer.** There is no TagTape server and no account. Tracks are fetched over your own connection, converted, and written straight into the folder you choose. TagTape remembers each album as you typed it (details, track titles and links, the cover's link and a small copy of the cover) in its own folder on your computer, so you can open it from the library and make it again. Albums can be deleted.
+
+**Share an album** as a small `.tagtape` file or a link. It holds the details and track links, never the music; whoever opens it makes the album on their own computer. The link carries the album inside itself, so nothing is uploaded anywhere.
 
 TagTape reads **direct links to MP3 files** and, through [yt-dlp](https://github.com/yt-dlp/yt-dlp), **single tracks from any site yt-dlp supports**. Playlists, logins and copy-protected media are refused, and TagTape never tries to get around a site's bot checks. More kinds of links can be added with [source plugins](#sources-and-plugins).
 

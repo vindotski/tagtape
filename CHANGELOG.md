@@ -19,6 +19,7 @@ TagTape becomes a desktop app for macOS, Windows and Linux. It runs entirely on 
 - **Progress on the dock or taskbar icon**, and a system notification when an album is done while you're in another app.
 - **Paste or drop several links at once:** each becomes a track. Drop an image link on the cover to set it.
 - **Right-click menus:** cut, copy and paste in text fields; open, show in folder, make again and delete on an album.
+- **Share an album** as a small `.tagtape` file or a link. It holds the album's details and track links, never the music; whoever opens it makes the album on their own computer. A link carries the album inside itself (after the `#`), so nothing is uploaded anywhere. Shared albums open in the editor (File > Open Album File, double-click, a dropped file, or the link's page on the website) and nothing starts until you press Make album.
 - **Settings:** the save folder, the kinds of links the app accepts, clearing the library, and the versions of the app and its bundled programs.
 - **Product website** with downloads, built with Astro and published on GitHub Pages.
 - Windows support in the pipeline: cancelling kills the whole process tree, and bundled programs get the environment they need to start.
