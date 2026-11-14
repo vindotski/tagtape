@@ -1,16 +1,22 @@
-// File > New Album asks for an empty editor. Going to the new-album screen
-// does that from anywhere else; when that screen is already open, navigating
-// changes nothing, so the editor is told directly.
+// File > New Album asks for an empty editor. The editor lives on the first
+// screen, which may not be on screen when the request comes (the window is
+// showing the library, say): the request then waits for it.
 const listeners = new Set<() => void>();
+let waiting = false;
 
-/** Asks the open editor to start over. */
+/** Asks the first screen's editor to start over, now or as soon as it is there. */
 export function requestNewAlbum(): void {
+	if (listeners.size === 0) waiting = true;
 	for (const listener of listeners) listener();
 }
 
-/** Calls `listener` on each request; returns the unsubscribe. */
+/** Calls `listener` on each request (and for one that was waiting); returns the unsubscribe. */
 export function onNewAlbum(listener: () => void): () => void {
 	listeners.add(listener);
+	if (waiting) {
+		waiting = false;
+		listener();
+	}
 	return () => {
 		listeners.delete(listener);
 	};

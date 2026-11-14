@@ -53,7 +53,13 @@ export interface StoredAlbum extends AlbumSummary {
  * notification).
  */
 export type Screen =
-	| { screen: "new" | "library" | "settings" }
+	| { screen: "library" | "settings" }
+	/**
+	 * The first screen. `fresh` asks for an empty editor (File > New Album);
+	 * without it the screen is shown as it stands, with its draft or the album
+	 * that was made last (View > New Album, a notification).
+	 */
+	| { screen: "new"; fresh?: boolean }
 	| { screen: "album"; albumId: string }
 	/** A shared album someone opened (a file or a link), or why it couldn't be read. */
 	| { screen: "shared"; share: ShareResult };

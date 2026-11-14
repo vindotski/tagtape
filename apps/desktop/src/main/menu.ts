@@ -54,7 +54,8 @@ export function installMenu(actions: MenuActions): void {
 				{
 					label: "New Album",
 					accelerator: "CmdOrCtrl+N",
-					click: () => actions.navigate({ screen: "new" }),
+					// An empty editor, wherever the window is and whatever it shows.
+					click: () => actions.navigate({ screen: "new", fresh: true }),
 				},
 				{
 					label: "Open Album File…",

@@ -67,9 +67,10 @@ function Root() {
 				// A menu shortcut changed the screen: put the keyboard there too.
 				requestAnimationFrame(() => screen.current?.focus());
 				if (to.screen === "new") {
-					// Already there: going to it again would leave the editor as it is.
-					if (router.state.location.pathname === "/") requestNewAlbum();
-					else void navigate({ to: "/" });
+					// Only an explicit New Album empties the editor; just going
+					// to the screen leaves its draft, or the album made last.
+					if (to.fresh) requestNewAlbum();
+					void navigate({ to: "/" });
 				} else if (to.screen === "library") void navigate({ to: "/albums" });
 				else if (to.screen === "settings") void navigate({ to: "/settings" });
 				else if (to.screen === "shared") {
@@ -82,7 +83,7 @@ function Root() {
 					});
 				}
 			}),
-		[navigate, router],
+		[navigate],
 	);
 	// A finished album's folder and cover are kept a moment after its job
 	// ends: the lists and the album's screen read them again.

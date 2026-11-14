@@ -47,9 +47,19 @@ export function AlbumWorkspace({
 	// id coming back). A ref: the menu must see it at once, not a render later.
 	const starting = useRef(false);
 
-	// File > New Album while the new-album screen is already open: an empty
-	// editor, unless an album is being made or started. That one stays on
-	// screen: this is where it is followed and cancelled.
+	// Whether this editor is still on screen (an answer may come back after
+	// the user has moved on to another one).
+	const mounted = useRef(true);
+	useEffect(() => {
+		mounted.current = true;
+		return () => {
+			mounted.current = false;
+		};
+	}, []);
+
+	// File > New Album: an empty editor, unless an album is being made or
+	// started. That one stays on screen: this is where it is followed and
+	// cancelled.
 	useEffect(() => {
 		if (!home) return;
 		return onNewAlbum(() => {
@@ -106,7 +116,9 @@ export function AlbumWorkspace({
 				followJob(jobId, draft, savedId ?? albumId);
 				// The album shows up in the lists.
 				void router.invalidate();
-				if (!home) void navigate({ to: "/" });
+				// To the screen that shows it, unless the user has since opened
+				// another editor: that one keeps its place and its draft.
+				if (!home && mounted.current) void navigate({ to: "/" });
 			}}
 		/>
 	);
