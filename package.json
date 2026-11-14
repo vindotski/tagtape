@@ -21,7 +21,7 @@
 		"docker:down": "docker compose -f compose.dev.yaml down"
 	},
 	"devDependencies": {
-		"@biomejs/biome": "2.6.5",
+		"@biomejs/biome": "2.6.6",
 		"@tanstack/intent": "^0.5.6",
 		"@types/node": "catalog:",
 		"typescript": "catalog:"
