@@ -6,9 +6,9 @@ import {
 	type Album,
 	albumFolderName,
 	albumFromFragment,
+	appLink,
 	encodeShare,
 	SHARE_EXTENSION,
-	SHARE_SCHEME,
 } from "@tagtape/shared";
 
 function element<T extends HTMLElement>(id: string): T {
@@ -47,8 +47,13 @@ function show(album: Album, fragment: string): void {
 		}),
 	);
 
-	element<HTMLAnchorElement>("share-open").href =
-		`${SHARE_SCHEME}://open#${fragment.replace(/^#/, "")}`;
+	// A very large album makes a link too long to start the app with (see
+	// `appLink`): then the file is the way in.
+	const link = appLink(fragment);
+	const open = element<HTMLAnchorElement>("share-open");
+	open.hidden = link === null;
+	if (link) open.href = link;
+	element("share-too-long").hidden = link !== null;
 
 	// The same album as a file, made here in the browser.
 	if (fileUrl) URL.revokeObjectURL(fileUrl);

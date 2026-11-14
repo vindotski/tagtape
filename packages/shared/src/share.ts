@@ -17,6 +17,20 @@ export const SHARE_SCHEME = "tagtape";
 /** Largest shared album we read, as JSON text. Ten full tracks fit several times. */
 export const MAX_SHARE_BYTES = 32 * 1024;
 
+/**
+ * Longest `tagtape://` link handed to the system. Windows starts the app
+ * with the link on its command line, which holds 32,767 characters, the
+ * program's own path included; a longer link would start nothing. An album
+ * that needs more travels as a file.
+ */
+export const MAX_APP_LINK_LENGTH = 30_000;
+
+/** The link that opens an album in the app, or null when it would be too long for that. */
+export function appLink(fragment: string): string | null {
+	const link = `${SHARE_SCHEME}://open#${fragment.replace(/^#/, "")}`;
+	return link.length <= MAX_APP_LINK_LENGTH ? link : null;
+}
+
 export type ShareResult =
 	| { ok: true; album: Album }
 	| { ok: false; message: string };
