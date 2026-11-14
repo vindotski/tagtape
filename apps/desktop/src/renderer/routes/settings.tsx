@@ -118,9 +118,7 @@ function SettingsPage() {
 					</p>
 				)}
 				<p className="mt-4 flex flex-wrap gap-x-6 gap-y-1 text-sm">
-					<ExternalLink href="https://vindotski.github.io/tagtape/">
-						Website
-					</ExternalLink>
+					<ExternalLink href="https://tagtape.app/">Website</ExternalLink>
 					<ExternalLink href="https://github.com/vindotski/tagtape">
 						Source
 					</ExternalLink>

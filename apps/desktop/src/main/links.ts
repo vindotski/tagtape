@@ -1,10 +1,9 @@
 /** The addresses the app points at, in one place. */
 /**
- * The website lives at its github.io address until tagtape.app points at it
- * (that domain still serves the old hosted app). GitHub Pages then redirects
- * these addresses, so links made now keep working.
+ * The website. Share links made by 4.0.0 used its first address,
+ * vindotski.github.io/tagtape/, which GitHub Pages redirects here.
  */
-const SITE = "https://vindotski.github.io/tagtape/";
+const SITE = "https://tagtape.app/";
 
 export const LINKS = {
 	website: SITE,
