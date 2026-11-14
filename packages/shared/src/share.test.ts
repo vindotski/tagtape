@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import { type Album, albumInputSchema } from "./album.ts";
 import {
 	albumFromFragment,
+	appLink,
 	decodeShare,
 	encodeShare,
 	MAX_SHARE_BYTES,
@@ -131,6 +132,13 @@ describe("a shared album inside a link", () => {
 			ok: false,
 			message: expect.stringContaining("too large"),
 		});
+	});
+
+	test("the app's link, unless it is too long for a command line", () => {
+		const fragment = shareFragment(album);
+		expect(appLink(`#${fragment}`)).toBe(`tagtape://open#${fragment}`);
+		expect(appLink(fragment)).toBe(`tagtape://open#${fragment}`);
+		expect(appLink(`a=${"A".repeat(30_000)}`)).toBeNull();
 	});
 
 	test("finds the fragment of either kind of link", () => {
