@@ -32,7 +32,12 @@ Rules for handlers:
 
 ## When main needs the page to do something
 
-Main sends the page exactly one message: `NAVIGATE`, carrying a `Screen` (`apps/desktop/src/ipc.ts`), which names a screen to show. The menu and notifications use it through `showScreen()` in `main/index.ts`; the page listens in `routes/__root.tsx`. Don't add other main-to-page messages: if the page needs data, it asks (a call), and after a change it reloads through `router.invalidate()`.
+Main sends the page two messages, and neither asks for an answer (`apps/desktop/src/ipc.ts`):
+
+- `NAVIGATE`, carrying a `Screen`: the only one that changes what is on screen.
+- `LIBRARY_CHANGED`, carrying nothing: the library was written behind the page's back (an album's entry, or its folder and cover once it finished), so the page reloads what it shows through `router.invalidate()`.
+
+`NAVIGATE` names a screen to show. The menu and notifications use it through `showScreen()` in `main/index.ts`; the page listens in `routes/__root.tsx`. Don't add other main-to-page messages, and never put data in `LIBRARY_CHANGED`: if the page needs data, it asks (a call).
 
 Native things stay in main: the application menu (`main/menu.ts`), right-click menus (`context-menu` in `main/index.ts`, `albumMenu` in `main/ipc.ts`), confirm dialogs, notifications and the dock/taskbar progress (both driven by `tagtape.subscribe`).
 
