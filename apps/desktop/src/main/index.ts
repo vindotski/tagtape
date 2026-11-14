@@ -420,7 +420,7 @@ async function smokeTest(core: TagTape, page: BrowserWindow): Promise<void> {
 	const timeout = setTimeout(() => {
 		console.error("SMOKE FAILED: timed out");
 		app.exit(1);
-	}, 60_000);
+	}, 120_000);
 	try {
 		const versions = await core.versions();
 		if (page.webContents.isLoading()) {

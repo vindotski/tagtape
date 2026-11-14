@@ -1,5 +1,6 @@
 import { parseWebUrl } from "@tagtape/shared";
 import { run } from "../lib/exec.ts";
+import { LIMITS } from "../options.ts";
 import type { Source } from "../plugins/api.ts";
 import { assertUniqueIds } from "../plugins/loader.ts";
 import { fetchCover } from "./cover.ts";
@@ -31,7 +32,7 @@ export function createPipeline(ffmpegBin: string, sources: Source[]): Pipeline {
 		fetchCover,
 		async versions() {
 			const [ffmpeg, ...versions] = await Promise.all([
-				run(ffmpegBin, ["-version"], { timeoutMs: 10_000 }),
+				run(ffmpegBin, ["-version"], { timeoutMs: LIMITS.versionTimeoutMs }),
 				...sources.map((source) => source.version?.()),
 			]);
 			const result: Record<string, string> = {

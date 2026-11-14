@@ -34,6 +34,7 @@ import {
 	run as realRun,
 	spawnStream as realSpawnStream,
 } from "../lib/exec.ts";
+import { LIMITS } from "../options.ts";
 import type { Source, TrackProbe } from "../plugins/api.ts";
 
 export interface YtDlpOptions {
@@ -367,7 +368,7 @@ export function createYtDlpSource(options: YtDlpOptions): Source {
 		stream: ({ state, signal }) => streamMp3(state as YtDlpState, signal),
 		async version() {
 			const { stdout } = await run(options.bin, ["--version"], {
-				timeoutMs: 10_000,
+				timeoutMs: LIMITS.versionTimeoutMs,
 			});
 			return stdout.trim();
 		},

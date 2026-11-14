@@ -37,6 +37,13 @@ export const LIMITS = {
 	trackConcurrency: 2,
 	/** Largest MP3 a direct link may point to (≈ 2 hours at 320 kbps). */
 	maxDirectBytes: 300 * 1024 * 1024,
+	/**
+	 * How long a bundled program may take to print its version. Generous: the
+	 * first start of a 100 MB program right after installing can take most of
+	 * a minute while the system's virus scanner reads it (seen on Windows,
+	 * where 10 seconds was not enough).
+	 */
+	versionTimeoutMs: 60_000,
 	/** Kill a single source run (yt-dlp, or a direct download) after this long. */
 	sourceTimeoutMs: 30 * 60_000,
 	/** yt-dlp checks at once (~100 MB each). */
