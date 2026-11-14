@@ -179,8 +179,11 @@ export class JobManager {
 			}
 			job.finishedAt = this.#now();
 			this.#notify(job);
-			// The cover isn't needed any more.
+			// Neither is needed any more, and finished jobs are kept for the
+			// session: the cover, and what each source remembered about its
+			// track (for yt-dlp, the whole description of it).
 			delete job.cover;
+			for (const track of job.tracks) delete track.state;
 			this.#options.log.info(
 				{ jobId: job.id, status: job.status },
 				"Job finished",
