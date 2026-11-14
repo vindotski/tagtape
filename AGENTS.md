@@ -53,7 +53,7 @@ How the parts talk: the page calls `window.tagtape` (see `renderer/lib/bridge.ts
 
 **Versioning and releases:**
 - **One version** for everything: the root `package.json` `"version"`. The app reads it at build time (`__APP_VERSION__`), and electron-builder uses it.
-- **Released so far:** 2.0.0 (2026-11-06), 3.0.0 (2026-11-08), 3.1.0 and 3.2.0 (2026-11-13), all the hosted web app. **4.0.0 is the desktop app** (not released yet; `package.json` already says 4.0.0 so builds don't call themselves 3.2.0).
+- **Released so far:** 2.0.0 (2026-11-06), 3.0.0 (2026-11-08), 3.1.0 and 3.2.0 (2026-11-13), all the hosted web app; **4.0.0 (2026-11-14), the desktop app**.
 - New work goes under `## Unreleased` in `CHANGELOG.md`, without a version bump.
 - At release time the user picks the version (semver). Bump `package.json` (if it isn't that version already), rename `## Unreleased` to the version and date, commit, merge to `main`, and the user tags `vX.Y.Z`.
 - A `vX.Y.Z` tag (it must match `package.json`, or CI fails) makes CI attach every installer and a `SHA256SUMS.txt` to a **draft** GitHub Release. The user publishes it; the website links to the latest published release.

@@ -4,6 +4,8 @@ TagTape has one version, kept in the root `package.json`. Each release is a git 
 
 ## Unreleased
 
+## 4.0.0 (2026-11-14)
+
 TagTape becomes a desktop app for macOS, Windows and Linux. It runs entirely on your computer, so sites see your own connection instead of a datacenter's, and there is no server or account.
 
 **Upgrade notes:** this replaces the hosted web app and the Docker image; nothing carries over from them. Albums kept under a guest account on tagtape.app are not moved to the desktop app. The installers are unsigned for now: the website and the README explain how to open them.
