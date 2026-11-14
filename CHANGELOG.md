@@ -4,6 +4,9 @@ TagTape has one version, kept in the root `package.json`. Each release is a git 
 
 ## Unreleased
 
+### Fixed
+- The website loads its styles and images on tagtape.app (it was still built for its first address), and the app's links point there.
+
 ## 4.0.0 (2026-11-14)
 
 TagTape becomes a desktop app for macOS, Windows and Linux. It runs entirely on your computer, so sites see your own connection instead of a datacenter's, and there is no server or account.
