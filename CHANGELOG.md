@@ -6,6 +6,7 @@ TagTape has one version, kept in the root `package.json`. Each release is a git 
 
 ### Changed
 - The website and the app take their look from spotstrap, the shared UI library, instead of a copy of their own. The website's main buttons are taller (44 px), and its questions open with an animation.
+- The app's buttons, fields and sidebar use spotstrap's components: buttons and fields are 44 px tall (the small ones 36 px, still easy to hit), with slightly larger text.
 
 ### Fixed
 - The website loads its styles and images on tagtape.app (it was still built for its first address), and the app's links point there.
