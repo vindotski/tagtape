@@ -12,9 +12,12 @@ import { appPlatform } from "#/lib/bridge";
 import { isWorking, useCurrentJob } from "#/lib/current-job";
 import { cn } from "#/lib/utils";
 
+// spotstrap's compact ghost button (36 px, with a 44 px hit area), in the
+// sidebar's colours and laid out as a row.
 const ITEM =
-	"flex h-9 items-center gap-3 px-3 text-sm outline-none hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-3 focus-visible:ring-sidebar-ring/50 max-md:justify-center max-md:px-0";
-const ACTIVE = "bg-sidebar-accent font-medium text-sidebar-accent-foreground";
+	"btn btn-ghost btn-compact flex cursor-default justify-start gap-3 font-normal data-[status=active]:font-medium [--btn-fg:var(--color-sidebar-foreground)] [--btn-bg-hover:var(--color-sidebar-accent)] [--btn-fg-hover:var(--color-sidebar-accent-foreground)] max-md:justify-center max-md:[--btn-padding:0]";
+const ACTIVE =
+	"[--btn-bg:var(--color-sidebar-accent)] [--btn-fg:var(--color-sidebar-accent-foreground)]";
 
 /**
  * The app's left edge: where to go, and the albums made most recently. It
@@ -76,7 +79,7 @@ export function AppSidebar({ recent }: { recent: AlbumSummary[] }) {
 								<Link
 									to="/albums/$albumId"
 									params={{ albumId: album.id }}
-									className={cn(ITEM, "h-8")}
+									className={ITEM}
 									activeProps={{ className: ACTIVE }}
 									title={`${album.title} · ${album.artist}`}
 								>
