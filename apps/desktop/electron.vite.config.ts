@@ -110,7 +110,7 @@ export default defineConfig({
 			thirdPartyNotices({
 				named: [
 					"@fontsource-variable/oxanium",
-					"shadcn",
+					"@kodentuzo/spotstrap",
 					"tailwindcss",
 					"tw-animate-css",
 				],
