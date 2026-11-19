@@ -10,8 +10,9 @@ import {
 
 // spotstrap's button (`btn`): 44 px tall, or 36 px with a 44 px hit area
 // (`btn-compact`). It reads react-aria's data-pressed, data-focus-visible and
-// data-disabled itself.
-const buttonVariants = cva("btn", {
+// data-disabled itself. A desktop app keeps the arrow over buttons, where
+// spotstrap asks for the hand.
+const buttonVariants = cva("btn cursor-default", {
 	variants: {
 		variant: {
 			default: "",
