@@ -35,6 +35,7 @@
 		"@dnd-kit/sortable": "^10.0.0",
 		"@dnd-kit/utilities": "^3.2.2",
 		"@fontsource-variable/oxanium": "^5.3.0",
+		"@kodentuzo/spotstrap": "catalog:",
 		"@tagtape/shared": "workspace:*",
 		"@tailwindcss/vite": "^4.3.4",
 		"@tanstack/react-router": "1.170.46",
