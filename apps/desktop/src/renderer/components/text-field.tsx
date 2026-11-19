@@ -25,8 +25,10 @@ interface TextFieldProps
 	inputClassName?: string;
 }
 
+// spotstrap's input is a 44 px box; an inline field is a line of text, so it
+// takes the height of its text instead.
 const INLINE_INPUT =
-	"-mx-1.5 h-auto border-transparent bg-transparent px-1.5 py-0.5 shadow-none hover:border-input dark:bg-transparent dark:hover:bg-input/30 focus-visible:bg-background dark:focus-visible:bg-input/30";
+	"-mx-1.5 h-auto min-h-0 border-transparent bg-transparent px-1.5 py-0.5 shadow-none hover:border-input dark:bg-transparent dark:hover:bg-input/30 focus-visible:bg-background dark:focus-visible:bg-input/30";
 
 /** A labelled input with its error wired up through aria-invalid/aria-describedby. */
 export function TextField({
@@ -68,7 +70,7 @@ export function TextField({
 			{/* Not role="alert": after a submit, focus moves to the first invalid
 			    field, which already announces this through aria-describedby. */}
 			{error && (
-				<p id={errorId} className="text-sm font-normal text-destructive">
+				<p id={errorId} className="field-error">
 					{error}
 				</p>
 			)}
